@@ -43,10 +43,8 @@ export function createAuth(
       enabled: true,
       requireEmailVerification: false,
       resetPasswordTokenExpiresIn: 3600, // 1 hour
-      // biome-ignore lint/suspicious/useAwait: Fire-and-forget to prevent timing attacks
       sendResetPassword: async ({ user, url }) => {
-        // biome-ignore lint/complexity/noVoid: Intentional fire-and-forget to prevent timing attacks
-        void sendPasswordResetEmail({
+        await sendPasswordResetEmail({
           to: user.email,
           name: user.name,
           resetUrl: url,
@@ -59,10 +57,8 @@ export function createAuth(
       magicLink({
         expiresIn: 600, // 10 minutes
         disableSignUp: true, // Users must sign up first via proper flow
-        // biome-ignore lint/suspicious/useAwait: Fire-and-forget to prevent timing attacks
         sendMagicLink: async ({ email, url }) => {
-          // biome-ignore lint/complexity/noVoid: Intentional fire-and-forget to prevent timing attacks
-          void sendMagicLinkEmail({
+          await sendMagicLinkEmail({
             to: email,
             magicLinkUrl: url,
           });

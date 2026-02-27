@@ -14529,3 +14529,251 @@ apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHR
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
+
+## Auto Quality Check - 2026-02-27 12:02:52
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:03:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:03:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:03:44
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:04:09
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:04:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:04:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:08:07
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:08:16
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:08:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:08:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:12:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/migrations/backfillNormalizedNames.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+

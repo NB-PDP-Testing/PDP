@@ -24,6 +24,7 @@ import {
   type BottomNavItem,
   BottomNavSpacer,
 } from "@/components/layout/bottom-nav";
+import { RoleContextBadge } from "@/components/layout/role-context-badge";
 import Loader from "@/components/loader";
 import { ResizableSidebar } from "@/components/polish/resizable-sidebar";
 import { Button } from "@/components/ui/button";
@@ -180,6 +181,7 @@ export default function OrgAdminLayout({
               </div>
 
               <div className="flex items-center gap-2">
+                <RoleContextBadge orgId={orgId} />
                 {/* Command menu search trigger */}
                 <CommandMenu orgId={orgId} />
               </div>

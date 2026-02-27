@@ -13,6 +13,7 @@ import {
   PlayerMobileNav,
   PlayerSidebar,
 } from "@/components/layout/player-sidebar";
+import { RoleContextBadge } from "@/components/layout/role-context-badge";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
@@ -95,7 +96,7 @@ export default function PlayerLayout({
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Reserved for future actions */}
+              <RoleContextBadge orgId={orgId} />
             </div>
           </div>
         </header>

@@ -13,6 +13,7 @@ import {
   ParentMobileNav,
   ParentSidebar,
 } from "@/components/layout/parent-sidebar";
+import { RoleContextBadge } from "@/components/layout/role-context-badge";
 import { TabNotificationProvider } from "@/components/providers/tab-notification-provider";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
@@ -96,7 +97,7 @@ export default function ParentsLayout({
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Reserved for future actions */}
+              <RoleContextBadge orgId={orgId} />
             </div>
           </div>
         </header>

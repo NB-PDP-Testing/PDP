@@ -825,7 +825,7 @@ async function enrichAutoApprovedSummary(
 
   let acknowledgedByName: string | undefined;
   if (summary.acknowledgedBy) {
-    const u = await ctx.db.get(summary.acknowledgedBy as Id<"user">);
+    const u = await ctx.db.get(summary.acknowledgedBy as any);
     if (u) {
       acknowledgedByName =
         (u as { name?: string; email?: string }).name ??
@@ -836,7 +836,7 @@ async function enrichAutoApprovedSummary(
 
   let viewedByName: string | undefined;
   if (summary.viewedBy) {
-    const u = await ctx.db.get(summary.viewedBy as Id<"user">);
+    const u = await ctx.db.get(summary.viewedBy as any);
     if (u) {
       viewedByName =
         (u as { name?: string; email?: string }).name ??

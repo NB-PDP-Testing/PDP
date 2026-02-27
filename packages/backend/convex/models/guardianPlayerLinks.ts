@@ -1658,7 +1658,7 @@ export const getSmartMatchesForGuardian = query({
         results.push({
           playerIdentityId: enrollment.playerIdentityId,
           name: `${player.firstName} ${player.lastName}`,
-          ageGroup: enrollment.ageGroup,
+          ageGroup: enrollment.ageGroup ?? "",
           dateOfBirth: player.dateOfBirth,
           matchScore: score,
           matchReasons,

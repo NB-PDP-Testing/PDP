@@ -282,40 +282,37 @@ The form does not submit.
 
 ---
 
-### TC1.9 — DEFINITIVE HIGH: Federation ID exact match (Priority -1)
+### TC1.9 — Federation ID match: blocking dialog shows correct player
 
 **Setup:** Seed player P5 (Jack Walsh) was created with GAA Number `GAA-99001`.
 
+> **Note on what the blocking dialog shows:** The dialog only displays the matched player's
+> name, DOB, player type, and two action buttons. It does not show scores or matched field
+> names — those are internal. For this test, the meaningful verification is that the dialog
+> identifies **Jack Walsh** despite you having entered the first name "Seán".
+
 | Field | Value |
 |-------|-------|
-| First Name | Seán *(completely different name)* |
+| First Name | Seán *(different from Jack)* |
 | Last Name | Walsh |
 | Date of Birth | 2009-03-10 |
 | Gender | Male |
 | Email | test9@test.ie |
 | Federation → GAA | GAA-99001 *(P5's GAA number)* |
 
-> Expand the **"Federation Numbers"** collapsible at the bottom of the form and enter the GAA number.
+> Expand the **"Federation Numbers"** collapsible at the bottom of the form and enter the GAA
+> number, then click **"Add Player"**.
 
-> **Important — two separate systems, two separate observations:**
->
-> The **inline panel** (reactive, appears while typing) uses `findPotentialMatches` which does
-> **not accept federation IDs**. It will always show **0.9** for Jack Walsh based on DOB + last
-> name, regardless of whether you enter the GAA number. This is expected and correct.
->
-> The **blocking dialog** (fires when you click "Add Player") uses `findPlayerMatchCandidates`
-> which does receive the GAA number. _Without_ the GAA number it shows score ~80 (DOB + last
-> name). _With_ `GAA-99001` it shows score **100** with matched field `federationId:gaa` — this
-> is what the test is verifying.
->
-> **To observe the federation ID effect: you must click "Add Player"** and look at the blocking
-> dialog's score and matched fields, not the inline panel badge.
+**Expected:** Blocking dialog appears titled **"Existing Player Record Found"** showing
+Jack Walsh, born 10/03/2009, player type `youth`.
 
-**Expected (with GAA number entered):** Blocking dialog appears at HIGH confidence (score: 100)
-showing Jack Walsh. The matched field reads `federationId:gaa`.
+**Pass criteria:** Dialog appears. The matched player is Jack Walsh.
 
-**Pass criteria:** Score is 100 and matched field is `federationId:gaa` — NOT `dateOfBirth, lastName`.
-This demonstrates Priority -1 short-circuiting all other tiers.
+> **Limitation of this test case:** Because "Seán Walsh, 2009-03-10" shares DOB + last name
+> with Jack Walsh, the dialog would also appear *without* the GAA number (via DOB + last name
+> matching). The federation ID confirms the match definitively but its effect is not separately
+> visible in the UI. To fully verify Priority -1 in isolation, a test case with a completely
+> different last name would be needed — a future enhancement to the test suite.
 
 ---
 

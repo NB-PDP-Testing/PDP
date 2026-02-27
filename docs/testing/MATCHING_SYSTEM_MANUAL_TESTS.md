@@ -297,10 +297,19 @@ The form does not submit.
 
 > Expand the **"Federation Numbers"** collapsible at the bottom of the form and enter the GAA number.
 
-**Expected:** Blocking dialog appears at HIGH confidence (score: 100) showing Jack Walsh.
-The matched field reads `federationId:gaa`. This fires even though "Seán Walsh" ≠ "Jack Walsh".
+> **Note on behaviour before entering the GAA number:**
+> You will see a HIGH confidence match (inline panel: 0.9, blocking dialog: score ~80) for
+> Jack Walsh based on **DOB + exact last name** alone — this is correct and expected. Two people
+> sharing the same last name and exact birthday is a strong duplicate signal in a club context.
+> The GAA number upgrades the blocking dialog to score **100** and changes the matched field from
+> `dateOfBirth, lastName` to `federationId:gaa`, proving Priority -1 fired. If you want to see
+> a case where the name is _so different_ that DOB+lastName wouldn't match, use a different last
+> name entirely — federation IDs are the safeguard for that scenario.
 
-**Pass criteria:** Dialog appears. The matched field shows federation ID — NOT name/DOB.
+**Expected (with GAA number entered):** Blocking dialog appears at HIGH confidence (score: 100)
+showing Jack Walsh. The matched field reads `federationId:gaa`.
+
+**Pass criteria:** Score is 100 and matched field is `federationId:gaa` — NOT `dateOfBirth, lastName`.
 This demonstrates Priority -1 short-circuiting all other tiers.
 
 ---

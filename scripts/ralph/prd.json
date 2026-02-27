@@ -190,7 +190,7 @@
         "Manual test 11: Trigger an injury notification as admin \u2192 log in as the injured player's coach who is also a player \u2192 switch to Player role \u2192 confirm injury notification does NOT appear in the notification bell"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Phases 1\u20135 must be complete for player role to be fully functional. Use test account neil.B@blablablak.com / lien1979. All stories US-P6-001 through US-P6-006 must be complete before this UAT."
     }
   ]

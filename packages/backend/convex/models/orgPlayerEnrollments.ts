@@ -1,6 +1,6 @@
 import type { Doc as BetterAuthDoc } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -15,6 +15,9 @@ import { calculateMatchScore } from "../lib/stringMatching";
 
 // Admin/owner roles that can perform destructive operations
 const ADMIN_ROLES = ["admin", "owner"];
+
+// Whitespace split regex for name parsing (module-level for performance)
+const WHITESPACE_REGEX = /\s+/;
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -2123,4 +2126,333 @@ export const findSimilarPlayers = internalQuery({
     })
   ),
   handler: async (ctx, args) => findSimilarPlayersLogic(ctx, args),
+});
+
+// ============================================================
+// PHASE 6: SELF-REGISTRATION AS PLAYER (US-P6-003)
+// ============================================================
+
+/**
+ * Self-register as a player for an existing org member.
+ * Creates a pending playerIdentity + enrollment for admin review.
+ * Uses player matching to flag potential youth profile merges.
+ */
+export const selfRegisterAsPlayer = mutation({
+  args: {
+    organizationId: v.string(),
+    dateOfBirth: v.string(),
+    teamId: v.optional(v.string()),
+  },
+  returns: v.object({
+    enrollmentId: v.id("orgPlayerEnrollments"),
+    playerIdentityId: v.id("playerIdentities"),
+    matchConfidence: v.union(
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low"),
+      v.literal("none")
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthAndOrg(ctx, args.organizationId);
+
+    // Look up user record from Better Auth to get name/email
+    const userRecord = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [{ field: "_id", value: userId, operator: "eq" }],
+      }
+    );
+    if (!userRecord) {
+      throw new Error("User record not found");
+    }
+    const user = userRecord as { name: string; email?: string };
+
+    // Parse first/last name from display name
+    const nameParts = (user.name ?? "").trim().split(WHITESPACE_REGEX);
+    const firstName = nameParts[0] ?? "Unknown";
+    const lastName = nameParts.slice(1).join(" ") || firstName;
+
+    // Guard: user already linked to a playerIdentity
+    const existingIdentity = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    if (existingIdentity) {
+      // Check if already enrolled (pending or active)
+      const existingEnrollment = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", existingIdentity._id)
+            .eq("organizationId", args.organizationId)
+        )
+        .first();
+      if (existingEnrollment) {
+        throw new Error(
+          "You already have a player registration for this organization"
+        );
+      }
+    }
+
+    // Run player matching to detect potential youth profile
+    type MatchResult = {
+      confidence: "high" | "medium" | "low" | "none";
+      match: {
+        _id: Id<"playerIdentities">;
+        firstName: string;
+        lastName: string;
+      } | null;
+      matchScore: number;
+      matchedFields: string[];
+      warningFlag?: string;
+    };
+    const matchResult: MatchResult = await ctx.runQuery(
+      internal.models.playerMatching.findBestPlayerMatchInternal,
+      {
+        organizationId: args.organizationId,
+        firstName,
+        lastName,
+        dateOfBirth: args.dateOfBirth,
+        email: user.email,
+      }
+    );
+
+    // Encode match info in adminNotes for admin review
+    const adminNotes = JSON.stringify({
+      type: "self_registration",
+      requestedByUserId: userId,
+      matchFound:
+        matchResult.confidence === "high" && matchResult.match !== null,
+      matchConfidence: matchResult.confidence,
+      matchedPlayerId: matchResult.match?._id ?? null,
+      matchedPlayerName: matchResult.match
+        ? `${matchResult.match.firstName} ${matchResult.match.lastName}`
+        : null,
+      matchedFields: matchResult.matchedFields,
+    });
+
+    const now = Date.now();
+
+    // Create playerIdentity linked to user
+    const playerIdentityId = await ctx.db.insert("playerIdentities", {
+      firstName,
+      lastName,
+      dateOfBirth: args.dateOfBirth,
+      gender: "other",
+      playerType: "adult",
+      userId,
+      email: user.email?.toLowerCase().trim(),
+      verificationStatus: "self_verified",
+      createdAt: now,
+      updatedAt: now,
+      createdFrom: "self_registration",
+    });
+
+    // Create pending enrollment
+    const enrollmentId = await ctx.db.insert("orgPlayerEnrollments", {
+      playerIdentityId,
+      organizationId: args.organizationId,
+      status: "pending",
+      syncSource: "self_registration",
+      adminNotes,
+      enrolledAt: now,
+      updatedAt: now,
+    });
+
+    // Assign to team if provided
+    if (args.teamId) {
+      const existingLink = await ctx.db
+        .query("teamPlayerIdentities")
+        .withIndex("by_team_and_player", (q) =>
+          q
+            .eq("teamId", args.teamId as string)
+            .eq("playerIdentityId", playerIdentityId)
+        )
+        .first();
+      if (!existingLink) {
+        await ctx.db.insert("teamPlayerIdentities", {
+          teamId: args.teamId,
+          playerIdentityId,
+          organizationId: args.organizationId,
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+
+    return {
+      enrollmentId,
+      playerIdentityId,
+      matchConfidence: matchResult.confidence,
+    };
+  },
+});
+
+/**
+ * Get pending self-registration requests for admin review.
+ * Returns enrollments with syncSource="self_registration" and status="pending".
+ */
+export const getPendingSelfRegistrations = query({
+  args: { organizationId: v.string() },
+  returns: v.array(
+    v.object({
+      enrollmentId: v.id("orgPlayerEnrollments"),
+      playerIdentityId: v.id("playerIdentities"),
+      name: v.string(),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      email: v.optional(v.string()),
+      userId: v.optional(v.string()),
+      enrolledAt: v.number(),
+      matchFound: v.boolean(),
+      matchConfidence: v.string(),
+      matchedPlayerName: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    const pending = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "pending")
+      )
+      .collect();
+
+    const selfRegistrations = pending.filter(
+      (e) => e.syncSource === "self_registration"
+    );
+
+    const results = [];
+    for (const enrollment of selfRegistrations) {
+      const player = await ctx.db.get(enrollment.playerIdentityId);
+      if (!player) {
+        continue;
+      }
+      let matchFound = false;
+      let matchConfidence = "none";
+      let matchedPlayerName: string | null = null;
+      if (enrollment.adminNotes) {
+        try {
+          const notes = JSON.parse(enrollment.adminNotes);
+          matchFound = notes.matchFound ?? false;
+          matchConfidence = notes.matchConfidence ?? "none";
+          matchedPlayerName = notes.matchedPlayerName ?? null;
+        } catch {
+          // adminNotes not parseable — treat as no match
+        }
+      }
+      results.push({
+        enrollmentId: enrollment._id,
+        playerIdentityId: player._id,
+        name: `${player.firstName} ${player.lastName}`,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        dateOfBirth: player.dateOfBirth,
+        email: player.email,
+        userId: player.userId,
+        enrolledAt: enrollment.enrolledAt,
+        matchFound,
+        matchConfidence,
+        matchedPlayerName,
+      });
+    }
+    return results;
+  },
+});
+
+/**
+ * Approve a pending self-registration: activate enrollment + grant player role.
+ * Called by admin from the pending registrations UI.
+ */
+export const approvePlayerSelfRegistration = mutation({
+  args: {
+    enrollmentId: v.id("orgPlayerEnrollments"),
+    organizationId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    const enrollment = await ctx.db.get(args.enrollmentId);
+    if (!enrollment) {
+      throw new Error("Enrollment not found");
+    }
+    if (enrollment.organizationId !== args.organizationId) {
+      throw new Error("Enrollment does not belong to this organization");
+    }
+    if (enrollment.status !== "pending") {
+      throw new Error("Enrollment is not in pending state");
+    }
+
+    const player = await ctx.db.get(enrollment.playerIdentityId);
+    if (!player) {
+      throw new Error("Player identity not found");
+    }
+    if (!player.userId) {
+      throw new Error("Player identity has no linked userId");
+    }
+
+    const now = Date.now();
+
+    // Activate the enrollment
+    await ctx.db.patch(args.enrollmentId, {
+      status: "active",
+      updatedAt: now,
+    });
+
+    // Grant player functional role
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          { field: "userId", value: player.userId, operator: "eq" },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (memberResult) {
+      const currentRoles: ("coach" | "parent" | "admin" | "player")[] =
+        (memberResult as any).functionalRoles ?? [];
+      if (!currentRoles.includes("player")) {
+        await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+          input: {
+            model: "member",
+            where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+            update: { functionalRoles: [...currentRoles, "player"] },
+          },
+        });
+      }
+    }
+
+    // Look up org name for notification
+    const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+    });
+    const orgName = (org as any)?.name ?? "the organization";
+
+    // Notify user
+    await ctx.runMutation(internal.models.notifications.createNotification, {
+      userId: player.userId,
+      organizationId: args.organizationId,
+      type: "player_role_approved",
+      title: "Player Role Approved",
+      message: `Your player registration for ${orgName} has been approved. You can now access the Player portal.`,
+      link: `/orgs/${args.organizationId}/player`,
+    });
+
+    return null;
+  },
 });

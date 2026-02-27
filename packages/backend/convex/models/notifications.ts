@@ -28,7 +28,9 @@ const notificationTypeValidator = v.union(
   v.literal("age_transition_claimed"), // Admins notified player claimed their account
   // Wellness access notifications (Phase 4)
   v.literal("wellness_access_request"), // Player notified a coach requested access
-  v.literal("wellness_reminder") // Daily wellness check-in reminder (US-P4-009)
+  v.literal("wellness_reminder"), // Daily wellness check-in reminder (US-P4-009)
+  // Player role notifications (Phase 6)
+  v.literal("player_role_approved") // Player self-registration approved by admin
 );
 
 const notificationValidator = v.object({

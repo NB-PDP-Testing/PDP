@@ -205,6 +205,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     requestedAt: string;
                     role: "coach" | "parent" | "admin" | "player";
                   }>;
+                  primaryFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   role: string;
                   userId: string;
                 };
@@ -574,6 +579,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "functionalRoles"
                     | "activeFunctionalRole"
+                    | "primaryFunctionalRole"
                     | "pendingFunctionalRoleRequests"
                     | "lastAccessedOrgs"
                     | "isDisabled"
@@ -1018,6 +1024,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "functionalRoles"
                     | "activeFunctionalRole"
+                    | "primaryFunctionalRole"
                     | "pendingFunctionalRoleRequests"
                     | "lastAccessedOrgs"
                     | "isDisabled"
@@ -1694,6 +1701,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     requestedAt: string;
                     role: "coach" | "parent" | "admin" | "player";
                   }>;
+                  primaryFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   role?: string;
                   userId?: string;
                 };
@@ -1706,6 +1718,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "functionalRoles"
                     | "activeFunctionalRole"
+                    | "primaryFunctionalRole"
                     | "pendingFunctionalRoleRequests"
                     | "lastAccessedOrgs"
                     | "isDisabled"
@@ -2311,6 +2324,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     requestedAt: string;
                     role: "coach" | "parent" | "admin" | "player";
                   }>;
+                  primaryFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   role?: string;
                   userId?: string;
                 };
@@ -2323,6 +2341,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "functionalRoles"
                     | "activeFunctionalRole"
+                    | "primaryFunctionalRole"
                     | "pendingFunctionalRoleRequests"
                     | "lastAccessedOrgs"
                     | "isDisabled"

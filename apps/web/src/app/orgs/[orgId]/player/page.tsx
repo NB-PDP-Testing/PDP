@@ -15,7 +15,7 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +48,19 @@ export default function PlayerDashboardPage() {
     api.models.adultPlayers.transitionToAdult
   );
   const [isGraduating, setIsGraduating] = useState(false);
+
+  // First-run welcome banner for new player role adopters (US-P6-003)
+  const [showNewPlayerWelcome, setShowNewPlayerWelcome] = useState(false);
+  useEffect(() => {
+    const dismissed = localStorage.getItem("playerPortalWelcomeDismissed");
+    if (!dismissed) {
+      setShowNewPlayerWelcome(true);
+    }
+  }, []);
+  const handleDismissNewPlayerWelcome = () => {
+    localStorage.setItem("playerPortalWelcomeDismissed", "true");
+    setShowNewPlayerWelcome(false);
+  };
 
   // Look up by userId — the authoritative link between a user account and their player record.
   // Falls back to email for legacy records that may not have userId set yet.
@@ -347,6 +360,28 @@ export default function PlayerDashboardPage() {
 
   return (
     <div className="container mx-auto max-w-5xl space-y-5 px-4 py-8">
+      {/* First-run welcome banner for new player role adopters (US-P6-003) */}
+      {showNewPlayerWelcome && (
+        <div className="flex items-start justify-between rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div>
+            <p className="font-semibold text-blue-800 text-sm">
+              Welcome to your Player portal
+            </p>
+            <p className="mt-0.5 text-blue-700 text-xs">
+              Explore your profile, wellness check-ins, and more.
+            </p>
+          </div>
+          <Button
+            className="ml-3 shrink-0 text-blue-700 hover:text-blue-900"
+            onClick={handleDismissNewPlayerWelcome}
+            size="sm"
+            variant="ghost"
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       {/* 1. Welcome Banner */}
       <div
         className="rounded-lg p-5 text-white shadow"

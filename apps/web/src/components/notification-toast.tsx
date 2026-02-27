@@ -18,7 +18,8 @@ type NotificationType =
   | "age_transition_available"
   | "age_transition_claimed"
   | "wellness_access_request"
-  | "wellness_reminder";
+  | "wellness_reminder"
+  | "player_role_approved";
 
 export type NotificationData = {
   _id: string;

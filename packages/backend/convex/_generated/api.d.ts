@@ -696,6 +696,11 @@ export declare const components: {
                     requestedAt: string;
                     role: "coach" | "parent" | "admin" | "player";
                   }>;
+                  primaryFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   role: string;
                   userId: string;
                 };
@@ -1064,6 +1069,7 @@ export declare const components: {
                     | "createdAt"
                     | "functionalRoles"
                     | "activeFunctionalRole"
+                    | "primaryFunctionalRole"
                     | "pendingFunctionalRoleRequests"
                     | "lastAccessedOrgs"
                     | "isDisabled"
@@ -1507,6 +1513,7 @@ export declare const components: {
                     | "createdAt"
                     | "functionalRoles"
                     | "activeFunctionalRole"
+                    | "primaryFunctionalRole"
                     | "pendingFunctionalRoleRequests"
                     | "lastAccessedOrgs"
                     | "isDisabled"
@@ -2180,6 +2187,11 @@ export declare const components: {
                     requestedAt: string;
                     role: "coach" | "parent" | "admin" | "player";
                   }>;
+                  primaryFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   role?: string;
                   userId?: string;
                 };
@@ -2192,6 +2204,7 @@ export declare const components: {
                     | "createdAt"
                     | "functionalRoles"
                     | "activeFunctionalRole"
+                    | "primaryFunctionalRole"
                     | "pendingFunctionalRoleRequests"
                     | "lastAccessedOrgs"
                     | "isDisabled"
@@ -2796,6 +2809,11 @@ export declare const components: {
                     requestedAt: string;
                     role: "coach" | "parent" | "admin" | "player";
                   }>;
+                  primaryFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   role?: string;
                   userId?: string;
                 };
@@ -2808,6 +2826,7 @@ export declare const components: {
                     | "createdAt"
                     | "functionalRoles"
                     | "activeFunctionalRole"
+                    | "primaryFunctionalRole"
                     | "pendingFunctionalRoleRequests"
                     | "lastAccessedOrgs"
                     | "isDisabled"

@@ -909,19 +909,62 @@ export const checkForDuplicatePlayer = query({
     message: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    const normalizedFirstName = args.firstName.trim();
-    const normalizedLastName = args.lastName.trim();
+    const trimmedFirst = args.firstName.trim();
+    const trimmedLast = args.lastName.trim();
 
-    // Find all players with same name + DOB
+    // Tier 1: Exact name + DOB match
     const nameAndDobMatches = await ctx.db
       .query("playerIdentities")
       .withIndex("by_name_dob", (q) =>
         q
-          .eq("firstName", normalizedFirstName)
-          .eq("lastName", normalizedLastName)
+          .eq("firstName", trimmedFirst)
+          .eq("lastName", trimmedLast)
           .eq("dateOfBirth", args.dateOfBirth)
       )
       .collect();
+
+    // Tier 2: Normalized name + DOB match (catches case/accent differences)
+    const normFirst = normalizeForMatching(trimmedFirst);
+    const normLast = normalizeForMatching(trimmedLast);
+    const seenIds = new Set(nameAndDobMatches.map((p) => p._id.toString()));
+
+    const normalizedMatches = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_normalized_name_dob", (q) =>
+        q
+          .eq("normalizedLastName", normLast)
+          .eq("normalizedFirstName", normFirst)
+          .eq("dateOfBirth", args.dateOfBirth)
+      )
+      .collect();
+
+    for (const p of normalizedMatches) {
+      if (!seenIds.has(p._id.toString()) && p.mergedInto === undefined) {
+        nameAndDobMatches.push(p);
+        seenIds.add(p._id.toString());
+      }
+    }
+
+    // Tier 3: Irish alias match (e.g. "Sean" ↔ "Séan" ↔ "Shawn")
+    const canonical = ALIAS_TO_CANONICAL.get(normFirst);
+    if (canonical && canonical !== normFirst) {
+      const aliasMatches = await ctx.db
+        .query("playerIdentities")
+        .withIndex("by_normalized_name_dob", (q) =>
+          q
+            .eq("normalizedLastName", normLast)
+            .eq("normalizedFirstName", canonical)
+            .eq("dateOfBirth", args.dateOfBirth)
+        )
+        .collect();
+
+      for (const p of aliasMatches) {
+        if (!seenIds.has(p._id.toString()) && p.mergedInto === undefined) {
+          nameAndDobMatches.push(p);
+          seenIds.add(p._id.toString());
+        }
+      }
+    }
 
     // Check for exact match (name + DOB + gender)
     let exactMatch = null;
@@ -941,9 +984,9 @@ export const checkForDuplicatePlayer = query({
     // Generate helpful message
     let message: string | undefined;
     if (exactMatch) {
-      message = `A player named "${normalizedFirstName} ${normalizedLastName}" with the same date of birth and gender already exists. Would you like to continue anyway?`;
+      message = `A player named "${trimmedFirst} ${trimmedLast}" with the same date of birth and gender already exists. Would you like to continue anyway?`;
     } else if (partialMatches.length > 0) {
-      message = `Found ${partialMatches.length} player(s) named "${normalizedFirstName} ${normalizedLastName}" with the same date of birth but different gender. This may be a different person.`;
+      message = `Found ${partialMatches.length} player(s) named "${trimmedFirst} ${trimmedLast}" with the same date of birth but different gender. This may be a different person.`;
     }
 
     return {

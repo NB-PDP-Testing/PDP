@@ -200,8 +200,8 @@ export default function ManagePlayersPage() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Mutations
-  const createPlayerIdentity = useMutation(
-    api.models.playerIdentities.createPlayerIdentity
+  const findOrCreatePlayer = useMutation(
+    api.models.playerIdentities.findOrCreatePlayer
   );
   const enrollPlayer = useMutation(
     api.models.orgPlayerEnrollments.enrollPlayer
@@ -239,11 +239,7 @@ export default function ManagePlayersPage() {
   const shouldQueryGuardians =
     isYouthPlayer &&
     addPlayerForm.lastName.trim().length >= 2 &&
-    !!(
-      addPlayerForm.postcode.trim() ||
-      addPlayerForm.guardianEmail.trim() ||
-      addPlayerForm.guardianPhone.trim()
-    );
+    !!addPlayerForm.dateOfBirth;
 
   const guardianSuggestions = useQuery(
     api.models.guardianIdentities.suggestGuardiansForPlayer,
@@ -457,12 +453,14 @@ export default function ManagePlayersPage() {
     try {
       // Step 1: Create player identity or use existing match
       let playerIdentityId: Id<"playerIdentities">;
+      let wasCreated = true;
 
       if (selectedExistingPlayer) {
         // User chose to use an existing player identity
         playerIdentityId = selectedExistingPlayer;
+        wasCreated = false;
       } else {
-        playerIdentityId = await createPlayerIdentity({
+        const result = await findOrCreatePlayer({
           firstName: addPlayerForm.firstName.trim(),
           lastName: addPlayerForm.lastName.trim(),
           dateOfBirth: addPlayerForm.dateOfBirth,
@@ -473,6 +471,8 @@ export default function ManagePlayersPage() {
           postcode: addPlayerForm.postcode.trim() || undefined,
           country: addPlayerForm.country.trim() || undefined,
         });
+        playerIdentityId = result.playerIdentityId;
+        wasCreated = result.wasCreated;
       }
 
       // Step 2: Enroll in organization (with sport if selected)
@@ -517,9 +517,12 @@ export default function ManagePlayersPage() {
       const guardianLinked = !!(
         selectedGuardianId || addPlayerForm.guardianEmail.trim()
       );
-      toast.success("Player added successfully", {
-        description: `${addPlayerForm.firstName} ${addPlayerForm.lastName} has been added to the organization.${guardianLinked ? " Guardian linked." : ""}`,
-      });
+      toast.success(
+        wasCreated ? "Player added successfully" : "Existing player enrolled",
+        {
+          description: `${addPlayerForm.firstName} ${addPlayerForm.lastName} has been ${wasCreated ? "added to" : "enrolled in"} the organization.${guardianLinked ? " Guardian linked." : ""}`,
+        }
+      );
 
       // Reset form and close dialogs
       setAddPlayerForm(emptyFormData);

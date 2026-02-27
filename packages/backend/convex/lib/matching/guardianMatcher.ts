@@ -473,6 +473,25 @@ export async function findGuardianMatches(
     }
   }
 
+  // Strategy 5: Surname-only fallback (when no email/phone/postcode candidates found)
+  if (
+    params.lastName &&
+    params.lastName.trim().length >= 2 &&
+    emailMatches.length === 0
+  ) {
+    const trimmedSurname = params.lastName.trim();
+    const surnameMatches = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_name", (q) => q.eq("lastName", trimmedSurname))
+      .take(20);
+    for (const g of surnameMatches) {
+      if (!seenGuardianIds.has(g._id)) {
+        emailMatches.push(g);
+        seenGuardianIds.add(g._id);
+      }
+    }
+  }
+
   // Batch compute player postcode matches for all candidates (avoid N+1)
   const playerPostcodeMatchMap = new Map<string, PlayerPostcodeMatchResult>();
   const userPostcode = params.postcode;

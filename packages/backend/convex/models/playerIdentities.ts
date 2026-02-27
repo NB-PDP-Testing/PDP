@@ -1203,6 +1203,9 @@ export const findPotentialMatches = query({
     }
 
     // 4. Fuzzy: query by_lastName candidates with same DOB, score with calculateMatchScore
+    // When DOB + exact last name both match the candidate was found via an exact index —
+    // last name similarity is 1.0. Mirror findPlayerMatchCandidates tier-1 logic:
+    // DOB + lastSimilarity >= 0.85 = HIGH regardless of first name.
     const lastNameCandidates = await ctx.db
       .query("playerIdentities")
       .withIndex("by_lastName", (q) => q.eq("lastName", trimmedLast))
@@ -1211,11 +1214,13 @@ export const findPotentialMatches = query({
       if (m.dateOfBirth !== args.dateOfBirth) {
         continue;
       }
-      const score = calculateMatchScore(
+      const calcScore = calculateMatchScore(
         `${trimmedFirst} ${trimmedLast}`,
         m.firstName,
         m.lastName
       );
+      // DOB + exact last name → minimum HIGH (0.9), consistent with submit-time matching
+      const score = Math.max(calcScore, 0.9);
       if (score >= 0.5) {
         addResult(m, score, "fuzzy");
       }
@@ -1232,11 +1237,13 @@ export const findPotentialMatches = query({
       if (m.dateOfBirth !== args.dateOfBirth) {
         continue;
       }
-      const score = calculateMatchScore(
+      const calcScore = calculateMatchScore(
         `${trimmedFirst} ${trimmedLast}`,
         m.firstName,
         m.lastName
       );
+      // DOB + exact normalised last name → minimum HIGH (0.9)
+      const score = Math.max(calcScore, 0.9);
       if (score >= 0.5) {
         addResult(m, score, "fuzzy");
       }

@@ -239,9 +239,14 @@ The form does not submit.
 
 ---
 
-### TC1.7 — Phone boost: fuzzy name + matching phone upgrades to HIGH
+### TC1.7 — Fuzzy first name + exact last name + DOB = HIGH
 
 **Setup:** Seed player P3 (Niamh Walsh) was created with phone `+353871234003`.
+
+> **Scoring note:** DOB + exact last name meets the tier-1 HIGH threshold in both the inline
+> panel and the blocking dialog — the phone boost adds to the score but is not required to
+> reach HIGH here. The phone signal would be needed to upgrade a case where both first AND
+> last name are fuzzy.
 
 | Field | Value |
 |-------|-------|
@@ -252,9 +257,11 @@ The form does not submit.
 | Email | different@test.ie |
 | Phone | +353871234003 *(P3's phone)* |
 
-**Expected:** Phone match boosts score → blocking HIGH confidence dialog showing Niamh Walsh.
+**Expected:**
+- Inline panel shows Niamh Walsh card with **high** confidence badge (not medium).
+- Clicking "Add Player" triggers the blocking HIGH confidence dialog.
 
-**Pass criteria:** Dialog appears (would have been MEDIUM or LOW on name/DOB alone).
+**Pass criteria:** Both the inline panel badge AND the blocking dialog show HIGH.
 
 ---
 

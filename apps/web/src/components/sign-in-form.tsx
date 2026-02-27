@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
 import { authClient } from "@/lib/auth-client";
@@ -23,6 +23,9 @@ function SignInFormContent() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
   const lastMethod = authClient.getLastUsedLoginMethod();
+  const [magicLinkEmail, setMagicLinkEmail] = useState("");
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [magicLinkSending, setMagicLinkSending] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -333,16 +336,13 @@ function SignInFormContent() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor={field.name}>Password</Label>
-                      <button
+                      <a
                         className="text-sm hover:underline"
-                        onClick={() => {
-                          toast.info("Password reset feature coming soon!");
-                        }}
+                        href="/forgot-password"
                         style={{ color: "var(--pdp-green)" }}
-                        type="button"
                       >
                         Forgot password?
-                      </button>
+                      </a>
                     </div>
                     <Input
                       autoComplete="current-password"
@@ -383,6 +383,66 @@ function SignInFormContent() {
               )}
             </form.Subscribe>
           </form>
+
+          {/* Magic Link Section */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-card px-2 text-muted-foreground">
+                or sign in without a password
+              </span>
+            </div>
+          </div>
+
+          {magicLinkSent ? (
+            <div
+              className="rounded-lg border-2 p-4 text-center"
+              style={{
+                borderColor: "rgba(var(--pdp-green-rgb), 0.3)",
+                background: "rgba(var(--pdp-green-rgb), 0.05)",
+              }}
+            >
+              <p className="font-medium text-sm">
+                Check your email for a sign-in link.
+              </p>
+              <p className="mt-1 text-muted-foreground text-xs">
+                The link expires in 5 minutes.
+              </p>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input
+                onChange={(e) => setMagicLinkEmail(e.target.value)}
+                placeholder="Email for magic link"
+                type="email"
+                value={magicLinkEmail}
+              />
+              <Button
+                disabled={!magicLinkEmail.includes("@") || magicLinkSending}
+                onClick={async () => {
+                  setMagicLinkSending(true);
+                  try {
+                    await authClient.signIn.magicLink({
+                      email: magicLinkEmail,
+                      callbackURL: redirect || "/orgs/current",
+                    });
+                    setMagicLinkSent(true);
+                  } catch {
+                    toast.error("Failed to send magic link. Please try again.");
+                  } finally {
+                    setMagicLinkSending(false);
+                  }
+                }}
+                size="default"
+                type="button"
+                variant="outline"
+              >
+                {magicLinkSending ? "Sending..." : "Send link"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

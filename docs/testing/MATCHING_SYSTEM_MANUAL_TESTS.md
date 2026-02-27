@@ -114,6 +114,20 @@ add them now via each player's edit form.
 The form collects **Email** (required), **Phone** (optional), **Sport** (optional), and
 **Postcode** (optional, in the address section) — all passed to `findPlayerMatchCandidates`.
 
+### Two matching mechanisms work together in EP1
+
+The Add Player form runs **two parallel matching systems**:
+
+| # | Mechanism | When it fires | UI shown | Action |
+|---|-----------|--------------|----------|--------|
+| 1 | **Live inline panel** (`findPotentialMatches`) | As you type — once firstName ≥ 2 chars, lastName ≥ 2 chars, and DOB are filled | Amber panel with match cards and **"Use This Player"** button | Click "Use This Player" → green banner → submit enrolls existing player |
+| 2 | **Blocking submit dialog** (`findPlayerMatchCandidates`) | When you click "Add Player" (submit) and no existing player was selected | Dialog: **"Existing Player Record Found"** | "Link to Existing Record" or "Create New Profile" |
+
+The inline panel is the **primary path** — most users will click "Use This Player" before reaching submit.
+The blocking dialog is the **safety net** — it catches cases where the user ignores the inline panel.
+
+---
+
 ### TC1.1 — HIGH confidence: Exact name + DOB (youth)
 
 | Field | Value |
@@ -124,12 +138,22 @@ The form collects **Email** (required), **Phone** (optional), **Sport** (optiona
 | Gender | Male |
 | Email | test1@test.ie |
 
-**Expected:** A blocking dialog titled **"Existing Player Record Found"** appears before the
-record is saved. Shows Ciarán Murphy's DOB and `youth` player type.
-Two buttons: **"Link to Existing Record"** and **"Create New Profile"**.
+**Path A — inline panel (primary):**
+Fill in First Name, Last Name, and DOB. Before you reach the Email field, an amber
+**"Existing players found"** panel appears with a Ciarán Murphy card showing
+`high (100)` confidence and a **"Use This Player"** button.
+Click it → the panel is replaced by a green **"Using existing player identity"** banner.
+Fill in the remaining required fields and click **"Add Player"** → the existing record is
+enrolled in the org (no new `playerIdentity` created).
 
-**Pass criteria:** Dialog appears. "Link to Existing Record" enrolls the existing record
-(no new playerIdentity created). "Create New Profile" creates a separate record.
+**Path B — blocking dialog (safety net):**
+Fill in all fields (including Email) and click **"Add Player"** without clicking "Use This Player".
+A modal dialog titled **"Existing Player Record Found"** appears. Shows Ciarán Murphy's
+DOB and `youth` player type. Two buttons: **"Link to Existing Record"** and **"Create New Profile"**.
+
+**Pass criteria:**
+- Path A: inline amber panel appears after name + DOB are typed. "Use This Player" works.
+- Path B: blocking dialog appears on submit. "Link to Existing Record" enrolls existing record (no new playerIdentity). "Create New Profile" creates a separate record.
 
 ---
 

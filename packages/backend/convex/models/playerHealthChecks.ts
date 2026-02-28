@@ -388,6 +388,15 @@ export const submitDailyHealthCheck = mutation({
     }
 
     const now = Date.now();
+
+    // Stamp retention expiry from org config (GDPR Article 5 storage limitation)
+    const retentionConfig = await ctx.db
+      .query("orgRetentionConfig")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .unique();
+    const wellnessDays = retentionConfig?.wellnessDays ?? 730;
+    const retentionExpiresAt = now + wellnessDays * 24 * 60 * 60 * 1000;
+
     const newCheckId = await ctx.db.insert("dailyPlayerHealthChecks", {
       playerIdentityId: args.playerIdentityId,
       organizationId: args.organizationId,
@@ -408,6 +417,7 @@ export const submitDailyHealthCheck = mutation({
       submittedOffline: args.submittedOffline,
       deviceSubmittedAt: args.deviceSubmittedAt,
       source: args.source,
+      retentionExpiresAt,
     });
 
     // Schedule AI insight generation (US-P4-010) — fire-and-forget
@@ -454,6 +464,15 @@ export const submitDailyHealthCheckInternal = internalMutation({
     }
 
     const now = Date.now();
+
+    // Stamp retention expiry from org config (GDPR Article 5 storage limitation)
+    const retentionConfig = await ctx.db
+      .query("orgRetentionConfig")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .unique();
+    const wellnessDays = retentionConfig?.wellnessDays ?? 730;
+    const retentionExpiresAt = now + wellnessDays * 24 * 60 * 60 * 1000;
+
     const newCheckId = await ctx.db.insert("dailyPlayerHealthChecks", {
       playerIdentityId: args.playerIdentityId,
       organizationId: args.organizationId,
@@ -470,6 +489,7 @@ export const submitDailyHealthCheckInternal = internalMutation({
       submittedAt: args.submittedAt ?? now,
       updatedAt: now,
       source: args.source,
+      retentionExpiresAt,
     });
 
     // Schedule AI insight generation — fire-and-forget

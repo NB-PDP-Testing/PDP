@@ -92,6 +92,41 @@ export const getOrgRetentionConfig = query({
   },
 });
 
+/**
+ * Count wellness records per org that are approaching expiry in the next 90 days.
+ * Uses the by_org_and_date index to scope to the org, then filters in memory.
+ * Note: For orgs with very large datasets this may be slow — a dedicated
+ * by_org_and_retentionExpiresAt index would be a future optimisation.
+ */
+export const getUpcomingExpiryCountsForOrg = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    wellnessCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const cutoff = Date.now() + 90 * 24 * 60 * 60 * 1000; // 90 days from now
+
+    // Count wellness records approaching expiry (not yet soft-deleted)
+    const wellnessRecords = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_org_and_date", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    const wellnessCount = wellnessRecords.filter(
+      (r) =>
+        !r.retentionExpired &&
+        r.retentionExpiresAt !== undefined &&
+        r.retentionExpiresAt < cutoff
+    ).length;
+
+    return { wellnessCount };
+  },
+});
+
 // ============================================================
 // MUTATIONS
 // ============================================================

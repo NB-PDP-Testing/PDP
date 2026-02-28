@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Clipboard,
   ClipboardList,
+  Clock,
   FileSpreadsheet,
   FileUp,
   Flag,
@@ -213,6 +214,11 @@ export function getAdminNavGroups(
           href: `/orgs/${orgId}/admin/data-rights`,
           label: "Data Rights Requests",
           icon: Trash2,
+        },
+        {
+          href: `/orgs/${orgId}/admin/data-retention`,
+          label: "Data Retention",
+          icon: Clock,
         },
         {
           href: `/orgs/${orgId}/admin/breach-register`,

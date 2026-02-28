@@ -212,3 +212,25 @@ html.theme-transitions *::after {
     animation: shimmer 2s infinite;
   }
 }
+
+/* WCAG 2.1 AA — prefers-reduced-motion: disable all non-essential animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer {
+    animation: none;
+  }
+  /* Tailwind animate-* utilities */
+  .animate-spin,
+  .animate-ping,
+  .animate-pulse,
+  .animate-bounce {
+    animation: none;
+  }
+  /* Tailwind transition-* utilities — remove transitions for users who prefer reduced motion */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

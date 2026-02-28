@@ -757,12 +757,50 @@ export default function PlayerHealthCheckPage() {
             <Card key={dim.key}>
               <CardContent className="pt-5">
                 <div className="mb-3">
-                  <p className="font-medium text-sm">{dim.question}</p>
+                  <p
+                    className="font-medium text-sm"
+                    id={`dim-label-${dim.key}`}
+                  >
+                    {dim.question}
+                  </p>
                 </div>
-                <div className="flex justify-between gap-1">
+                {/* WCAG 2.1 AA — radiogroup pattern (ARIA APG radio group) */}
+                <div
+                  aria-labelledby={`dim-label-${dim.key}`}
+                  className="flex justify-between gap-1"
+                  onKeyDown={(e) => {
+                    const idx = EMOJI_SCALE.findIndex(
+                      (s) => s.value === (selected ?? 0)
+                    );
+                    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                      const next =
+                        EMOJI_SCALE[Math.min(idx + 1, EMOJI_SCALE.length - 1)];
+                      if (next) {
+                        setDimensionValues((prev) => ({
+                          ...prev,
+                          [dim.key]: next.value,
+                        }));
+                      }
+                    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+                      e.preventDefault();
+                      const prev = EMOJI_SCALE[Math.max(idx - 1, 0)];
+                      if (prev) {
+                        setDimensionValues((pv) => ({
+                          ...pv,
+                          [dim.key]: prev.value,
+                        }));
+                      }
+                    }
+                  }}
+                  role="radiogroup"
+                >
                   {EMOJI_SCALE.map((scale) => (
+                    // biome-ignore lint/a11y/useSemanticElements: custom radio widget per WAI-ARIA APG radio group pattern
                     <button
-                      className="flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border-2 transition-all"
+                      aria-checked={selected === scale.value}
+                      aria-label={`${scale.label} — ${scale.value} out of 5`}
+                      className="flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                       key={scale.value}
                       onClick={() =>
                         setDimensionValues((prev) => ({
@@ -770,6 +808,7 @@ export default function PlayerHealthCheckPage() {
                           [dim.key]: scale.value,
                         }))
                       }
+                      role="radio"
                       style={{
                         borderColor:
                           selected === scale.value
@@ -784,12 +823,22 @@ export default function PlayerHealthCheckPage() {
                             ? 0.4
                             : 1,
                       }}
+                      tabIndex={
+                        selected === scale.value ||
+                        (selected === undefined && scale.value === 1)
+                          ? 0
+                          : -1
+                      }
                       type="button"
                     >
-                      <span className="text-xl leading-none">
+                      <span aria-hidden="true" className="text-xl leading-none">
                         {scale.emoji}
                       </span>
-                      <span className="hidden text-muted-foreground text-xs sm:block">
+                      <span className="sr-only">{scale.label}</span>
+                      <span
+                        aria-hidden="true"
+                        className="hidden text-muted-foreground text-xs sm:block"
+                      >
                         {scale.value}
                       </span>
                     </button>

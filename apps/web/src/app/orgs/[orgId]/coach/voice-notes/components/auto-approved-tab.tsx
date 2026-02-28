@@ -10,6 +10,7 @@ import {
   CheckCircle,
   Clock,
   Eye,
+  EyeOff,
   Filter,
   Search,
   X,
@@ -64,6 +65,7 @@ export function AutoApprovedTab({
 }: AutoApprovedTabProps) {
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
+  const [restrictingId, setRestrictingId] = useState<string | null>(null);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -144,6 +146,11 @@ export function AutoApprovedTab({
     api.models.coachParentSummaries.revokeSummary
   );
 
+  // Phase 7: Restrict from child view mutation
+  const setNoteChildRestriction = useMutation(
+    api.models.parentChildAuthorizations.setNoteChildRestriction
+  );
+
   const handleRevoke = async (summaryId: string) => {
     setRevokingId(summaryId);
     try {
@@ -163,6 +170,29 @@ export function AutoApprovedTab({
     } finally {
       setRevokingId(null);
       setConfirmRevokeId(null);
+    }
+  };
+
+  const handleToggleChildRestriction = async (
+    summaryId: string,
+    currentValue: boolean
+  ) => {
+    setRestrictingId(summaryId);
+    try {
+      await setNoteChildRestriction({
+        noteId: summaryId as Id<"coachParentSummaries">,
+        restrictChildView: !currentValue,
+      });
+      onSuccess(
+        currentValue
+          ? "Child view restriction removed"
+          : "Note restricted from child view"
+      );
+    } catch (error) {
+      console.error("Failed to toggle child restriction:", error);
+      onError("Failed to update restriction. Please try again.");
+    } finally {
+      setRestrictingId(null);
     }
   };
 
@@ -400,6 +430,16 @@ export function AutoApprovedTab({
                             summary.revokedAt,
                             summary.viewedAt
                           )}
+                          {/* Phase 7: Restricted from child badge */}
+                          {summary.restrictChildView && (
+                            <Badge
+                              className="gap-1 border-amber-200 bg-amber-100 text-amber-700"
+                              variant="outline"
+                            >
+                              <EyeOff className="h-3 w-3" />
+                              Child restricted
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Private Insight (coach-only) */}
@@ -502,26 +542,55 @@ export function AutoApprovedTab({
                         )}
                       </div>
 
-                      {summary.isRevocable && (
+                      <div className="flex flex-col gap-2">
+                        {/* Phase 7: Toggle child restriction */}
                         <Button
-                          disabled={revokingId === summary._id}
-                          onClick={() => setConfirmRevokeId(summary._id)}
+                          className="h-8 text-xs"
+                          disabled={restrictingId === summary._id}
+                          onClick={() =>
+                            handleToggleChildRestriction(
+                              summary._id,
+                              summary.restrictChildView ?? false
+                            )
+                          }
                           size="sm"
-                          variant="outline"
+                          title={
+                            summary.restrictChildView
+                              ? "Allow child to see this note"
+                              : "Restrict from child view"
+                          }
+                          variant={
+                            summary.restrictChildView ? "secondary" : "outline"
+                          }
                         >
-                          {revokingId === summary._id ? (
-                            <>
-                              <Clock className="mr-2 h-4 w-4 animate-spin" />
-                              Revoking...
-                            </>
+                          {restrictingId === summary._id ? (
+                            <Clock className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <>
-                              <AlertCircle className="mr-2 h-4 w-4" />
-                              Revoke
-                            </>
+                            <EyeOff className="h-3.5 w-3.5" />
                           )}
                         </Button>
-                      )}
+
+                        {summary.isRevocable && (
+                          <Button
+                            disabled={revokingId === summary._id}
+                            onClick={() => setConfirmRevokeId(summary._id)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {revokingId === summary._id ? (
+                              <>
+                                <Clock className="mr-2 h-4 w-4 animate-spin" />
+                                Revoking...
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="mr-2 h-4 w-4" />
+                                Revoke
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

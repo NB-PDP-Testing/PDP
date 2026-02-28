@@ -384,6 +384,7 @@ async function patchPreviewModeStats(
 export const approveSummary = mutation({
   args: {
     summaryId: v.id("coachParentSummaries"),
+    restrictChildView: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -412,11 +413,14 @@ export const approveSummary = mutation({
       );
     }
 
-    // Update the summary status
+    // Update the summary status (with optional child view restriction)
     await ctx.db.patch(args.summaryId, {
       status: "approved",
       approvedAt: Date.now(),
       approvedBy: userId,
+      ...(args.restrictChildView !== undefined
+        ? { restrictChildView: args.restrictChildView }
+        : {}),
     });
 
     // Track preview mode statistics (Phase 5)
@@ -448,6 +452,7 @@ export const approveInjurySummary = mutation({
       severityAccurate: v.boolean(),
       noMedicalAdvice: v.boolean(),
     }),
+    restrictChildView: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -499,11 +504,14 @@ export const approveInjurySummary = mutation({
       completedAt: Date.now(),
     });
 
-    // Update the summary status
+    // Update the summary status (with optional child view restriction)
     await ctx.db.patch(args.summaryId, {
       status: "approved",
       approvedAt: Date.now(),
       approvedBy: userId,
+      ...(args.restrictChildView !== undefined
+        ? { restrictChildView: args.restrictChildView }
+        : {}),
     });
 
     // Update coach trust metrics (platform-wide)
@@ -874,6 +882,7 @@ async function enrichAutoApprovedSummary(
     privateInsight: summary.privateInsight,
     childResponse: summary.childResponse,
     childResponseAt: summary.childResponseAt,
+    restrictChildView: summary.restrictChildView,
   };
 }
 
@@ -926,6 +935,7 @@ export const getAutoApprovedSummaries = query({
       }),
       childResponse: v.optional(v.string()),
       childResponseAt: v.optional(v.number()),
+      restrictChildView: v.optional(v.boolean()),
     })
   ),
   handler: async (ctx, args) => {

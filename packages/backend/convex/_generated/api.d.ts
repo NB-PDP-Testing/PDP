@@ -24,6 +24,7 @@ import type * as actions_graduations from "../actions/graduations.js";
 import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
+import type * as actions_metaWhatsapp from "../actions/metaWhatsapp.js";
 import type * as actions_migration from "../actions/migration.js";
 import type * as actions_phase4TestSeed from "../actions/phase4TestSeed.js";
 import type * as actions_platformStaffInvitations from "../actions/platformStaffInvitations.js";
@@ -76,6 +77,7 @@ import type * as lib_phoneUtils from "../lib/phoneUtils.js";
 import type * as lib_playerMatching from "../lib/playerMatching.js";
 import type * as lib_stringMatching from "../lib/stringMatching.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
+import type * as lib_wellnessDispatchService from "../lib/wellnessDispatchService.js";
 import type * as lib_whatsappCommandHandler from "../lib/whatsappCommandHandler.js";
 import type * as lib_whatsappCommands from "../lib/whatsappCommands.js";
 import type * as migrations_backfillNormalizedNames from "../migrations/backfillNormalizedNames.js";
@@ -201,6 +203,7 @@ import type * as models_voicePipelineMetrics from "../models/voicePipelineMetric
 import type * as models_voicePipelineRetry from "../models/voicePipelineRetry.js";
 import type * as models_whatsappMessages from "../models/whatsappMessages.js";
 import type * as models_whatsappReviewLinks from "../models/whatsappReviewLinks.js";
+import type * as models_whatsappWellness from "../models/whatsappWellness.js";
 import type * as privateData from "../privateData.js";
 import type * as scripts_analyzeReimport from "../scripts/analyzeReimport.js";
 import type * as scripts_bootstrapPlatformStaff from "../scripts/bootstrapPlatformStaff.js";
@@ -269,6 +272,7 @@ declare const fullApi: ApiFromModules<{
   "actions/guardianNotifications": typeof actions_guardianNotifications;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;
+  "actions/metaWhatsapp": typeof actions_metaWhatsapp;
   "actions/migration": typeof actions_migration;
   "actions/phase4TestSeed": typeof actions_phase4TestSeed;
   "actions/platformStaffInvitations": typeof actions_platformStaffInvitations;
@@ -321,6 +325,7 @@ declare const fullApi: ApiFromModules<{
   "lib/playerMatching": typeof lib_playerMatching;
   "lib/stringMatching": typeof lib_stringMatching;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
+  "lib/wellnessDispatchService": typeof lib_wellnessDispatchService;
   "lib/whatsappCommandHandler": typeof lib_whatsappCommandHandler;
   "lib/whatsappCommands": typeof lib_whatsappCommands;
   "migrations/backfillNormalizedNames": typeof migrations_backfillNormalizedNames;
@@ -446,6 +451,7 @@ declare const fullApi: ApiFromModules<{
   "models/voicePipelineRetry": typeof models_voicePipelineRetry;
   "models/whatsappMessages": typeof models_whatsappMessages;
   "models/whatsappReviewLinks": typeof models_whatsappReviewLinks;
+  "models/whatsappWellness": typeof models_whatsappWellness;
   privateData: typeof privateData;
   "scripts/analyzeReimport": typeof scripts_analyzeReimport;
   "scripts/bootstrapPlatformStaff": typeof scripts_bootstrapPlatformStaff;

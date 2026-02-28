@@ -40,6 +40,16 @@ const cyclePhaseValidator = v.union(
   v.literal("late_luteal")
 );
 
+// Phase 8: submission channel validator
+const sourceValidator = v.optional(
+  v.union(
+    v.literal("app"),
+    v.literal("whatsapp_flows"),
+    v.literal("whatsapp_conversational"),
+    v.literal("sms")
+  )
+);
+
 // ============================================================
 // QUERIES
 // ============================================================
@@ -71,6 +81,7 @@ export const getTodayHealthCheck = query({
       updatedAt: v.number(),
       submittedOffline: v.optional(v.boolean()),
       deviceSubmittedAt: v.optional(v.number()),
+      source: sourceValidator,
     }),
     v.null()
   ),
@@ -115,6 +126,7 @@ export const getWellnessHistory = query({
       updatedAt: v.number(),
       submittedOffline: v.optional(v.boolean()),
       deviceSubmittedAt: v.optional(v.number()),
+      source: sourceValidator,
     })
   ),
   handler: async (ctx, args) => {
@@ -354,6 +366,7 @@ export const submitDailyHealthCheck = mutation({
     notes: v.optional(v.string()),
     submittedOffline: v.optional(v.boolean()),
     deviceSubmittedAt: v.optional(v.number()),
+    source: sourceValidator,
   },
   returns: v.id("dailyPlayerHealthChecks"),
   handler: async (ctx, args) => {
@@ -394,6 +407,7 @@ export const submitDailyHealthCheck = mutation({
       updatedAt: now,
       submittedOffline: args.submittedOffline,
       deviceSubmittedAt: args.deviceSubmittedAt,
+      source: args.source,
     });
 
     // Schedule AI insight generation (US-P4-010) — fire-and-forget
@@ -408,6 +422,132 @@ export const submitDailyHealthCheck = mutation({
     );
 
     return newCheckId;
+  },
+});
+
+// Internal version for webhook use (no auth — called from Meta/Twilio webhooks)
+export const submitDailyHealthCheckInternal = internalMutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    checkDate: v.string(),
+    dimensionValues: dimensionValuesValidator,
+    enabledDimensions: v.array(v.string()),
+    source: sourceValidator,
+    submittedAt: v.optional(v.number()),
+  },
+  returns: v.id("dailyPlayerHealthChecks"),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_player_and_date", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("checkDate", args.checkDate)
+      )
+      .first();
+
+    if (existing) {
+      throw new Error(
+        `A health check for ${args.checkDate} already exists (idempotency check).`
+      );
+    }
+
+    const now = Date.now();
+    const newCheckId = await ctx.db.insert("dailyPlayerHealthChecks", {
+      playerIdentityId: args.playerIdentityId,
+      organizationId: args.organizationId,
+      checkDate: args.checkDate,
+      sleepQuality: args.dimensionValues.sleepQuality,
+      energyLevel: args.dimensionValues.energyLevel,
+      mood: args.dimensionValues.mood,
+      physicalFeeling: args.dimensionValues.physicalFeeling,
+      motivation: args.dimensionValues.motivation,
+      foodIntake: args.dimensionValues.foodIntake,
+      waterIntake: args.dimensionValues.waterIntake,
+      muscleRecovery: args.dimensionValues.muscleRecovery,
+      enabledDimensions: args.enabledDimensions,
+      submittedAt: args.submittedAt ?? now,
+      updatedAt: now,
+      source: args.source,
+    });
+
+    // Schedule AI insight generation — fire-and-forget
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.wellnessInsights.generateWellnessInsight,
+      {
+        playerIdentityId: args.playerIdentityId,
+        organizationId: args.organizationId,
+        triggerCheckId: newCheckId,
+      }
+    );
+
+    return newCheckId;
+  },
+});
+
+// Internal query for getTodayHealthCheck (used by internal actions/webhooks)
+export const getTodayHealthCheckInternal = internalQuery({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    checkDate: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.id("dailyPlayerHealthChecks"),
+      _creationTime: v.number(),
+      playerIdentityId: v.id("playerIdentities"),
+      organizationId: v.string(),
+      checkDate: v.string(),
+      sleepQuality: v.optional(v.number()),
+      energyLevel: v.optional(v.number()),
+      mood: v.optional(v.number()),
+      physicalFeeling: v.optional(v.number()),
+      motivation: v.optional(v.number()),
+      foodIntake: v.optional(v.number()),
+      waterIntake: v.optional(v.number()),
+      muscleRecovery: v.optional(v.number()),
+      enabledDimensions: v.array(v.string()),
+      submittedAt: v.number(),
+      updatedAt: v.number(),
+      source: sourceValidator,
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const record = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_player_and_date", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("checkDate", args.checkDate)
+      )
+      .first();
+
+    if (!record) {
+      return null;
+    }
+
+    return {
+      _id: record._id,
+      _creationTime: record._creationTime,
+      playerIdentityId: record.playerIdentityId,
+      organizationId: record.organizationId,
+      checkDate: record.checkDate,
+      sleepQuality: record.sleepQuality,
+      energyLevel: record.energyLevel,
+      mood: record.mood,
+      physicalFeeling: record.physicalFeeling,
+      motivation: record.motivation,
+      foodIntake: record.foodIntake,
+      waterIntake: record.waterIntake,
+      muscleRecovery: record.muscleRecovery,
+      enabledDimensions: record.enabledDimensions,
+      submittedAt: record.submittedAt,
+      updatedAt: record.updatedAt,
+      source: record.source,
+    };
   },
 });
 

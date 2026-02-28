@@ -5547,6 +5547,15 @@ export default defineSchema({
     updatedAt: v.number(),
     submittedOffline: v.optional(v.boolean()),
     deviceSubmittedAt: v.optional(v.number()),
+    // Phase 8: tracks which channel submitted this check-in
+    source: v.optional(
+      v.union(
+        v.literal("app"),
+        v.literal("whatsapp_flows"),
+        v.literal("whatsapp_conversational"),
+        v.literal("sms")
+      )
+    ),
   })
     .index("by_player_and_date", ["playerIdentityId", "checkDate"])
     .index("by_org_and_date", ["organizationId", "checkDate"])
@@ -5558,7 +5567,16 @@ export default defineSchema({
     organizationId: v.string(),
     enabledDimensions: v.array(v.string()), // defaults to 5 core dimensions
     updatedAt: v.number(),
-  }).index("by_player", ["playerIdentityId"]),
+    // Phase 8: WhatsApp/SMS channel settings
+    wellnessChannel: v.optional(
+      v.union(v.literal("whatsapp_flows"), v.literal("sms_conversational"))
+    ),
+    whatsappNumber: v.optional(v.string()), // E.164 format
+    whatsappOptIn: v.optional(v.boolean()),
+    whatsappOptedInAt: v.optional(v.number()),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_whatsapp_number", ["whatsappNumber"]),
 
   // Coach access requests for player wellness data
   wellnessCoachAccess: defineTable({
@@ -5715,4 +5733,35 @@ export default defineSchema({
     .index("by_org_and_status", ["organizationId", "status"])
     .index("by_child", ["childPlayerId"])
     .index("by_requesting_user", ["requestingUserId"]),
+
+  // ============================================================
+  // PHASE 8: WHATSAPP WELLNESS SESSIONS
+  // Tracks in-progress conversational/SMS wellness check-ins.
+  // NOT used for WhatsApp Flows channel (stateless on our side).
+  // ============================================================
+
+  whatsappWellnessSessions: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    sessionDate: v.string(), // YYYY-MM-DD
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("abandoned")
+    ),
+    enabledDimensions: v.array(v.string()), // dimensions for this session
+    currentDimensionIndex: v.number(), // 0-based index into enabledDimensions
+    collectedResponses: v.any(), // Record<dimensionKey, 1-5>
+    phoneNumber: v.string(), // E.164 format
+    channel: v.literal("sms_conversational"),
+    sentAt: v.number(), // when session was created/sent
+    startedAt: v.optional(v.number()), // when player first replied
+    completedAt: v.optional(v.number()),
+    expiresAt: v.number(), // sentAt + 8 hours
+    dailyHealthCheckId: v.optional(v.id("dailyPlayerHealthChecks")),
+    invalidReplyCount: v.number(), // abandon after 3 invalid replies
+  })
+    .index("by_phone_and_date", ["phoneNumber", "sessionDate"])
+    .index("by_player_and_date", ["playerIdentityId", "sessionDate"]),
 });

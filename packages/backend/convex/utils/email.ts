@@ -2078,3 +2078,164 @@ export async function sendMagicLinkEmail(
     console.error("❌ Error sending magic link email:", error);
   }
 }
+
+// ============================================================
+// Child Account Invite Email (Phase 7: Child Authorization)
+// ============================================================
+
+type ChildAccountInviteEmailData = {
+  email: string;
+  playerFirstName: string;
+  parentName: string;
+  organizationName: string;
+  setupLink: string;
+};
+
+export async function sendChildAccountInviteEmail(
+  data: ChildAccountInviteEmailData
+): Promise<void> {
+  const { email, playerFirstName, parentName, organizationName, setupLink } =
+    data;
+
+  const subject = `${parentName} has given you access to PlayerARC at ${organizationName}`;
+
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:40px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:40px 40px 32px;text-align:center;">
+      <h1 style="color:#ffffff;font-size:28px;font-weight:700;margin:0 0 8px;">
+        PlayerARC
+      </h1>
+      <p style="color:#c4b5fd;font-size:16px;margin:0;">Your sports journey, your way</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:40px;">
+      <h2 style="color:#111827;font-size:22px;font-weight:600;margin:0 0 16px;">
+        Hi ${playerFirstName}!
+      </h2>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">
+        <strong>${parentName}</strong> has given you access to see your player development data at
+        <strong>${organizationName}</strong> on PlayerARC.
+      </p>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 32px;">
+        Set up your account to view your assessments, development goals, and coach feedback — all in one place.
+      </p>
+
+      <!-- CTA Button -->
+      <div style="text-align:center;margin:0 0 32px;">
+        <a href="${setupLink}"
+           style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:8px;">
+          Set Up My Account
+        </a>
+      </div>
+
+      <!-- Expiry notice -->
+      <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:16px;margin:0 0 24px;">
+        <p style="color:#92400e;font-size:14px;margin:0;">
+          ⏰ <strong>This link expires in 7 days.</strong> If it expires, ask your parent to send a new invite from their parent dashboard.
+        </p>
+      </div>
+
+      <!-- Help text -->
+      <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 8px;">
+        If you have trouble with the button above, copy and paste this URL into your browser:
+      </p>
+      <p style="color:#4f46e5;font-size:13px;word-break:break-all;margin:0 0 24px;">
+        ${setupLink}
+      </p>
+
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;">
+
+      <p style="color:#9ca3af;font-size:13px;margin:0;">
+        If you weren't expecting this email, you can safely ignore it. No account will be created without your action.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#f9fafb;padding:24px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="color:#9ca3af;font-size:13px;margin:0;">
+        © ${new Date().getFullYear()} PlayerARC. All rights reserved.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const textBody = `
+Hi ${playerFirstName}!
+
+${parentName} has given you access to see your player development data at ${organizationName} on PlayerARC.
+
+Set up your account by clicking the link below:
+
+${setupLink}
+
+This link expires in 7 days. If it expires, ask your parent to send a new invite from their parent dashboard.
+
+If you weren't expecting this email, you can safely ignore it.
+
+© ${new Date().getFullYear()} PlayerARC. All rights reserved.
+  `.trim();
+
+  // Send email via Resend API
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Child account invite email will not be sent. Set RESEND_API_KEY in Convex dashboard."
+    );
+    console.log("📧 Child account invite (not sent):", {
+      to: email,
+      subject,
+      setupLink,
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error(
+        "❌ Failed to send child account invite email via Resend:",
+        {
+          status: response.status,
+          error: errorData,
+        }
+      );
+      return;
+    }
+
+    const result = await response.json();
+    console.log("✅ Child account invite email sent successfully:", result.id);
+  } catch (error) {
+    console.error("❌ Error sending child account invite email:", error);
+  }
+}

@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { AnalyticsEvents, useAnalytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
+import { ChildAccountSetupStep } from "./child-account-setup-step";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { OnboardingErrorBoundary } from "./error-boundary";
 import { GdprConsentStep } from "./gdpr-consent-step";
@@ -52,6 +53,7 @@ type OnboardingTask = {
     | "player_graduation"
     | "player_claim_pending"
     | "player_claimed_account"
+    | "child_account_setup"
     | "welcome";
   priority: number;
   data: unknown;
@@ -65,6 +67,12 @@ type PlayerGraduationTaskData = {
 // Type for player_claimed_account task data (Phase 2 Adult Player)
 type PlayerClaimedAccountTaskData = {
   playerIdentityId: Id<"playerIdentities">;
+  playerFirstName: string;
+  organizationId: string;
+};
+
+// Type for child_account_setup task data (Phase 7 Child Authorization)
+type ChildAccountSetupTaskData = {
   playerFirstName: string;
   organizationId: string;
 };
@@ -320,6 +328,13 @@ function OnboardingStepRenderer({
         playerIdentityId={data.playerIdentityId}
       />
     );
+  }
+
+  // Handle child_account_setup task — welcome step for newly-setup youth accounts (Phase 7)
+  if (task.type === "child_account_setup") {
+    const data = task.data as ChildAccountSetupTaskData;
+
+    return <ChildAccountSetupStep data={data} onComplete={onComplete} />;
   }
 
   // Placeholder for other task types

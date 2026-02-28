@@ -9,6 +9,7 @@
  */
 
 import type * as actions_aiMapping from "../actions/aiMapping.js";
+import type * as actions_childAuthorizations from "../actions/childAuthorizations.js";
 import type * as actions_claimsExtraction from "../actions/claimsExtraction.js";
 import type * as actions_coachParentSummaries from "../actions/coachParentSummaries.js";
 import type * as actions_draftGeneration from "../actions/draftGeneration.js";
@@ -146,6 +147,7 @@ import type * as models_orgJoinRequests from "../models/orgJoinRequests.js";
 import type * as models_orgPlayerEnrollments from "../models/orgPlayerEnrollments.js";
 import type * as models_organizationScraper from "../models/organizationScraper.js";
 import type * as models_organizations from "../models/organizations.js";
+import type * as models_parentChildAuthorizations from "../models/parentChildAuthorizations.js";
 import type * as models_passportComparison from "../models/passportComparison.js";
 import type * as models_passportEnquiries from "../models/passportEnquiries.js";
 import type * as models_passportGoals from "../models/passportGoals.js";
@@ -251,6 +253,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "actions/aiMapping": typeof actions_aiMapping;
+  "actions/childAuthorizations": typeof actions_childAuthorizations;
   "actions/claimsExtraction": typeof actions_claimsExtraction;
   "actions/coachParentSummaries": typeof actions_coachParentSummaries;
   "actions/draftGeneration": typeof actions_draftGeneration;
@@ -388,6 +391,7 @@ declare const fullApi: ApiFromModules<{
   "models/orgPlayerEnrollments": typeof models_orgPlayerEnrollments;
   "models/organizationScraper": typeof models_organizationScraper;
   "models/organizations": typeof models_organizations;
+  "models/parentChildAuthorizations": typeof models_parentChildAuthorizations;
   "models/passportComparison": typeof models_passportComparison;
   "models/passportEnquiries": typeof models_passportEnquiries;
   "models/passportGoals": typeof models_passportGoals;

@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
@@ -81,6 +82,8 @@ export function GrantChildAccessSection({
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);
   const [isRevoking, setIsRevoking] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [childEmail, setChildEmail] = useState("");
+  const [isResending, setIsResending] = useState(false);
 
   const authorization = useQuery(
     api.models.parentChildAuthorizations.getChildAuthorization,
@@ -92,6 +95,9 @@ export function GrantChildAccessSection({
   );
   const revokeChildAccess = useMutation(
     api.models.parentChildAuthorizations.revokeChildAccess
+  );
+  const resendChildAccountInvite = useMutation(
+    api.models.parentChildAuthorizations.resendChildAccountInvite
   );
 
   // Initialise local state from server once loaded
@@ -164,18 +170,45 @@ export function GrantChildAccessSection({
     }
     setIsSaving(true);
     try {
-      await grantChildAccess({
+      const result = await grantChildAccess({
         childPlayerId,
         organizationId,
         accessLevel,
         toggles,
+        childEmail: childEmail.trim() || undefined,
       });
-      toast.success(`Access granted for ${childName}`);
+      if (result.isNewGrant && childEmail.trim()) {
+        toast.success(
+          `Access granted for ${childName}. Invite email sent to ${childEmail}.`
+        );
+      } else {
+        toast.success(`Access settings updated for ${childName}`);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save";
       toast.error(message);
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleResend() {
+    if (!childEmail.trim()) {
+      toast.error("Please enter the child's email address");
+      return;
+    }
+    setIsResending(true);
+    try {
+      await resendChildAccountInvite({
+        childPlayerId,
+        childEmail: childEmail.trim(),
+      });
+      toast.success(`Invite re-sent to ${childEmail}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to resend";
+      toast.error(message);
+    } finally {
+      setIsResending(false);
     }
   }
 
@@ -255,6 +288,25 @@ export function GrantChildAccessSection({
                   }}
                 />
               </div>
+
+              {/* Child email input – shown when enabling access for the first time */}
+              {accessEnabled && !isGranted && (
+                <div className="space-y-1">
+                  <Label className="text-sm" htmlFor="child-email">
+                    {childName}&apos;s email address{" "}
+                    <span className="text-gray-400">
+                      (optional – to send account invite)
+                    </span>
+                  </Label>
+                  <Input
+                    id="child-email"
+                    onChange={(e) => setChildEmail(e.target.value)}
+                    placeholder="player@example.com"
+                    type="email"
+                    value={childEmail}
+                  />
+                </div>
+              )}
 
               {accessEnabled && (
                 <>
@@ -391,6 +443,35 @@ export function GrantChildAccessSection({
                     ) : null}
                     {isGranted ? "Update Access Settings" : "Grant Access"}
                   </Button>
+
+                  {/* Resend invite – only shown after access has been granted */}
+                  {isGranted && (
+                    <div className="space-y-2 border-t pt-3">
+                      <p className="text-gray-600 text-xs">
+                        Re-send the account setup email to a new address:
+                      </p>
+                      <div className="flex gap-2">
+                        <Input
+                          className="flex-1"
+                          onChange={(e) => setChildEmail(e.target.value)}
+                          placeholder="player@example.com"
+                          type="email"
+                          value={childEmail}
+                        />
+                        <Button
+                          disabled={isResending}
+                          onClick={handleResend}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {isResending ? (
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                          ) : null}
+                          Re-send
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 

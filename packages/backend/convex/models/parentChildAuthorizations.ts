@@ -13,6 +13,7 @@
  */
 
 import { v } from "convex/values";
+import { components, internal } from "../_generated/api";
 import {
   internalMutation,
   internalQuery,
@@ -196,6 +197,81 @@ export const getRestrictedNotes = query({
   },
 });
 
+/**
+ * Validate a child account setup token.
+ * Used by the /child-account-setup page to validate the URL token.
+ */
+export const getChildAccountSetupStatus = query({
+  args: {
+    token: v.string(),
+  },
+  returns: v.object({
+    valid: v.boolean(),
+    expired: v.boolean(),
+    used: v.boolean(),
+    playerName: v.optional(v.string()),
+    organizationName: v.optional(v.string()),
+    organizationId: v.optional(v.string()),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    email: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const claimToken = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+
+    if (!claimToken || claimToken.tokenType !== "child_account_setup") {
+      return { valid: false, expired: false, used: false };
+    }
+
+    if (claimToken.usedAt) {
+      return { valid: false, expired: false, used: true };
+    }
+
+    const now = Date.now();
+    if (claimToken.expiresAt < now) {
+      return { valid: false, expired: true, used: false };
+    }
+
+    const player = await ctx.db.get(claimToken.playerIdentityId);
+    if (!player) {
+      return { valid: false, expired: false, used: false };
+    }
+
+    // Get organization name from enrollment
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", claimToken.playerIdentityId)
+      )
+      .first();
+
+    let organizationName = "Unknown Organization";
+    if (enrollment) {
+      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "organization",
+        where: [
+          { field: "_id", value: enrollment.organizationId, operator: "eq" },
+        ],
+      });
+      organizationName =
+        (org as { name?: string } | null)?.name ?? "Unknown Organization";
+    }
+
+    return {
+      valid: true,
+      expired: false,
+      used: false,
+      playerName: `${player.firstName} ${player.lastName}`,
+      organizationName,
+      organizationId: enrollment?.organizationId,
+      playerIdentityId: claimToken.playerIdentityId,
+      email: claimToken.email,
+    };
+  },
+});
+
 // ============================================================
 // MUTATIONS
 // ============================================================
@@ -206,15 +282,22 @@ export const getRestrictedNotes = query({
  * - Updates the existing record if one exists (unified access level).
  * - Logs the change to parentChildAuthorizationLogs (WRITE-ONCE audit).
  * - Throws if child age < 13 (COPPA minimum).
+ * - On first grant with childEmail: creates a 7-day setup token and schedules invite email.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Grant flow handles new vs update, invite token creation, email scheduling, and audit logging
 export const grantChildAccess = mutation({
   args: {
     childPlayerId: v.id("orgPlayerEnrollments"),
     organizationId: v.string(),
     accessLevel: accessLevelValidator,
     toggles: granularTogglesValidator,
+    // Child's email — required on first grant to create invite token and send email
+    childEmail: v.optional(v.string()),
   },
-  returns: v.id("parentChildAuthorizations"),
+  returns: v.object({
+    authId: v.id("parentChildAuthorizations"),
+    isNewGrant: v.boolean(),
+  }),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
     if (!user) {
@@ -270,7 +353,7 @@ export const grantChildAccess = mutation({
         fromAccessLevel,
         toAccessLevel: args.accessLevel,
       });
-      return existing._id;
+      return { authId: existing._id, isNewGrant: false };
     }
 
     // Create new record
@@ -296,7 +379,67 @@ export const grantChildAccess = mutation({
       action: "granted",
       toAccessLevel: args.accessLevel,
     });
-    return authId;
+
+    // On new grant with child email: create setup token and schedule invite email
+    if (args.childEmail) {
+      const normalizedEmail = args.childEmail.toLowerCase().trim();
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+      // Invalidate any existing unused child_account_setup tokens for this player
+      const existingTokens = await ctx.db
+        .query("playerClaimTokens")
+        .withIndex("by_player", (q) =>
+          q.eq("playerIdentityId", enrollment.playerIdentityId)
+        )
+        .collect();
+      for (const t of existingTokens) {
+        if (!t.usedAt && t.tokenType === "child_account_setup") {
+          await ctx.db.patch(t._id, { usedAt: now });
+        }
+      }
+
+      const setupToken = crypto.randomUUID();
+      await ctx.db.insert("playerClaimTokens", {
+        playerIdentityId: enrollment.playerIdentityId,
+        token: setupToken,
+        email: normalizedEmail,
+        tokenType: "child_account_setup",
+        createdAt: now,
+        expiresAt: now + sevenDaysMs,
+      });
+
+      // Fetch org and parent names for the email
+      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+      });
+      const organizationName =
+        (org as { name?: string } | null)?.name ?? "Your Club";
+
+      const parentUser = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "user",
+          where: [{ field: "_id", value: userId, operator: "eq" }],
+        }
+      );
+      const parentName =
+        (parentUser as { name?: string } | null)?.name ?? "Your parent";
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.childAuthorizations.sendChildAccountInviteEmailAction,
+        {
+          email: normalizedEmail,
+          playerFirstName: playerIdentity.firstName,
+          parentName,
+          organizationName,
+          setupToken,
+        }
+      );
+    }
+
+    return { authId, isNewGrant: true };
   },
 });
 
@@ -435,6 +578,167 @@ export const setNoteChildRestriction = mutation({
       restrictChildView: args.restrictChildView,
     });
     return null;
+  },
+});
+
+/**
+ * Resend the child account setup invite email.
+ * Invalidates the previous setup token and creates a new 7-day token.
+ * Called from the parent portal "Re-send invite" button.
+ */
+export const resendChildAccountInvite = mutation({
+  args: {
+    childPlayerId: v.id("orgPlayerEnrollments"),
+    childEmail: v.string(),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+    const userId = user._id as string;
+    const now = Date.now();
+
+    // Verify caller has an authorization record for this child
+    const auth = await ctx.db
+      .query("parentChildAuthorizations")
+      .withIndex("by_child", (q) => q.eq("childPlayerId", args.childPlayerId))
+      .first();
+    if (!auth) {
+      throw new Error("No authorization found for this child");
+    }
+
+    const enrollment = await ctx.db.get(args.childPlayerId);
+    if (!enrollment) {
+      throw new Error("Player enrollment not found");
+    }
+    const playerIdentity = await ctx.db.get(enrollment.playerIdentityId);
+    if (!playerIdentity) {
+      throw new Error("Player identity not found");
+    }
+
+    const normalizedEmail = args.childEmail.toLowerCase().trim();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+    // Invalidate previous unused child_account_setup tokens
+    const existingTokens = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", enrollment.playerIdentityId)
+      )
+      .collect();
+    for (const t of existingTokens) {
+      if (!t.usedAt && t.tokenType === "child_account_setup") {
+        await ctx.db.patch(t._id, { usedAt: now });
+      }
+    }
+
+    const setupToken = crypto.randomUUID();
+    await ctx.db.insert("playerClaimTokens", {
+      playerIdentityId: enrollment.playerIdentityId,
+      token: setupToken,
+      email: normalizedEmail,
+      tokenType: "child_account_setup",
+      createdAt: now,
+      expiresAt: now + sevenDaysMs,
+    });
+
+    const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: auth.organizationId, operator: "eq" }],
+    });
+    const organizationName =
+      (org as { name?: string } | null)?.name ?? "Your Club";
+
+    const parentUser = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [{ field: "_id", value: userId, operator: "eq" }],
+      }
+    );
+    const parentName =
+      (parentUser as { name?: string } | null)?.name ?? "Your parent";
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.childAuthorizations.sendChildAccountInviteEmailAction,
+      {
+        email: normalizedEmail,
+        playerFirstName: playerIdentity.firstName,
+        parentName,
+        organizationName,
+        setupToken,
+      }
+    );
+
+    return { success: true };
+  },
+});
+
+/**
+ * Claim a child account using a valid child_account_setup token.
+ * Sets userId on the playerIdentity, marks the token as used.
+ * Called after the child signs up/signs in on the /child-account-setup page.
+ */
+export const claimChildAccount = mutation({
+  args: {
+    token: v.string(),
+    userId: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    organizationId: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    // Find and validate the token
+    const claimToken = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+
+    if (!claimToken || claimToken.tokenType !== "child_account_setup") {
+      return { success: false, error: "Invalid token" };
+    }
+    if (claimToken.usedAt) {
+      return { success: false, error: "Token already used" };
+    }
+    const now = Date.now();
+    if (claimToken.expiresAt < now) {
+      return { success: false, error: "Token expired" };
+    }
+
+    // Get the enrollment to find organizationId
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", claimToken.playerIdentityId)
+      )
+      .first();
+
+    // Link the player identity to the user account
+    await ctx.db.patch(claimToken.playerIdentityId, {
+      userId: args.userId,
+      email: claimToken.email,
+      updatedAt: now,
+    });
+
+    // Mark the token as used
+    await ctx.db.patch(claimToken._id, { usedAt: now });
+
+    return {
+      success: true,
+      playerIdentityId: claimToken.playerIdentityId,
+      organizationId: enrollment?.organizationId,
+    };
   },
 });
 

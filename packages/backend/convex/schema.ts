@@ -399,9 +399,16 @@ export default defineSchema({
     token: v.string(), // Secure random token
     email: v.string(), // Email the token was sent to
 
+    // Token type discriminator
+    // "graduation" = adult graduation flow (18+ account claim), 30 days validity
+    // "child_account_setup" = parent-granted child account setup, 7 days validity
+    tokenType: v.optional(
+      v.union(v.literal("graduation"), v.literal("child_account_setup"))
+    ),
+
     // Validity
     createdAt: v.number(),
-    expiresAt: v.number(), // 30 days validity
+    expiresAt: v.number(), // 30 days (graduation) or 7 days (child_account_setup)
 
     // Usage tracking
     usedAt: v.optional(v.number()), // Set when token is used

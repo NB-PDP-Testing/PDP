@@ -5607,7 +5607,7 @@ export default defineSchema({
     withdrawnAt: v.optional(v.number()),
   }).index("by_player_and_type", ["playerIdentityId", "consentType"]),
 
-  // Per-org wellness reminder and alert configuration (US-P4-009)
+  // Per-org wellness reminder and alert configuration (US-P4-009, extended US-P8-006)
   wellnessOrgConfig: defineTable({
     organizationId: v.string(),
     // Reminder settings
@@ -5625,6 +5625,12 @@ export default defineSchema({
     // Low-score alert settings
     lowScoreAlertsEnabled: v.boolean(),
     lowScoreThreshold: v.number(), // default 2.0
+    // WhatsApp/SMS dispatch settings (US-P8-006)
+    whatsappEnabled: v.optional(v.boolean()), // master toggle for WhatsApp/SMS dispatch
+    dispatchTime: v.optional(v.string()), // HH:MM 24h format, default "08:00"
+    dispatchTimezone: v.optional(v.string()), // IANA timezone, default "Europe/Dublin"
+    dispatchActiveDays: v.optional(v.array(v.string())), // ["Mon","Tue",...] empty=all
+    dispatchTargetTeamIds: v.optional(v.array(v.string())), // empty=all teams
     // Updated at
     updatedAt: v.number(),
     updatedBy: v.string(), // userId

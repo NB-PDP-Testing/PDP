@@ -911,6 +911,12 @@ export const getWellnessOrgConfig = query({
       lowScoreThreshold: v.number(),
       updatedAt: v.number(),
       updatedBy: v.string(),
+      // WhatsApp/SMS dispatch fields (US-P8-006)
+      whatsappEnabled: v.optional(v.boolean()),
+      dispatchTime: v.optional(v.string()),
+      dispatchTimezone: v.optional(v.string()),
+      dispatchActiveDays: v.optional(v.array(v.string())),
+      dispatchTargetTeamIds: v.optional(v.array(v.string())),
     }),
     v.null()
   ),
@@ -939,6 +945,12 @@ export const updateWellnessOrgConfig = mutation({
     ),
     lowScoreAlertsEnabled: v.boolean(),
     lowScoreThreshold: v.number(),
+    // WhatsApp/SMS dispatch fields (US-P8-006) — optional for backwards compatibility
+    whatsappEnabled: v.optional(v.boolean()),
+    dispatchTime: v.optional(v.string()),
+    dispatchTimezone: v.optional(v.string()),
+    dispatchActiveDays: v.optional(v.array(v.string())),
+    dispatchTargetTeamIds: v.optional(v.array(v.string())),
   },
   returns: v.id("wellnessOrgConfig"),
   handler: async (ctx, args) => {
@@ -955,6 +967,11 @@ export const updateWellnessOrgConfig = mutation({
       reminderType: args.reminderType,
       lowScoreAlertsEnabled: args.lowScoreAlertsEnabled,
       lowScoreThreshold: args.lowScoreThreshold,
+      whatsappEnabled: args.whatsappEnabled,
+      dispatchTime: args.dispatchTime,
+      dispatchTimezone: args.dispatchTimezone,
+      dispatchActiveDays: args.dispatchActiveDays,
+      dispatchTargetTeamIds: args.dispatchTargetTeamIds,
       updatedAt: now,
       updatedBy: args.updatedBy,
     };
@@ -963,6 +980,28 @@ export const updateWellnessOrgConfig = mutation({
       return existing._id;
     }
     return ctx.db.insert("wellnessOrgConfig", payload);
+  },
+});
+
+/**
+ * Get WhatsApp dispatch status — whether the Meta integration is configured.
+ * Returns true if META_FLOWS_WELLNESS_ID env var is set, plus channel counts.
+ */
+export const getWhatsappDispatchStatus = query({
+  args: { organizationId: v.string() },
+  returns: v.object({
+    metaFlowsConfigured: v.boolean(),
+    twilioConfigured: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+    const metaFlowsId = process.env.META_FLOWS_WELLNESS_ID;
+    const twilioFrom =
+      process.env.TWILIO_WHATSAPP_FROM ?? process.env.TWILIO_WHATSAPP_NUMBER;
+    return {
+      metaFlowsConfigured: Boolean(metaFlowsId),
+      twilioConfigured: Boolean(twilioFrom),
+    };
   },
 });
 

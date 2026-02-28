@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { GraduationSection } from "./components/graduation-section";
 import { GuardiansSection } from "./components/guardians-section";
@@ -71,6 +72,7 @@ export default function EditPlayerPage() {
   const orgId = params.orgId as string;
   const playerId = params.playerId as string;
 
+  const currentUser = useCurrentUser();
   const { data: session } = authClient.useSession();
   const [isSaving, setIsSaving] = useState(false);
   const [showSelfEditConfirm, setShowSelfEditConfirm] = useState(false);
@@ -167,9 +169,9 @@ export default function EditPlayerPage() {
 
   // Detect if the admin is editing their own player record
   const isSelfEdit = !!(
-    session?.user?.id &&
+    currentUser?._id &&
     playerIdentity?.userId &&
-    session.user.id === playerIdentity.userId
+    currentUser._id === playerIdentity.userId
   );
 
   const handleSave = async (confirmed = false) => {

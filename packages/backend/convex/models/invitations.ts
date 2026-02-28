@@ -1063,6 +1063,7 @@ export const notifyExistingUserOfInvitation = mutation({
       title: "You've been invited to an organization",
       message: `You've been invited to join ${orgName}. Click to accept.`,
       link: `/orgs/accept-invitation/${args.invitationId}`,
+      targetRole: "admin",
     });
 
     return { notified: true };

@@ -2,14 +2,15 @@
   "project": "Adult Player Lifecycle — Phase 6: Multi-Role UX",
   "branchName": "ralph/adult-player-phase6-multi-role",
   "description": "Enhances the experience for users who hold multiple roles simultaneously (player+coach, player+parent, player+admin). The role switcher already exists (org-role-switcher.tsx) — this phase extends it with: primary role setting (controls default dashboard on login), a persistent role context badge in the page header/sidebar, the ability to add the player role to an existing account, cross-role permission guard rails (server-enforced self-assessment block, confirmed-flag pattern for admin-own-record edits), role-scoped notification routing (targetRole field), and a deep link role-context prompt.",
-  "readinessLevel": "100% - Role switcher already built, primaryFunctionalRole field already exists on member schema. Phases 1–5 must be complete for the player role to be fully functional.",
+  "readinessLevel": "100% - Role switcher already built. NOTE: primaryFunctionalRole field does NOT yet exist in the schema — it must be added (see criticalContext). Phases 1–5 must be complete for the player role to be fully functional.",
   "contextAndDependencies": {
     "criticalContext": [
       "EXTEND the existing role switcher (org-role-switcher.tsx) — do NOT recreate it. The role switcher already handles switching between roles and routing to role dashboards.",
-      "primaryFunctionalRole field already exists on the member record — use it as-is. Read packages/backend/convex/models/members.ts or the schema to find it before writing any mutation.",
-      "activeFunctionalRole or similar field likely already exists for tracking the current session role — read the existing role switcher code to understand the current role state before building on top of it",
+      "primaryFunctionalRole field does NOT yet exist in the schema. ADD it to packages/backend/convex/betterAuth/schema.ts alongside activeFunctionalRole (around line 214). Field type: v.optional(v.union(v.literal('coach'), v.literal('parent'), v.literal('admin'), v.literal('player'))). Also add a setPrimaryFunctionalRole mutation in packages/backend/convex/models/members.ts following the pattern of switchActiveFunctionalRole (line ~3041). Do NOT confuse with activeFunctionalRole (current session role that changes on every switch) — primaryFunctionalRole is the persisted default for post-login redirect only.",
+      "activeFunctionalRole field EXISTS in the schema (packages/backend/convex/betterAuth/schema.ts ~line 214) and is used by the role switcher to track the current session role. Read org-role-switcher.tsx to understand the full role state management before building on top of it.",
+      "EXISTING BUG — fix when extending the role switcher: apps/web/src/components/org-role-switcher.tsx accesses membership?.pendingRoleRequests but the schema defines this field as pendingFunctionalRoleRequests. Fix this mismatch when extending the component — use the correct schema field name pendingFunctionalRoleRequests everywhere. Do NOT propagate the wrong field name.",
       "Phase 1 (player portal) MUST be complete — adding the player role only makes sense if the player portal exists",
-      "findMatchingYouthProfile query from Phase 3 is reused when a user registers themselves as a player — do NOT recreate it",
+      "The youth profile matching function from Phase 3 is reused when a user registers themselves as a player — do NOT recreate it. READ packages/backend/convex/models/playerMatching.ts fully to identify the correct exported function name. The function was implemented in Phase 3 but may not be exported as 'findMatchingYouthProfile' — find the actual function name before referencing it.",
       "The 'Add player role' flow creates a new playerIdentity + orgPlayerEnrollment with status pending, then waits for admin approval. Do NOT auto-approve.",
       "Admin pending player review UI must already exist from Phase 3 — this flow adds to that queue",
       "BetterAuth tables (user/member): use ctx.runQuery(components.betterAuth.adapter.*). Application tables: ctx.db.",
@@ -17,17 +18,18 @@
     ],
     "keyFiles": [
       "apps/web/src/components/org-role-switcher.tsx — READ FULLY before starting. This is the existing role switcher to extend.",
+      "packages/backend/convex/betterAuth/schema.ts — ADD primaryFunctionalRole field to the member schema (around line 214 where activeFunctionalRole is defined).",
       "apps/web/src/app/orgs/[orgId]/layout.tsx — where the role switcher likely lives in the layout. Read before modifying.",
-      "packages/backend/convex/models/members.ts or members-related files — find primaryFunctionalRole field and any existing mutation to update it",
+      "packages/backend/convex/models/members.ts — add setPrimaryFunctionalRole mutation following the pattern of switchActiveFunctionalRole (line ~3041). The primaryFunctionalRole field must first be added to the schema.",
       "apps/web/src/app/orgs/[orgId]/admin/players/ — existing admin player management UI where new player role requests appear",
-      "packages/backend/convex/models/playerImport.ts or playerMatching.ts — findMatchingYouthProfile query from Phase 3",
+      "packages/backend/convex/models/playerMatching.ts — READ FULLY to find the existing youth profile matching function (implemented in Phase 3). Do NOT assume it is exported as 'findMatchingYouthProfile' — find the actual exported name.",
       "packages/backend/convex/models/playerIdentities.ts or adultPlayers.ts — find how new playerIdentity records are created for existing users"
     ],
     "criticalPatterns": {
       "ExtendNotRebuild": "The role switcher already exists. Extend it. Do NOT create a new role management system.",
-      "PrimaryRoleField": "Read the existing member schema and mutations before writing any new mutation. primaryFunctionalRole may already have a setter — check first.",
+      "PrimaryRoleField": "primaryFunctionalRole does NOT yet exist in the schema and must be ADDED to packages/backend/convex/betterAuth/schema.ts. Follow the activeFunctionalRole field definition (~line 214) for the type, then add a setPrimaryFunctionalRole mutation in models/members.ts following the switchActiveFunctionalRole pattern (~line 3041).",
       "NoDuplicateAccounts": "Adding the player role to an existing account must NEVER create a new user account. It creates a playerIdentity linked to the existing userId.",
-      "SafeDefault": "If findMatchingYouthProfile returns a HIGH confidence match when user self-registers as player, the admin must review before linking — auto-link is not allowed.",
+      "SafeDefault": "If the youth profile matching function (found in playerMatching.ts) returns a HIGH confidence match when user self-registers as player, the admin must review before linking — auto-link is not allowed.",
       "ReturnValidators": "All new queries and mutations must include returns validator."
     }
   },
@@ -40,7 +42,7 @@
       "acceptanceCriteria": [
         "Find or create a 'My Roles' section in account/org settings accessible from any role context (likely in /orgs/[orgId]/settings/ or via profile menu)",
         "Section shows all functional roles the user holds (from their member record's functionalRoles array) with their associated dashboard paths",
-        "Each role row has a 'Set as primary' button. On click: calls mutation to update primaryFunctionalRole on the member record. READ the existing member schema — if a mutation already exists, use it; if not, add one to the appropriate models file.",
+        "Each role row has a 'Set as primary' button. On click: calls mutation to update primaryFunctionalRole on the member record. This field must be ADDED to the schema and a setPrimaryFunctionalRole mutation added to models/members.ts — see criticalContext for exact instructions.",
         "Current primary role shows a 'Primary' badge instead of the 'Set as primary' button",
         "On next login: org routing reads primaryFunctionalRole and redirects to that role's dashboard. If primaryFunctionalRole is null or the role is no longer held: fall back to existing default behaviour.",
         "Changing the primary role does NOT log the user out or redirect them mid-session — takes effect on next login",
@@ -48,7 +50,7 @@
       ],
       "priority": 1,
       "passes": false,
-      "notes": "Read org-role-switcher.tsx and the layout files FULLY before implementing. Read the member schema to find primaryFunctionalRole — it already exists. Find where login redirects are handled to update the post-login routing."
+      "notes": "Read org-role-switcher.tsx and the layout files FULLY before implementing. primaryFunctionalRole does NOT yet exist — add the schema field and mutation before implementing this story (betterAuth/schema.ts + models/members.ts). Find where login redirects are handled to update the post-login routing."
     },
     {
       "id": "US-P6-002",
@@ -79,7 +81,7 @@
         "In the 'My Roles' settings section (US-P6-001): add an 'Add a role' expandable section below the role list",
         "Show 'Register as a player' option (only if the user does NOT already hold the 'player' functional role)",
         "On click: open a form with DOB field (required, date picker) and optional team selection dropdown (fetches org teams)",
-        "On submit: backend calls findMatchingYouthProfile(user.name, DOB) to check for existing youth records",
+        "On submit: backend calls the youth profile matching function from packages/backend/convex/models/playerMatching.ts (READ that file to find the correct exported function name — implemented in Phase 3) passing the user's name and DOB to check for existing youth records",
         "If HIGH confidence youth match found: show message 'A youth profile may match your record. An admin will review and link your history.' — create a pending playerIdentity request with the matchedPlayerIdentityId stored. Do NOT auto-link.",
         "If no match: create new playerIdentity + orgPlayerEnrollment with status 'pending'. Admin must approve in existing pending players UI.",
         "After submission: show 'Your player registration is with the admin for review. You'll be notified when approved.' — user cannot access player portal until approved.",
@@ -90,7 +92,7 @@
       ],
       "priority": 3,
       "passes": false,
-      "notes": "findMatchingYouthProfile is from Phase 3 — import and reuse it. The pending players admin UI already exists from Phase 3 — this adds to that queue, not a new UI. Read the existing pending players UI before implementing the admin notification/approval path."
+      "notes": "The youth profile matching function is from Phase 3 — find its actual exported name in packages/backend/convex/models/playerMatching.ts and reuse it. The pending players admin UI already exists from Phase 3 — this adds to that queue, not a new UI. Read the existing pending players UI before implementing the admin notification/approval path."
     },
     {
       "id": "US-P6-004",
@@ -101,7 +103,7 @@
         "COACH who is also a PLAYER (viewing own player profile via coach interface):",
         "When a coach navigates to their own player profile from the team roster, show an enhanced read-only view of their own data (assessments, goals, passport)",
         "Self-assessment is disabled in the UI: assessment submit buttons, rating inputs, and coach feedback forms are greyed out with tooltip 'You cannot assess yourself'",
-        "BACKEND GUARD REQUIRED — not UI-only: the assessment submission mutation must validate that the assessor's userId does not match the assessed playerIdentity's linked userId. If they match, throw a validation error ('A coach cannot submit an assessment for their own player record'). Read how assessments are stored before implementing — find the mutation and add the userId comparison check. This guard fires regardless of which role the user is currently acting in.",
+        "BACKEND GUARD REQUIRED — not UI-only: the assessment submission mutation must validate that the assessor's userId does not match the assessed playerIdentity's userId field (the field is named userId on the playerIdentities table — confirmed in schema). If they match, throw a validation error ('A coach cannot submit an assessment for their own player record'). Read how assessments are stored before implementing — find the mutation and add the userId comparison check. This guard fires regardless of which role the user is currently acting in.",
         "The 'Add voice note' and 'Create coach parent summary' actions are disabled for the coach's own player record",
         "PARENT who is also a PLAYER:",
         "Parent portal and player portal are entirely separate role contexts navigated via the role switcher",
@@ -109,12 +111,12 @@
         "ADMIN who is also a PLAYER on a team they manage:",
         "Admin can add themselves to a team lineup from the admin interface (no restriction)",
         "Any admin action that directly modifies their own player record (e.g. editing their enrollment, changing their status) must show a confirmation dialog: 'You are about to make admin changes to your own player record. Continue?' — admin can still proceed after confirming",
-        "BACKEND GUARD FOR ADMIN-OWN-RECORD: the mutations that update playerEnrollment status, edit enrollment details, or change a player's team must accept a required boolean arg: confirmed: v.boolean(). If the target playerIdentity has a linkedUserId matching the admin's userId AND confirmed is false, the mutation throws ('Self-modification requires explicit confirmation'). The UI dialog sets confirmed=true before calling the mutation. This prevents any path (direct API call, future UI change) from bypassing the confirmation. Read the existing enrollment update mutations before implementing — find and extend them.",
+        "BACKEND GUARD FOR ADMIN-OWN-RECORD: the mutations that update playerEnrollment status, edit enrollment details, or change a player's team must accept a required boolean arg: confirmed: v.boolean(). If the target playerIdentity's userId field (on the playerIdentities table) matches the admin's userId AND confirmed is false, the mutation throws ('Self-modification requires explicit confirmation'). The UI dialog sets confirmed=true before calling the mutation. This prevents any path (direct API call, future UI change) from bypassing the confirmation. Read the existing enrollment update mutations before implementing — find and extend them.",
         "npm run check-types passes"
       ],
       "priority": 4,
       "passes": false,
-      "notes": "These are guard rails, not major features. For the coach self-assessment guard: (1) find where assessment actions are rendered in the coach player view and add a conditional disable based on whether the playerIdentity belongs to the current user — UI-level first signal; (2) ALSO find the assessment submission mutation and add a server-side check: if assessor.userId === assessedPlayer.linkedUserId, throw validation error. The backend guard is mandatory — UI alone is insufficient. The admin confirmation dialog pattern: find existing confirmation dialogs in the codebase and follow the same pattern."
+      "notes": "These are guard rails, not major features. For the coach self-assessment guard: (1) find where assessment actions are rendered in the coach player view and add a conditional disable based on whether the playerIdentity belongs to the current user — UI-level first signal; (2) ALSO find the assessment submission mutation and add a server-side check: if assessor.userId === assessedPlayer.userId (the userId field on playerIdentities, confirmed in schema ~line 260), throw validation error. The backend guard is mandatory — UI alone is insufficient. The admin confirmation dialog pattern: find existing confirmation dialogs in the codebase and follow the same pattern."
     },
     {
       "id": "US-P6-005",
@@ -170,7 +172,7 @@
         "Test: submitting player registration creates a pending playerIdentity record",
         "Test: coach cannot submit self-assessment on their own player profile (actions disabled in UI)",
         "Test: direct API call to assessment submission mutation with assessor userId === assessed player userId returns a validation error (backend guard fires independent of UI)",
-        "Test: direct API call to enrollment update mutation with confirmed=false and admin userId === player's linkedUserId returns a validation error",
+        "Test: direct API call to enrollment update mutation with confirmed=false and admin userId === player's userId (on playerIdentities) returns a validation error",
         "Test: as coach+player acting as player, notification bell does NOT show coach injury notifications (role-scoped filter working)",
         "Test: as coach+player acting as coach, notification bell DOES show coach injury notifications",
         "Test: navigating to /orgs/[orgId]/coach/ while activeFunctionalRole is 'player' (and user holds coach role) shows the role-switch prompt dialog",

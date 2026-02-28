@@ -301,6 +301,7 @@ function LegacyNavigation({
     { href: `/orgs/${orgId}/admin/announcements`, label: "Announcements" },
     { href: `/orgs/${orgId}/admin/messaging`, label: "Messaging" },
     { href: `/orgs/${orgId}/admin/player-access`, label: "Player Access" },
+    { href: `/orgs/${orgId}/admin/player-requests`, label: "Player Requests" },
     { href: `/orgs/${orgId}/admin/settings`, label: "Settings" },
     { href: `/orgs/${orgId}/admin/settings/onboarding`, label: "Onboarding" },
     { href: `/orgs/${orgId}/admin/dev-tools`, label: "Dev Tools" },

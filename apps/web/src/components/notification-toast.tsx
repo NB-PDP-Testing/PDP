@@ -19,6 +19,7 @@ type NotificationType =
   | "age_transition_claimed"
   | "age_transition_30_days"
   | "age_transition_7_days"
+  | "child_data_erasure"
   | "wellness_access_request"
   | "wellness_reminder"
   | "player_role_approved";

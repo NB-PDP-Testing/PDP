@@ -29,6 +29,8 @@ const notificationTypeValidator = v.union(
   // Phase 7: Pre-birthday advance notifications
   v.literal("age_transition_30_days"), // 30-day pre-birthday notice to parent & child
   v.literal("age_transition_7_days"), // 7-day pre-birthday notice to parent & child
+  // Phase 7: Child data erasure (GDPR Recital 65)
+  v.literal("child_data_erasure"), // Admin notified of erasure request; child notified of decision
   // Wellness access notifications (Phase 4)
   v.literal("wellness_access_request"), // Player notified a coach requested access
   v.literal("wellness_reminder"), // Daily wellness check-in reminder (US-P4-009)

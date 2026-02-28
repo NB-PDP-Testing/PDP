@@ -3957,6 +3957,8 @@ export default defineSchema({
       // Phase 7: Pre-birthday advance notifications
       v.literal("age_transition_30_days"), // 30-day pre-birthday notice to parent & child
       v.literal("age_transition_7_days"), // 7-day pre-birthday notice to parent & child
+      // Phase 7: Child data erasure (GDPR Recital 65)
+      v.literal("child_data_erasure"), // Admin notified of erasure request; child notified of decision
       // Wellness notifications (Phase 4)
       v.literal("wellness_access_request"), // Player notified a coach requested access
       v.literal("wellness_reminder"), // Daily wellness check-in reminder (US-P4-009)
@@ -5680,4 +5682,37 @@ export default defineSchema({
     .index("by_authorization", ["authorizationId"])
     .index("by_child", ["childPlayerId"])
     .index("by_changed_at", ["changedAt"]),
+
+  // ============================================================
+  // PHASE 7: CHILD DATA ERASURE REQUESTS (GDPR Recital 65)
+  // Child's independent right to data deletion without parental approval.
+  // Admin reviews before executing hard deletion.
+  // ============================================================
+
+  childDataErasureRequests: defineTable({
+    childPlayerId: v.id("orgPlayerEnrollments"), // The child's enrollment record
+    playerIdentityId: v.id("playerIdentities"), // Denormalised for deletion
+    requestingUserId: v.string(), // Better Auth user ID of child
+    organizationId: v.string(), // Better Auth organization ID
+    requestedAt: v.number(),
+
+    // Status workflow
+    status: v.union(
+      v.literal("pending"), // Awaiting admin review
+      v.literal("completed"), // Data deleted
+      v.literal("declined") // Admin declined with explanation
+    ),
+
+    // If declined
+    declinedAt: v.optional(v.number()),
+    declinedBy: v.optional(v.string()), // Admin user ID
+    declinedReason: v.optional(v.string()),
+
+    // If completed
+    processedAt: v.optional(v.number()),
+    processedBy: v.optional(v.string()), // Admin user ID
+  })
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_child", ["childPlayerId"])
+    .index("by_requesting_user", ["requestingUserId"]),
 });

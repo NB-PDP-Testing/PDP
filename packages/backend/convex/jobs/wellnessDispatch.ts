@@ -509,6 +509,16 @@ async function sendBatch(
         `[WellnessDispatch] Flows failed for player ${player.playerIdentityId}, falling back to SMS. Error: ${result.error}`
       );
 
+      // Log the fallback event for admin monitoring
+      await ctx.runMutation(internal.models.whatsappWellness.logDispatchEvent, {
+        organizationId,
+        logDate: dispatchDate,
+        playerIdentityId: player.playerIdentityId,
+        channel: "whatsapp_flows",
+        eventType: "fallback",
+        error: result.error,
+      });
+
       const fallbackPlayer: WellnessDispatchPlayer = {
         ...dispatchPlayer,
         wellnessChannel: "sms_conversational",
@@ -538,6 +548,19 @@ async function sendBatch(
       console.error(
         `[WellnessDispatch] Failed to send to player ${player.playerIdentityId} via any channel. Error: ${result.error}`
       );
+      // Log the failure for admin monitoring
+      const failedChannel =
+        player.wellnessChannel === "whatsapp_flows"
+          ? "whatsapp_flows"
+          : "sms_conversational";
+      await ctx.runMutation(internal.models.whatsappWellness.logDispatchEvent, {
+        organizationId,
+        logDate: dispatchDate,
+        playerIdentityId: player.playerIdentityId,
+        channel: failedChannel,
+        eventType: "failed",
+        error: result.error,
+      });
     }
   }
 

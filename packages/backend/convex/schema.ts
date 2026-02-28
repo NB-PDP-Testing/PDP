@@ -5750,6 +5750,27 @@ export default defineSchema({
   // NOT used for WhatsApp Flows channel (stateless on our side).
   // ============================================================
 
+  // Dispatch event log for error tracking and admin monitoring (US-P8-009)
+  wellnessDispatchLog: defineTable({
+    organizationId: v.string(),
+    logDate: v.string(), // YYYY-MM-DD
+    playerIdentityId: v.id("playerIdentities"),
+    channel: v.union(
+      v.literal("whatsapp_flows"),
+      v.literal("sms_conversational"),
+      v.literal("sms")
+    ),
+    eventType: v.union(
+      v.literal("sent"),
+      v.literal("failed"),
+      v.literal("fallback")
+    ),
+    error: v.optional(v.string()),
+    timestamp: v.number(),
+  })
+    .index("by_org_and_date", ["organizationId", "logDate"])
+    .index("by_player_and_date", ["playerIdentityId", "logDate"]),
+
   whatsappWellnessSessions: defineTable({
     playerIdentityId: v.id("playerIdentities"),
     organizationId: v.string(),
@@ -5773,5 +5794,6 @@ export default defineSchema({
     invalidReplyCount: v.number(), // abandon after 3 invalid replies
   })
     .index("by_phone_and_date", ["phoneNumber", "sessionDate"])
-    .index("by_player_and_date", ["playerIdentityId", "sessionDate"]),
+    .index("by_player_and_date", ["playerIdentityId", "sessionDate"])
+    .index("by_org_and_date", ["organizationId", "sessionDate"]),
 });

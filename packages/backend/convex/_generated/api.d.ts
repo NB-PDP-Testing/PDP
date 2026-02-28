@@ -44,6 +44,7 @@ import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as jobs_graduations from "../jobs/graduations.js";
 import type * as jobs_invitations from "../jobs/invitations.js";
+import type * as jobs_wellnessDispatch from "../jobs/wellnessDispatch.js";
 import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
 import type * as lib_auditCoachAssignments from "../lib/auditCoachAssignments.js";
@@ -293,6 +294,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "jobs/graduations": typeof jobs_graduations;
   "jobs/invitations": typeof jobs_invitations;
+  "jobs/wellnessDispatch": typeof jobs_wellnessDispatch;
   "lib/ageGroupUtils": typeof lib_ageGroupUtils;
   "lib/analytics": typeof lib_analytics;
   "lib/auditCoachAssignments": typeof lib_auditCoachAssignments;

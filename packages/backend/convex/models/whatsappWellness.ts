@@ -779,6 +779,273 @@ export const getOptedInPlayers = internalQuery({
   },
 });
 
+// ============================================================
+// DISPATCH EVENT LOGGING — US-P8-009
+// ============================================================
+
+/**
+ * Log a dispatch event (sent / failed / fallback) for admin monitoring.
+ */
+export const logDispatchEvent = internalMutation({
+  args: {
+    organizationId: v.string(),
+    logDate: v.string(),
+    playerIdentityId: v.id("playerIdentities"),
+    channel: v.union(
+      v.literal("whatsapp_flows"),
+      v.literal("sms_conversational"),
+      v.literal("sms")
+    ),
+    eventType: v.union(
+      v.literal("sent"),
+      v.literal("failed"),
+      v.literal("fallback")
+    ),
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.insert("wellnessDispatchLog", {
+      organizationId: args.organizationId,
+      logDate: args.logDate,
+      playerIdentityId: args.playerIdentityId,
+      channel: args.channel,
+      eventType: args.eventType,
+      error: args.error,
+      timestamp: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
+ * Get dispatch errors and fallbacks for admin monitoring.
+ * Returns last 7 days of failed and fallback events.
+ */
+export const getDispatchErrors = query({
+  args: {
+    organizationId: v.string(),
+    days: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("wellnessDispatchLog"),
+      logDate: v.string(),
+      playerIdentityId: v.id("playerIdentities"),
+      channel: v.union(
+        v.literal("whatsapp_flows"),
+        v.literal("sms_conversational"),
+        v.literal("sms")
+      ),
+      eventType: v.union(
+        v.literal("sent"),
+        v.literal("failed"),
+        v.literal("fallback")
+      ),
+      error: v.optional(v.string()),
+      timestamp: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    const daysBack = args.days ?? 7;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - daysBack);
+    const cutoffDate = cutoff.toISOString().split("T")[0];
+
+    const logs = await ctx.db
+      .query("wellnessDispatchLog")
+      .withIndex("by_org_and_date", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    return logs
+      .filter(
+        (l) =>
+          l.logDate >= cutoffDate &&
+          (l.eventType === "failed" || l.eventType === "fallback")
+      )
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 100)
+      .map((l) => ({
+        _id: l._id,
+        logDate: l.logDate,
+        playerIdentityId: l.playerIdentityId,
+        channel: l.channel,
+        eventType: l.eventType,
+        error: l.error,
+        timestamp: l.timestamp,
+      }));
+  },
+});
+
+/**
+ * Get 30-day channel breakdown for admin monitoring dashboard.
+ * Returns daily counts by source from dailyPlayerHealthChecks.
+ */
+export const get30DayChannelBreakdown = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      date: v.string(),
+      app: v.number(),
+      whatsapp_flows: v.number(),
+      whatsapp_conversational: v.number(),
+      sms: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    const cutoffDate = cutoff.toISOString().split("T")[0];
+
+    const filtered = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_org_and_date", (q) =>
+        q.eq("organizationId", args.organizationId).gte("checkDate", cutoffDate)
+      )
+      .collect();
+
+    // Build date → counts map
+    const byDate = new Map<
+      string,
+      {
+        app: number;
+        whatsapp_flows: number;
+        whatsapp_conversational: number;
+        sms: number;
+      }
+    >();
+
+    for (const r of filtered) {
+      const existing = byDate.get(r.checkDate) ?? {
+        app: 0,
+        whatsapp_flows: 0,
+        whatsapp_conversational: 0,
+        sms: 0,
+      };
+      const src = r.source ?? "app";
+      if (src === "whatsapp_flows") {
+        existing.whatsapp_flows += 1;
+      } else if (src === "whatsapp_conversational") {
+        existing.whatsapp_conversational += 1;
+      } else if (src === "sms") {
+        existing.sms += 1;
+      } else {
+        existing.app += 1;
+      }
+      byDate.set(r.checkDate, existing);
+    }
+
+    // Build full 30-day range (oldest first)
+    const result: Array<{
+      date: string;
+      app: number;
+      whatsapp_flows: number;
+      whatsapp_conversational: number;
+      sms: number;
+    }> = [];
+    for (let i = 29; i >= 0; i -= 1) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const counts = byDate.get(dateStr) ?? {
+        app: 0,
+        whatsapp_flows: 0,
+        whatsapp_conversational: 0,
+        sms: 0,
+      };
+      result.push({ date: dateStr, ...counts });
+    }
+
+    return result;
+  },
+});
+
+/**
+ * Get today's dispatch summary for admin monitoring.
+ * Returns counts of sent/completed per channel and skipped (app check-in).
+ */
+export const getTodayDispatchSummary = query({
+  args: {
+    organizationId: v.string(),
+    today: v.string(), // YYYY-MM-DD
+  },
+  returns: v.object({
+    flowsSent: v.number(),
+    flowsCompleted: v.number(),
+    smsSent: v.number(),
+    smsCompleted: v.number(),
+    skippedAppCheckin: v.number(),
+    totalOptedIn: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    // Opted-in settings
+    const allSettings = await ctx.db
+      .query("playerWellnessSettings")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+
+    const optedIn = allSettings.filter(
+      (s) => s.whatsappOptIn === true && s.wellnessChannel
+    );
+
+    const flowsSent = optedIn.filter(
+      (s) =>
+        s.wellnessChannel === "whatsapp_flows" &&
+        s.lastFlowSentDate === args.today
+    ).length;
+
+    // Today's health checks
+    const todayFiltered = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_org_and_date", (q) =>
+        q.eq("organizationId", args.organizationId).eq("checkDate", args.today)
+      )
+      .collect();
+
+    const flowsCompleted = todayFiltered.filter(
+      (c) => c.source === "whatsapp_flows"
+    ).length;
+
+    // SMS sessions today
+    const smsSessions = await ctx.db
+      .query("whatsappWellnessSessions")
+      .withIndex("by_org_and_date", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("sessionDate", args.today)
+      )
+      .collect();
+
+    const smsSent = smsSessions.length;
+    const smsCompleted = todayFiltered.filter(
+      (c) => c.source === "whatsapp_conversational" || c.source === "sms"
+    ).length;
+
+    const skippedAppCheckin = todayFiltered.filter(
+      (c) => !c.source || c.source === "app"
+    ).length;
+
+    return {
+      flowsSent,
+      flowsCompleted,
+      smsSent,
+      smsCompleted,
+      skippedAppCheckin,
+      totalOptedIn: optedIn.length,
+    };
+  },
+});
+
 /**
  * Update the lastFlowSentDate for a player's wellness settings.
  * Called after successfully dispatching a WhatsApp Flows message.

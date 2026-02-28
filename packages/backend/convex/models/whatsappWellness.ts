@@ -751,21 +751,22 @@ export const getOptedInPlayers = internalQuery({
         v.union(v.literal("whatsapp_flows"), v.literal("sms_conversational"))
       ),
       whatsappNumber: v.optional(v.string()),
+      lastFlowSentDate: v.optional(v.string()),
     })
   ),
   handler: async (ctx, args) => {
     const settings = await ctx.db
       .query("playerWellnessSettings")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("organizationId"), args.organizationId),
-          q.eq(q.field("whatsappOptIn"), true)
-        )
-      )
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
       .collect();
 
     return settings
-      .filter((s) => s.wellnessChannel !== undefined && s.whatsappNumber)
+      .filter(
+        (s) =>
+          s.whatsappOptIn === true &&
+          s.wellnessChannel !== undefined &&
+          s.whatsappNumber
+      )
       .map((s) => ({
         _id: s._id,
         playerIdentityId: s.playerIdentityId,
@@ -773,6 +774,26 @@ export const getOptedInPlayers = internalQuery({
         enabledDimensions: s.enabledDimensions,
         wellnessChannel: s.wellnessChannel,
         whatsappNumber: s.whatsappNumber,
+        lastFlowSentDate: s.lastFlowSentDate,
       }));
+  },
+});
+
+/**
+ * Update the lastFlowSentDate for a player's wellness settings.
+ * Called after successfully dispatching a WhatsApp Flows message.
+ * Used by the cron to prevent double-sending on the same day.
+ */
+export const updateFlowSentDate = internalMutation({
+  args: {
+    settingsId: v.id("playerWellnessSettings"),
+    sentDate: v.string(), // YYYY-MM-DD
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.settingsId, {
+      lastFlowSentDate: args.sentDate,
+    });
+    return null;
   },
 });

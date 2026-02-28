@@ -5574,8 +5574,12 @@ export default defineSchema({
     whatsappNumber: v.optional(v.string()), // E.164 format
     whatsappOptIn: v.optional(v.boolean()),
     whatsappOptedInAt: v.optional(v.number()),
+    // Phase 8.7: Tracks last date a WhatsApp Flow message was dispatched (YYYY-MM-DD)
+    // Used by the dispatch cron to prevent double-sending on the same day
+    lastFlowSentDate: v.optional(v.string()),
   })
     .index("by_player", ["playerIdentityId"])
+    .index("by_org", ["organizationId"])
     .index("by_whatsapp_number", ["whatsappNumber"]),
 
   // Coach access requests for player wellness data

@@ -280,4 +280,12 @@ crons.daily(
   {}
 );
 
+// Phase 8 WhatsApp/SMS Wellness Dispatch: Check every 15 minutes for org dispatch windows (US-P8-007)
+crons.interval(
+  "check-wellness-dispatch",
+  { minutes: 15 },
+  internal.jobs.wellnessDispatch.checkWellnessDispatch,
+  {}
+);
+
 export default crons;

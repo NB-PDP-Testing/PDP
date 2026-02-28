@@ -85,8 +85,8 @@
         "npm run check-types passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "US-P7-001 (backend) must be complete first. Find the parent portal individual child view — it likely already exists. Read the parent portal structure before implementing. The invite email is sent only on the first grant (when no account exists yet)."
+      "passes": true,
+      "notes": "GrantChildAccessSection component added to ChildCard in parent portal. Uses getChildAuthorization query to load existing state, grantChildAccess/revokeChildAccess mutations. Email invite deferred to US-P7-003 (sendChildAccountInviteEmail not yet implemented). Commit: 27b677d2"
     },
     {
       "id": "US-P7-003",

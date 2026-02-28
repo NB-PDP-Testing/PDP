@@ -77,9 +77,56 @@ Started: Sat 28 Feb 2026 00:59:03 GMT
 - Lint check on entire codebase shows 243 errors + 1864 warnings (all pre-existing) — check only modified files with `npx @biomejs/biome check <files>`
 
 **What to do next** (US-P7-002):
-- [ ] Find the parent portal individual child view page
-- [ ] Add 'Grant Player Access' section with access level selector + granular toggles
-- [ ] Wire up grantChildAccess/revokeChildAccess mutations
-- [ ] The invite email (US-P7-003) is triggered on first grant — coordinate with email.ts
+- [x] Find the parent portal individual child view page — it's the ChildCard component in `/parents/children/` page
+- [x] Add 'Grant Player Access' section with access level selector + granular toggles
+- [x] Wire up grantChildAccess/revokeChildAccess mutations
+- [ ] The invite email (US-P7-003) is triggered on first grant — coordinate with email.ts (deferred to US-P7-003)
+
+---
+
+## 2026-02-28 - US-P7-002 - Parent Grants Child Platform Access
+**Iteration**: 2
+**Commit**: 27b677d2ba636e51b8836eadf82eab945b7ba008
+**Status**: Complete (email invite deferred to US-P7-003)
+
+### What was implemented
+- Created `GrantChildAccessSection` component at `apps/web/src/app/orgs/[orgId]/parents/components/grant-child-access-section.tsx`
+  - Under-13 age block with COPPA message
+  - Enable/disable toggle for account access
+  - Access level selector (View Only vs View+Interact with age recommendations)
+  - Granular content toggles (assessments, goals, feedback, voice notes, wellness)
+  - Preview section showing what the child will see
+  - Save/Update calling grantChildAccess mutation
+  - Revoke button with confirmation dialog calling revokeChildAccess
+- Updated `ChildCard` to add `_id?: Id<"orgPlayerEnrollments">` to enrollment type
+- Rendered `GrantChildAccessSection` inside ChildCard for under-18 children
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/components/grant-child-access-section.tsx (+461, new file)
+- apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx (+20, -2)
+
+### Quality checks
+- ✅ `npm run check-types` — passed
+- ✅ Biome pre-commit hook — passed (warnings only, no errors)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- The parent portal individual child view is the `ChildCard` component (not a dedicated route) — it's rendered in a grid on `/parents/children/`
+- ChildCard's `enrollment` type is a manual subset — if you need a new field from enrollment records, add it to the `enrollment?: {...}` type in the ChildCard props
+- The `enrollment._id` is the `orgPlayerEnrollments` document ID needed for grantChildAccess
+- Complex UI components get `noExcessiveCognitiveComplexity` warning — add biome-ignore comment (see email.ts for pattern)
+- `initialized` state pattern is used to hydrate local state from server query once on load (don't use useEffect in Server Components)
+
+**Gotchas encountered:**
+- Biome linter removes unused imports between edits — always add import and its usage in one shot, or add import directly before the usage line
+- The invite email (sendChildAccountInviteEmail) is NOT yet implemented — that's US-P7-003. For US-P7-002, the UI grant flow is complete but email sending needs US-P7-003 to add the email function
+
+**What to do next** (US-P7-003):
+- [ ] Read /claim-account page pattern for token-based auth flow
+- [ ] Add sendChildAccountInviteEmail() to packages/backend/convex/utils/email.ts
+- [ ] Create /child-account-setup/page.tsx (public route)
+- [ ] Create playerClaimTokens entry with type='child_account_setup' on grant
+- [ ] Add child_account_setup task to onboarding orchestrator
+- [ ] Trigger email from grantChildAccess when isNewGrant (first time only)
 
 ---

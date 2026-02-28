@@ -40,10 +40,32 @@ Ralph may implement pages at a different URL path than specified. E.g.:
 
 Ralph frequently leaves `implicit any` errors on `.map()` and `.filter()` callback parameters. These don't cause runtime errors but violate the PRD's `npm run check-types` requirement.
 
+## Convex .filter() After .withIndex() — Recurring Violation
+
+Ralph occasionally chains `.filter()` after `.withIndex()` when a separate, more specific index exists.
+Always verify: if the query uses `.withIndex("by_X",...).filter(q => q.eq(q.field("userId"), ...))`,
+check the schema for a `by_userId` index that would eliminate the need for .filter() entirely.
+This pattern appeared in Phase 7's `requestDataErasure` mutation.
+
+## session?.user?.id vs user._id
+
+In the **frontend** (Better Auth client), `session?.user?.id` is the correct property — this is not
+a bug. The `user._id` rule applies only to **backend Convex functions** where the Better Auth adapter
+returns `_id`. Frontend pages throughout the project correctly use `session?.user?.id`.
+
+## Phase 7 Child Authorization — Architecture Notes
+
+- `parentChildAuthorizations` table: ONE record per child (not per parent). Unified access level.
+- All changes logged to `parentChildAuthorizationLogs` (write-once). Never update/delete log entries.
+- `restrictChildView` field is on `coachParentSummaries` table (not voiceNotes).
+- `playerClaimTokens` reused for child account setup tokens with `tokenType: "child_account_setup"` discriminator.
+- `use-child-access.ts` hook is the shared gating utility — check it's imported on every player portal page.
+- DOB under-13 block is enforced at backend `grantChildAccess` mutation level, NOT at child account setup page.
+
 ## Project-Specific Notes
 
 - Platform auth: `/platform/layout.tsx` enforces `isPlatformStaff` — individual pages don't need to check it
-- `user._id` not `user.id` for Better Auth user IDs
+- `user._id` not `user.id` for Better Auth user IDs **in backend Convex functions**
 - All queries should use `.withIndex()` not `.filter()`
 - Recharts is installed (`recharts: ^2.15.4`) — Ralph uses it for charts
 - Backend: `packages/backend/convex/models/` for queries/mutations, `packages/backend/convex/actions/` for actions

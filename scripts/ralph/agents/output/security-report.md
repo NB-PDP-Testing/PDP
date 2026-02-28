@@ -1,4 +1,4 @@
-# Security Report - 2026-02-26 01:28:32
+# Security Report - 2026-02-28 09:02:01
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -6,15 +6,16 @@
 ## Issues Found
 - 🚨 **CRITICAL**: Hardcoded secrets detected
 ```
+apps/web/src/app/child-account-setup/page.tsx:  const [password, setPassword] = useState("");
 apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
 apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
 apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
 apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
-apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
 ```
-- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+- ⚠️ **HIGH**: 9 high-severity dependency vulnerabilities
   Run `npm audit fix` to resolve
 - ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/parentChildAuthorizations.ts
   - packages/backend/convex/models/platformMessagingSettings.ts
   - packages/backend/convex/models/syncQueue.ts
   - packages/backend/convex/models/importSessions.ts
@@ -25,6 +26,7 @@ apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHR
   - packages/backend/convex/models/teamCollaboration.ts
   - packages/backend/convex/models/guardianIdentities.ts
   - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/childDataErasureRequests.ts
   - packages/backend/convex/models/adultPlayers.ts
   - packages/backend/convex/models/demoAsks.ts
   - packages/backend/convex/models/skillBenchmarks.ts

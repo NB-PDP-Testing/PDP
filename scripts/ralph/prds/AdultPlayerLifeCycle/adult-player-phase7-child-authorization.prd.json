@@ -191,8 +191,8 @@
         "npm run check-types passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "Read the full graduation cron before touching it. The Phase 2 graduation cron fires the 'pending' status on the 18th birthday — add the 30-day and 7-day checks as additional conditions in the same cron. Use the existing notification sending pattern from Phase 2."
+      "passes": true,
+      "notes": "detectPreBirthdayNotifications added to jobs/graduations.ts. New cron at 6:15 AM UTC. DOB window ±12 hours around target date. Dedup: 25-day window for 30-day notice, 5-day for 7-day. Sends to guardians (targetRole: parent) and to child userId if they have an account (targetRole: player). Added age_transition_30_days/7_days to schema, notifications.ts, and frontend NotificationType unions in notification-toast.tsx and notification-bell.tsx."
     },
     {
       "id": "US-P7-008",
@@ -213,7 +213,9 @@
         "npm run check-types passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
+      "completedAt": "2026-02-28",
+      "commitHash": "0919b61c",
       "notes": "GDPR Recital 65 gives children the right to request erasure independently once they are competent to understand the request. 'Competence' is not age-gated — a 14-year-old can exercise this right. The admin review step is appropriate (clubs have a legitimate interest defence for statistical data) but the child should not be made to involve their parent to initiate the request. Read existing admin request/notification patterns before implementing the request record."
     },
     {

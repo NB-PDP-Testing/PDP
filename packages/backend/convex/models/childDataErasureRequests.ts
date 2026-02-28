@@ -142,11 +142,14 @@ export const requestDataErasure = mutation({
     const userId = user._id as string;
 
     // Find the child's playerIdentity (by userId on the playerIdentity record)
-    const playerIdentity = await ctx.db
+    const playerIdentityCandidate = await ctx.db
       .query("playerIdentities")
-      .withIndex("by_playerType", (q) => q.eq("playerType", "youth"))
-      .filter((q) => q.eq(q.field("userId"), userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
+    const playerIdentity =
+      playerIdentityCandidate?.playerType === "youth"
+        ? playerIdentityCandidate
+        : null;
 
     if (!playerIdentity) {
       throw new Error(

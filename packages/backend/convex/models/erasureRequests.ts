@@ -56,25 +56,37 @@ const erasureRequestValidator = v.object({
 // ============================================================
 
 /**
- * Get the most recent erasure request for a player in an org.
+ * Get the most recent erasure request for the current user in an org.
  * Used by the player settings page to show current request status.
  */
 export const getMyErasureRequestStatus = query({
   args: {
-    playerIdentityId: v.id("playerIdentities"),
     organizationId: v.string(),
   },
   returns: v.union(erasureRequestValidator, v.null()),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const playerIdentity = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!playerIdentity) {
+      return null;
+    }
+
     const requests = await ctx.db
       .query("erasureRequests")
       .withIndex("by_player", (q) =>
-        q.eq("playerIdentityId", args.playerIdentityId)
+        q.eq("playerIdentityId", playerIdentity._id)
       )
       .order("desc")
       .collect();
 
-    // Return the most recent request for this org
     return (
       requests.find((r) => r.organizationId === args.organizationId) ?? null
     );
@@ -166,12 +178,12 @@ export const getErasureRequestByIdInternal = internalQuery({
 // ============================================================
 
 /**
- * Submit a new erasure request (player-initiated).
+ * Submit a new erasure request (player-initiated, adult only).
+ * Looks up the player's enrollment in the org internally.
  * Returns error if an active request already exists for this player+org.
  */
 export const submitErasureRequest = mutation({
   args: {
-    playerId: v.id("orgPlayerEnrollments"),
     organizationId: v.string(),
     playerGrounds: v.optional(v.string()),
   },
@@ -182,20 +194,40 @@ export const submitErasureRequest = mutation({
       throw new Error("Authentication required");
     }
 
-    // Check if enrollment record exists
-    const enrollment = await ctx.db.get(args.playerId);
-    if (!enrollment) {
-      throw new Error("Player enrollment not found");
+    // Find the player identity for this user (adults have userId set)
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = identity?.subject ?? user._id;
+
+    const playerIdentityRecord = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!playerIdentityRecord) {
+      throw new Error(
+        "No player profile linked to this account. Contact your club administrator."
+      );
     }
-    if (enrollment.organizationId !== args.organizationId) {
-      throw new Error("Player does not belong to this organisation");
+
+    // Find the enrollment record for this player+org
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", playerIdentityRecord._id)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!enrollment) {
+      throw new Error("Player is not enrolled in this organisation.");
     }
 
     // Check for existing active request
     const existingRequests = await ctx.db
       .query("erasureRequests")
       .withIndex("by_player", (q) =>
-        q.eq("playerIdentityId", enrollment.playerIdentityId)
+        q.eq("playerIdentityId", playerIdentityRecord._id)
       )
       .collect();
 
@@ -215,8 +247,8 @@ export const submitErasureRequest = mutation({
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000; // 2592000000 ms
 
     const requestId = await ctx.db.insert("erasureRequests", {
-      playerId: args.playerId,
-      playerIdentityId: enrollment.playerIdentityId,
+      playerId: enrollment._id,
+      playerIdentityId: playerIdentityRecord._id,
       organizationId: args.organizationId,
       requestedByUserId: user._id,
       submittedAt: now,

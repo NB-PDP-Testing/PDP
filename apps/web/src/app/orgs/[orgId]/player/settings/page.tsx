@@ -47,6 +47,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useChildAccess } from "@/hooks/use-child-access";
 import { authClient } from "@/lib/auth-client";
+import { DataRightsSection } from "./data-rights-section";
 import { WellnessCheckInSection } from "./wellness-checkin-section";
 
 function shouldShowCycleSection(
@@ -895,6 +896,14 @@ export default function PlayerSettingsPage() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {/* Your Data Rights — GDPR Article 17 adult erasure (adult players only) */}
+      {!isChildAccount && (
+        <DataRightsSection
+          orgId={orgId}
+          orgName={activeOrganization?.name ?? "your club"}
+        />
       )}
     </div>
   );

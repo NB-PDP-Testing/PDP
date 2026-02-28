@@ -173,11 +173,12 @@ describe("checkDuplicate - text messages", () => {
 describe("checkDuplicate - audio messages", () => {
   const now = Date.now();
 
-  it("should detect audio duplicate with same content type within window", () => {
+  it("should detect audio duplicate with same mediaUrl within window", () => {
     const recentMessages: RecentMessage[] = [
       {
         _id: "msg1",
         messageType: "audio",
+        mediaUrl: "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/MM111/Media/ME111",
         mediaContentType: "audio/ogg",
         receivedAt: now - 60 * 1000, // 1 minute ago
         status: "processing",
@@ -187,6 +188,7 @@ describe("checkDuplicate - audio messages", () => {
     const result = checkDuplicate({
       recentMessages,
       messageType: "audio",
+      mediaUrl: "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/MM111/Media/ME111",
       mediaContentType: "audio/ogg",
       now,
     });
@@ -199,6 +201,7 @@ describe("checkDuplicate - audio messages", () => {
       {
         _id: "msg1",
         messageType: "audio",
+        mediaUrl: "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/MM111/Media/ME111",
         mediaContentType: "audio/ogg",
         receivedAt: now - 3 * 60 * 1000, // 3 minutes ago (outside 2 min window)
         status: "completed",
@@ -208,17 +211,19 @@ describe("checkDuplicate - audio messages", () => {
     const result = checkDuplicate({
       recentMessages,
       messageType: "audio",
+      mediaUrl: "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/MM111/Media/ME111",
       mediaContentType: "audio/ogg",
       now,
     });
     expect(result.isDuplicate).toBe(false);
   });
 
-  it("should not flag audio with different content type", () => {
+  it("should not flag consecutive voice messages with different mediaUrls", () => {
     const recentMessages: RecentMessage[] = [
       {
         _id: "msg1",
         messageType: "audio",
+        mediaUrl: "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/MM111/Media/ME111",
         mediaContentType: "audio/ogg",
         receivedAt: now - 30 * 1000,
         status: "processing",
@@ -228,7 +233,8 @@ describe("checkDuplicate - audio messages", () => {
     const result = checkDuplicate({
       recentMessages,
       messageType: "audio",
-      mediaContentType: "audio/mpeg",
+      mediaUrl: "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/MM222/Media/ME222",
+      mediaContentType: "audio/ogg",
       now,
     });
     expect(result.isDuplicate).toBe(false);
@@ -247,6 +253,7 @@ describe("checkDuplicate - cross-type", () => {
       {
         _id: "msg1",
         messageType: "audio",
+        mediaUrl: "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/MM111/Media/ME111",
         mediaContentType: "audio/ogg",
         receivedAt: now - 30 * 1000,
         status: "processing",
@@ -276,6 +283,7 @@ describe("checkDuplicate - cross-type", () => {
     const result = checkDuplicate({
       recentMessages,
       messageType: "audio",
+      mediaUrl: "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/MM111/Media/ME111",
       mediaContentType: "audio/ogg",
       now,
     });
@@ -317,6 +325,7 @@ describe("checkDuplicate - configurable windows", () => {
       {
         _id: "msg1",
         messageType: "audio",
+        mediaUrl: "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/MM111/Media/ME111",
         mediaContentType: "audio/ogg",
         receivedAt: now - 30 * 1000,
         status: "processing",
@@ -327,6 +336,7 @@ describe("checkDuplicate - configurable windows", () => {
     const result = checkDuplicate({
       recentMessages,
       messageType: "audio",
+      mediaUrl: "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/MM111/Media/ME111",
       mediaContentType: "audio/ogg",
       now,
       audioWindowMs: 10 * 1000, // 10 second audio window

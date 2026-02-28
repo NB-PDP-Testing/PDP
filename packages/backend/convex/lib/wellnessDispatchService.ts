@@ -136,8 +136,6 @@ async function sendViaSmsConversational(
     const firstDimension = player.enabledDimensions[0];
     const questionText = getDimensionQuestion(firstDimension);
 
-    // sendConversationalQuestion is added in US-P8-004
-    // @ts-expect-error — function added in next story (US-P8-004)
     await ctx.runAction(internal.actions.whatsapp.sendConversationalQuestion, {
       phoneNumber: player.phoneNumber,
       question: questionText,

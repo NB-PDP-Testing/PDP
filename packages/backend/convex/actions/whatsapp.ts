@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
+import { getDimensionQuestion } from "../lib/wellnessDispatchService";
 import { handleCommand } from "../lib/whatsappCommandHandler";
 import { parseCommand } from "../lib/whatsappCommands";
 
@@ -19,6 +20,11 @@ const SNOOZE_COMMAND_REGEX = /^(snooze|later|remind)/i;
 // Issue #490: Session reset and help commands (exact match)
 const RESET_COMMAND_REGEX = /^(reset|switch club|change club|switch org)$/i;
 const HELP_COMMAND_REGEX = /^help$/i;
+// US-P8-004: Wellness channel commands
+const WELLNESS_SKIP_REGEX = /^skip$/i;
+const WELLNESS_STOP_REGEX = /^wellnessstop$/i;
+const WELLNESS_START_REGEX = /^wellness$/i;
+const WELLNESS_VALID_REPLY_REGEX = /^[1-5]$/;
 
 const HELP_MESSAGE = `*PlayerARC Coach Assistant* 🏆
 
@@ -158,6 +164,89 @@ export const processIncomingMessage = internalAction({
         "Session cleared ✓ Your next voice note will ask you to select a club."
       );
       return { success: true };
+    }
+
+    // US-P8-004: Wellness Session Priority Check
+    // Check for active wellness session BEFORE any coach processing.
+    // Session priority rule: wellness replies intercept before coach routing.
+    if (messageType === "text" && args.body) {
+      const trimmedBody = args.body.trim();
+
+      const activeWellnessSession = await ctx.runQuery(
+        internal.models.whatsappWellness.getActiveWellnessSession,
+        { phoneNumber }
+      );
+
+      if (activeWellnessSession) {
+        // SKIP command — abandon session politely
+        if (WELLNESS_SKIP_REGEX.test(trimmedBody)) {
+          await ctx.runMutation(
+            internal.models.whatsappWellness.abandonWellnessSession,
+            { sessionId: activeWellnessSession._id }
+          );
+          await sendWhatsAppMessage(
+            phoneNumber,
+            "No problem! Check in via the app anytime."
+          );
+          return { success: true };
+        }
+
+        // WELLNESSSTOP command — abandon session and deregister
+        if (WELLNESS_STOP_REGEX.test(trimmedBody)) {
+          await ctx.runMutation(
+            internal.models.whatsappWellness.abandonWellnessSession,
+            { sessionId: activeWellnessSession._id }
+          );
+          const stopSettings = await ctx.runQuery(
+            internal.models.whatsappWellness.getSettingsByWhatsappNumber,
+            { whatsappNumber: phoneNumber }
+          );
+          if (stopSettings) {
+            await ctx.runMutation(
+              internal.models.whatsappWellness.deregisterPlayerChannel,
+              { playerIdentityId: stopSettings.playerIdentityId }
+            );
+          }
+          await sendWhatsAppMessage(
+            phoneNumber,
+            "You have been removed from wellness check-ins. Reply WELLNESS to re-subscribe."
+          );
+          return { success: true };
+        }
+
+        // Handle wellness reply (1–5 or invalid input)
+        await handleWellnessReply(
+          ctx,
+          activeWellnessSession,
+          args.body,
+          args.from
+        );
+        return { success: true };
+      }
+
+      // No active session — check wellness-specific commands
+      if (WELLNESS_STOP_REGEX.test(trimmedBody)) {
+        const stopSettings = await ctx.runQuery(
+          internal.models.whatsappWellness.getSettingsByWhatsappNumber,
+          { whatsappNumber: phoneNumber }
+        );
+        if (stopSettings) {
+          await ctx.runMutation(
+            internal.models.whatsappWellness.deregisterPlayerChannel,
+            { playerIdentityId: stopSettings.playerIdentityId }
+          );
+        }
+        await sendWhatsAppMessage(
+          phoneNumber,
+          "You have been removed from wellness check-ins. Reply WELLNESS to re-subscribe."
+        );
+        return { success: true };
+      }
+
+      if (WELLNESS_START_REGEX.test(trimmedBody)) {
+        await handleWellnessOnDemand(ctx, phoneNumber);
+        return { success: true };
+      }
     }
 
     // Check if there's a pending message awaiting org selection
@@ -1698,6 +1787,256 @@ function buildDuplicateReply(
 
   // Default fallback
   return `We received this message already (${timeLabel}). No need to resend.`;
+}
+
+// ============================================================
+// US-P8-004: WELLNESS CONVERSATIONAL CHANNEL
+// ============================================================
+
+/**
+ * Send a wellness question via the conversational/SMS channel (Twilio).
+ * Exported as internalAction so the WellnessDispatchService can call it.
+ */
+export const sendConversationalQuestion = internalAction({
+  args: {
+    phoneNumber: v.string(), // E.164 format
+    question: v.string(),
+    dimensionNumber: v.number(),
+    totalDimensions: v.number(),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (_ctx, args) => {
+    const message =
+      `Question ${args.dimensionNumber} of ${args.totalDimensions}: ${args.question}\n\n` +
+      "Reply with:\n1️⃣ Very Poor\n2️⃣ Poor\n3️⃣ Neutral\n4️⃣ Good\n5️⃣ Great";
+    const success = await sendWhatsAppMessage(args.phoneNumber, message);
+    return { success };
+  },
+});
+
+/**
+ * Send a wellness question directly (internal helper — avoids action dispatch overhead).
+ */
+async function sendWellnessQuestion(
+  phoneNumber: string,
+  dimensionKey: string,
+  dimensionNumber: number,
+  totalDimensions: number
+): Promise<void> {
+  const question = getDimensionQuestion(dimensionKey);
+  const message =
+    `Question ${dimensionNumber} of ${totalDimensions}: ${question}\n\n` +
+    "Reply with:\n1️⃣ Very Poor\n2️⃣ Poor\n3️⃣ Neutral\n4️⃣ Good\n5️⃣ Great";
+  await sendWhatsAppMessage(phoneNumber, message);
+}
+
+/**
+ * Return a score interpretation string based on the average score.
+ */
+function getWellnessScoreInterpretation(avgScore: number): string {
+  if (avgScore <= 2.0) {
+    return "Listen to your body today 💙";
+  }
+  if (avgScore <= 3.5) {
+    return "Moderate day — recover well 🟡";
+  }
+  if (avgScore <= 4.5) {
+    return "Good energy — great session ahead! 🟢";
+  }
+  return "Excellent — you're feeling great! 🔥";
+}
+
+/**
+ * Handle an incoming reply to an active wellness session.
+ * - Valid reply (1–5): record answer, send next question or complete session.
+ * - Invalid reply: increment count, resend question. After 3 invalid: abandon.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+async function handleWellnessReply(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+  ctx: any,
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic session type from Convex
+  session: any,
+  messageBody: string,
+  from: string // original from field — detect WhatsApp vs SMS
+): Promise<void> {
+  const trimmed = messageBody.trim();
+  const isValidReply = WELLNESS_VALID_REPLY_REGEX.test(trimmed);
+  const isWhatsApp = WHATSAPP_PREFIX_REGEX.test(from);
+
+  if (!isValidReply) {
+    // Increment invalid reply count
+    const newCount: number = await ctx.runMutation(
+      internal.models.whatsappWellness.incrementInvalidReply,
+      { sessionId: session._id }
+    );
+
+    if (newCount >= 3) {
+      // Abandon session after 3 invalid replies
+      await ctx.runMutation(
+        internal.models.whatsappWellness.abandonWellnessSession,
+        { sessionId: session._id }
+      );
+      await sendWhatsAppMessage(
+        session.phoneNumber,
+        "Too many invalid replies. Your wellness session has ended. You can check in via the app anytime."
+      );
+      return;
+    }
+
+    // Resend current question
+    const currentDimension =
+      session.enabledDimensions[session.currentDimensionIndex];
+    const currentQuestion = getDimensionQuestion(currentDimension);
+    await sendWhatsAppMessage(
+      session.phoneNumber,
+      `Please reply with a number 1–5.\n\nQuestion ${session.currentDimensionIndex + 1} of ${session.enabledDimensions.length}: ${currentQuestion}\n\nReply with:\n1️⃣ Very Poor\n2️⃣ Poor\n3️⃣ Neutral\n4️⃣ Good\n5️⃣ Great`
+    );
+    return;
+  }
+
+  // Valid reply 1–5
+  const value = Number.parseInt(trimmed, 10);
+  const currentDimension =
+    session.enabledDimensions[session.currentDimensionIndex];
+
+  // Record the answer (also increments currentDimensionIndex in DB)
+  await ctx.runMutation(internal.models.whatsappWellness.recordWellnessAnswer, {
+    sessionId: session._id,
+    dimensionKey: currentDimension,
+    value,
+  });
+
+  const nextIndex = session.currentDimensionIndex + 1;
+
+  if (nextIndex < session.enabledDimensions.length) {
+    // Send next question
+    await sendWellnessQuestion(
+      session.phoneNumber,
+      session.enabledDimensions[nextIndex],
+      nextIndex + 1,
+      session.enabledDimensions.length
+    );
+    return;
+  }
+
+  // All dimensions answered — submit health check
+  const allResponses: Record<string, number> = {
+    ...(session.collectedResponses as Record<string, number>),
+    [currentDimension]: value,
+  };
+
+  const today = new Date().toISOString().split("T")[0];
+  const source = isWhatsApp ? "whatsapp_conversational" : "sms";
+
+  try {
+    const healthCheckId = await ctx.runMutation(
+      internal.models.playerHealthChecks.submitDailyHealthCheckInternal,
+      {
+        playerIdentityId: session.playerIdentityId,
+        organizationId: session.organizationId,
+        checkDate: today,
+        dimensionValues: allResponses,
+        enabledDimensions: session.enabledDimensions,
+        source,
+      }
+    );
+
+    await ctx.runMutation(
+      internal.models.whatsappWellness.completeWellnessSession,
+      {
+        sessionId: session._id,
+        dailyHealthCheckId: healthCheckId,
+      }
+    );
+
+    // Calculate aggregate score and send completion message
+    const values = Object.values(allResponses);
+    const avgScore =
+      values.reduce((sum: number, val: number) => sum + val, 0) / values.length;
+    const scoreRounded = Math.round(avgScore * 10) / 10;
+    const interpretation = getWellnessScoreInterpretation(avgScore);
+
+    await sendWhatsAppMessage(
+      session.phoneNumber,
+      `✅ Done! Your score: ${scoreRounded}/5\n${interpretation}\nView trends in the PlayerARC app.`
+    );
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[WellnessReply] Failed to submit health check:", errMsg);
+    await sendWhatsAppMessage(
+      session.phoneNumber,
+      "Sorry, there was an error saving your wellness check. Please try again via the app."
+    );
+  }
+}
+
+/**
+ * Handle on-demand WELLNESS command — create a session and send first question.
+ * Only works if the player has already registered their phone for wellness.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+async function handleWellnessOnDemand(
+  ctx: any,
+  phoneNumber: string
+): Promise<void> {
+  const settings = await ctx.runQuery(
+    internal.models.whatsappWellness.getSettingsByWhatsappNumber,
+    { whatsappNumber: phoneNumber }
+  );
+
+  if (!settings?.whatsappOptIn) {
+    await sendWhatsAppMessage(
+      phoneNumber,
+      "You're not registered for wellness check-ins. Visit the PlayerARC app to set up your wellness channel."
+    );
+    return;
+  }
+
+  // Check if there's already a session today
+  const existingSession = await ctx.runQuery(
+    internal.models.whatsappWellness.getActiveWellnessSession,
+    { phoneNumber }
+  );
+
+  if (existingSession) {
+    // Resume existing session — send the current question again
+    await sendWellnessQuestion(
+      phoneNumber,
+      existingSession.enabledDimensions[existingSession.currentDimensionIndex],
+      existingSession.currentDimensionIndex + 1,
+      existingSession.enabledDimensions.length
+    );
+    return;
+  }
+
+  // Create new session and send first question
+  const sessionId = await ctx.runMutation(
+    internal.models.whatsappWellness.createWellnessSession,
+    {
+      playerIdentityId: settings.playerIdentityId,
+      organizationId: settings.organizationId,
+      phoneNumber,
+      enabledDimensions: settings.enabledDimensions,
+    }
+  );
+
+  if (settings.enabledDimensions.length === 0) {
+    await sendWhatsAppMessage(
+      phoneNumber,
+      "No wellness dimensions are enabled for your profile. Please check your settings in the PlayerARC app."
+    );
+    return;
+  }
+
+  console.log("[WellnessOnDemand] Created session:", sessionId);
+
+  await sendWellnessQuestion(
+    phoneNumber,
+    settings.enabledDimensions[0],
+    1,
+    settings.enabledDimensions.length
+  );
 }
 
 // TWILIO API

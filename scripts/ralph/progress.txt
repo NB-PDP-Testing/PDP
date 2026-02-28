@@ -307,3 +307,47 @@ Created full child account setup flow: invite email → token-based /child-accou
 - The child portal filtering (getRestrictedNotes, getCoachFeedbackForChildPlayer) is already implemented
 
 ---
+
+## 2026-02-28 - US-P7-006 - Coach Parent-Only Note Filtering
+**Iteration**: 6
+**Commit**: fc34cadd
+**Status**: Complete
+
+### What was implemented
+- **SummaryApprovalCard**: Added `restrictChildView` state (default false), amber-styled checkbox toggle "Restrict from child view — Parent and coach only". Changed `onApprove: () => void` to `onApprove: (restrictChildView: boolean) => void`. Approve button passes `restrictChildView`.
+- **InjuryApprovalCard**: Same toggle added. `approveInjurySummary` call now includes `restrictChildView`.
+- **BehaviorApprovalCard**: Same toggle added. `approveSummary` call now includes `restrictChildView`.
+- **parents-tab.tsx**: `handleApproveSummary` updated to accept `restrictChildView?: boolean` and passes it to `approveSummary` mutation. `onApprove` in commonProps passes the value through.
+- **approveSummary mutation**: Updated to accept `restrictChildView: v.optional(v.boolean())` in args and atomically patches it at approval time.
+- **approveInjurySummary mutation**: Same addition.
+- **auto-approved-tab.tsx**: Added `restrictingId` state, `setNoteChildRestriction` mutation for retroactive toggling. Added "Child restricted" badge and toggle button per card. Uses pre-existing mutation from US-P7-001.
+- **getAutoApprovedSummaries**: Returns validator updated to include `restrictChildView: v.optional(v.boolean())`. Helper function also updated.
+
+### Files changed
+- packages/backend/convex/models/coachParentSummaries.ts (approveSummary, approveInjurySummary, getAutoApprovedSummaries)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/injury-approval-card.tsx
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/behavior-approval-card.tsx
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/parents-tab.tsx
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/auto-approved-tab.tsx
+
+### Quality checks
+- ✅ `npx -w packages/backend convex codegen` — passed
+- ✅ `npm run check-types` — passed (0 errors)
+- ✅ Biome `--diagnostic-level=error` on changed files — no errors
+- ✅ Pre-commit hook — passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- **CRITICAL**: Biome linter removes unused imports between separate edits. When adding both an import AND its usage, always write the entire file at once using `Write` tool (not sequential `Edit` calls). This happened 3 times in this story.
+- The retroactive restriction toggle (for already-sent notes) uses the pre-existing `setNoteChildRestriction` mutation from US-P7-001 — don't create a new mutation.
+- The `approveSummary` uses conditional spread for `restrictChildView`: `...(args.restrictChildView !== undefined ? { restrictChildView: args.restrictChildView } : {})` — this ensures existing records are not retroactively changed when the field is absent.
+
+**What to do next** (US-P7-007):
+- 30-Day and 7-Day Pre-Birthday Advance Notifications
+- Read `packages/backend/convex/jobs/graduations.ts` FULLY before modifying
+- Add `age_transition_30_days` and `age_transition_7_days` notification types
+- Extend graduation cron with pre-birthday checks and in-app notifications
+- Guard against duplicate notifications (check if already sent in last 25/5 days)
+
+---

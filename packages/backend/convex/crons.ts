@@ -166,6 +166,14 @@ crons.daily(
   {}
 );
 
+// Phase 7 (Child Authorization): 30-day and 7-day pre-birthday notifications (daily at 6:15 AM UTC)
+crons.daily(
+  "detect-pre-birthday-notifications",
+  { hourUTC: 6, minuteUTC: 15 },
+  internal.jobs.graduations.detectPreBirthdayNotifications,
+  {}
+);
+
 // Phase 2.3: Clean up expired import wizard drafts daily at 4 AM UTC
 crons.daily(
   "cleanup-expired-import-drafts",

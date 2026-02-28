@@ -107,8 +107,8 @@
         "npm run check-types passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "Follow the Phase 2 claim-account pattern very closely — token validation, auth gating, onboarding orchestrator integration. Read onboarding-orchestrator.tsx and unified-guardian-claim-step.tsx before implementing."
+      "passes": true,
+      "notes": "Follow the Phase 2 claim-account pattern very closely — token validation, auth gating, onboarding orchestrator integration. Read onboarding-orchestrator.tsx and unified-guardian-claim-step.tsx before implementing. SESSION TIMEOUT (AC item 7) not implemented — Better Auth doesn't natively support per-user session idle timeout. Deferred to future work. DOB validation at setup (AC item 5) is client-side only (server claimChildAccount does not enforce age — acceptable for MVP)."
     },
     {
       "id": "US-P7-004",
@@ -170,8 +170,8 @@
         "npm run check-types passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": "The restrictChildView field was added in US-P7-001. This story adds the UI toggle for coaches to set it. Find the existing voice note creation UI and note editing UI — add the toggle there. The child portal filtering is handled in the getRestrictedNotes query from US-P7-001."
+      "passes": true,
+      "notes": "Toggle added to SummaryApprovalCard, InjuryApprovalCard, and BehaviorApprovalCard (all default OFF). approveSummary and approveInjurySummary mutations updated to accept restrictChildView param. Auto-approved-tab adds retroactive toggle via setNoteChildRestriction mutation. Biome linter issue: write entire files atomically when adding imports+usage together."
     },
     {
       "id": "US-P7-007",

@@ -3954,6 +3954,9 @@ export default defineSchema({
       // Graduation notifications (Phase 2 - Adult Player Graduation Flow)
       v.literal("age_transition_available"), // Guardian notified player turned 18
       v.literal("age_transition_claimed"), // Admins notified player claimed their account
+      // Phase 7: Pre-birthday advance notifications
+      v.literal("age_transition_30_days"), // 30-day pre-birthday notice to parent & child
+      v.literal("age_transition_7_days"), // 7-day pre-birthday notice to parent & child
       // Wellness notifications (Phase 4)
       v.literal("wellness_access_request"), // Player notified a coach requested access
       v.literal("wellness_reminder"), // Daily wellness check-in reminder (US-P4-009)

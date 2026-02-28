@@ -206,6 +206,22 @@ export function getAdminNavGroups(
       ],
     },
     {
+      label: "Compliance",
+      icon: Shield,
+      items: [
+        {
+          href: `/orgs/${orgId}/admin/data-rights`,
+          label: "Data Rights Requests",
+          icon: Trash2,
+        },
+        {
+          href: `/orgs/${orgId}/admin/breach-register`,
+          label: "Breach Register",
+          icon: ShieldAlert,
+        },
+      ],
+    },
+    {
       label: "Settings",
       icon: Settings,
       items: [

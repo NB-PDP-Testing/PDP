@@ -47,6 +47,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useChildAccess } from "@/hooks/use-child-access";
 import { authClient } from "@/lib/auth-client";
+import { WellnessCheckInSection } from "./wellness-checkin-section";
 
 function shouldShowCycleSection(
   playerIdentity: {
@@ -281,11 +282,13 @@ const CORE_DIMENSIONS = [
   },
 ] as const;
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: pre-existing complexity from prior phases
 export default function PlayerSettingsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
 
   const { data: session, isPending: sessionLoading } = authClient.useSession();
+  const { data: activeOrganization } = authClient.useActiveOrganization();
   const userEmail = session?.user?.email;
 
   // Player identity
@@ -527,6 +530,15 @@ export default function PlayerSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Wellness Check-In Notifications — US-P8-005 */}
+      {playerIdentity?._id && (
+        <WellnessCheckInSection
+          orgId={orgId}
+          orgName={activeOrganization?.name ?? "your club"}
+          playerIdentityId={playerIdentity._id}
+        />
+      )}
 
       {/* Wellness Access Card */}
       <Card>

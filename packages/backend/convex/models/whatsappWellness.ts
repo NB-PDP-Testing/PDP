@@ -7,6 +7,9 @@ import {
 } from "../_generated/server";
 import { requireAuthAndOrg } from "../lib/authHelpers";
 
+// Max PIN verification attempts before lockout
+const MAX_PIN_ATTEMPTS = 3;
+
 // Session expiry: 8 hours in milliseconds
 const SESSION_EXPIRY_MS = 8 * 60 * 60 * 1000;
 
@@ -548,6 +551,185 @@ export const getChannelCounts = query({
       smsConversational,
       notRegistered: 0,
     };
+  },
+});
+
+// ============================================================
+// PHONE VERIFICATION — US-P8-005
+// ============================================================
+
+/**
+ * Store a verification PIN for a player (replaces any existing unused PIN).
+ * Called from the phoneVerification action after generating the PIN.
+ */
+export const storeVerificationPin = internalMutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    pin: v.string(),
+    expiresAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Remove any existing unused PIN for this player
+    const existing = await ctx.db
+      .query("verificationPins")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (existing) {
+      await ctx.db.delete(existing._id);
+    }
+
+    await ctx.db.insert("verificationPins", {
+      playerIdentityId: args.playerIdentityId,
+      pin: args.pin,
+      expiresAt: args.expiresAt,
+      attemptCount: 0,
+      channel: "sms",
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Claim (verify) a PIN. Returns success or an error reason.
+ * Increments attempt count and locks out after MAX_PIN_ATTEMPTS.
+ */
+export const claimVerificationPin = internalMutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    pin: v.string(),
+  },
+  returns: v.union(
+    v.object({ valid: v.literal(true) }),
+    v.object({ valid: v.literal(false), error: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const record = await ctx.db
+      .query("verificationPins")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (!record) {
+      return {
+        valid: false,
+        error: "No pending verification found. Request a new code.",
+      };
+    }
+
+    if (record.usedAt) {
+      return {
+        valid: false,
+        error: "This code has already been used. Request a new one.",
+      };
+    }
+
+    if (record.expiresAt < Date.now()) {
+      return {
+        valid: false,
+        error: "Verification code has expired. Request a new one.",
+      };
+    }
+
+    if (record.attemptCount >= MAX_PIN_ATTEMPTS) {
+      return {
+        valid: false,
+        error: "Too many failed attempts. Request a new code.",
+      };
+    }
+
+    if (record.pin !== args.pin) {
+      await ctx.db.patch(record._id, {
+        attemptCount: record.attemptCount + 1,
+      });
+      const remaining = MAX_PIN_ATTEMPTS - record.attemptCount - 1;
+      return {
+        valid: false,
+        error:
+          remaining > 0
+            ? `Incorrect code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`
+            : "Too many failed attempts. Request a new code.",
+      };
+    }
+
+    // Mark as used
+    await ctx.db.patch(record._id, { usedAt: Date.now() });
+    return { valid: true as const };
+  },
+});
+
+/**
+ * Set wellness opt-in status. Public mutation called from player settings UI.
+ */
+export const setWellnessOptIn = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    whatsappOptIn: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    const existing = await ctx.db
+      .query("playerWellnessSettings")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (!existing) {
+      return null;
+    }
+
+    await ctx.db.patch(existing._id, {
+      whatsappOptIn: args.whatsappOptIn,
+      whatsappOptedInAt: args.whatsappOptIn
+        ? Date.now()
+        : existing.whatsappOptedInAt,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Clear registered phone number and opt-in. Used when player clicks "Change number".
+ */
+export const clearWellnessPhone = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    const existing = await ctx.db
+      .query("playerWellnessSettings")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (!existing) {
+      return null;
+    }
+
+    await ctx.db.patch(existing._id, {
+      whatsappNumber: undefined,
+      wellnessChannel: undefined,
+      whatsappOptIn: false,
+      updatedAt: Date.now(),
+    });
+
+    return null;
   },
 });
 

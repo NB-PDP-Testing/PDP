@@ -27,6 +27,7 @@ import type * as actions_messaging from "../actions/messaging.js";
 import type * as actions_metaWhatsapp from "../actions/metaWhatsapp.js";
 import type * as actions_migration from "../actions/migration.js";
 import type * as actions_phase4TestSeed from "../actions/phase4TestSeed.js";
+import type * as actions_phoneVerification from "../actions/phoneVerification.js";
 import type * as actions_platformStaffInvitations from "../actions/platformStaffInvitations.js";
 import type * as actions_practicePlans from "../actions/practicePlans.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
@@ -275,6 +276,7 @@ declare const fullApi: ApiFromModules<{
   "actions/metaWhatsapp": typeof actions_metaWhatsapp;
   "actions/migration": typeof actions_migration;
   "actions/phase4TestSeed": typeof actions_phase4TestSeed;
+  "actions/phoneVerification": typeof actions_phoneVerification;
   "actions/platformStaffInvitations": typeof actions_platformStaffInvitations;
   "actions/practicePlans": typeof actions_practicePlans;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;

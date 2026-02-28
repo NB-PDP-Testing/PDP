@@ -288,4 +288,20 @@ crons.interval(
   {}
 );
 
+// Phase 9: GDPR Article 5 retention enforcement — nightly at 02:00 UTC (US-P9-006)
+crons.daily(
+  "enforce-retention-policy",
+  { hourUTC: 2, minuteUTC: 0 },
+  internal.jobs.retentionEnforcement.enforceRetentionPolicy,
+  {}
+);
+
+// Phase 9: Weekly retention digest — every Monday at 08:00 UTC (US-P9-006)
+crons.weekly(
+  "weekly-retention-digest",
+  { dayOfWeek: "monday", hourUTC: 8, minuteUTC: 0 },
+  internal.jobs.retentionEnforcement.sendWeeklyRetentionDigest,
+  {}
+);
+
 export default crons;

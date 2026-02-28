@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { GrantChildAccessSection } from "./grant-child-access-section";
 
 function isEighteenOrOver(dateOfBirth?: string): boolean {
   if (!dateOfBirth) {
@@ -136,6 +137,7 @@ type ChildCardProps = {
       dateOfBirth?: string;
     };
     enrollment?: {
+      _id?: Id<"orgPlayerEnrollments">;
       ageGroup?: string;
       status?: string;
       attendance?: { training?: number; matches?: number };
@@ -731,6 +733,15 @@ export function ChildCard({ child, orgId, bulkData }: ChildCardProps) {
           <ChildGraduationBanner
             playerIdentityId={player._id}
             playerName={`${player.firstName} ${player.lastName}`}
+          />
+        )}
+        {/* Grant Player Access - shown for under-18 children with an enrollment */}
+        {!isEighteenOrOver(player.dateOfBirth) && enrollment?._id && (
+          <GrantChildAccessSection
+            childName={`${player.firstName} ${player.lastName}`}
+            childPlayerId={enrollment._id}
+            dateOfBirth={player.dateOfBirth}
+            organizationId={orgId}
           />
         )}
       </CardContent>

@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useChildAccess } from "@/hooks/use-child-access";
 import { authClient } from "@/lib/auth-client";
 import { useMembershipContext } from "@/providers/membership-provider";
 import { WeeklySchedule } from "../parents/components/weekly-schedule";
@@ -40,6 +41,9 @@ export default function PlayerDashboardPage() {
 
   const { data: session, isPending: sessionLoading } = authClient.useSession();
   const { data: activeOrganization } = authClient.useActiveOrganization();
+
+  // Child access — determines if this is a youth account and which content toggles are on
+  const { isChildAccount, accessLevel, toggles } = useChildAccess(orgId);
 
   const { memberships: allMemberships } = useMembershipContext();
   const membership = allMemberships?.find((m) => m.organizationId === orgId);
@@ -256,7 +260,7 @@ export default function PlayerDashboardPage() {
     );
   }
 
-  // Youth player account that needs to be graduated to adult
+  // Youth player account handling
   if (playerIdentity.playerType !== "adult") {
     const dobMs = new Date(playerIdentity.dateOfBirth).getTime();
     const age = Math.floor(
@@ -277,67 +281,75 @@ export default function PlayerDashboardPage() {
       }
     };
 
-    return (
-      <div className="container mx-auto p-4 md:p-8">
-        <Card className={isAdultAge ? "border-blue-200" : "border-amber-200"}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle
-                className={`h-5 w-5 ${isAdultAge ? "text-blue-600" : "text-amber-600"}`}
-              />
-              {isAdultAge
-                ? "Your account is registered as a youth player"
-                : "Youth Player Account"}
-            </CardTitle>
-            <CardDescription className="mt-2">
-              {isAdultAge ? (
-                <>
-                  Welcome back, {playerIdentity.firstName}! You&apos;re in our
-                  system as{" "}
-                  <span className="font-medium">
-                    {playerIdentity.firstName} {playerIdentity.lastName}
-                  </span>{" "}
-                  (born {playerIdentity.dateOfBirth}, age {age}). Your history
-                  is here — you just need to upgrade your account to access the
-                  adult player portal.
-                </>
-              ) : (
-                <>
-                  Your player account (
-                  <span className="font-medium">
-                    {playerIdentity.firstName} {playerIdentity.lastName}
-                  </span>
-                  , born {playerIdentity.dateOfBirth}) is registered as a youth
-                  account. Contact your club administrator to update your
-                  account.
-                </>
-              )}
-            </CardDescription>
-          </CardHeader>
-          {isAdultAge && (
-            <CardContent>
-              <Button
-                className="gap-2"
-                disabled={isGraduating}
-                onClick={handleGraduate}
-              >
-                {isGraduating ? (
+    // If the youth player has been granted access by their parent, let them through to the dashboard
+    // (access-revoked case is handled by the layout redirect)
+    if (
+      !isChildAccount ||
+      (accessLevel !== "view_only" && accessLevel !== "view_interact")
+    ) {
+      return (
+        <div className="container mx-auto p-4 md:p-8">
+          <Card className={isAdultAge ? "border-blue-200" : "border-amber-200"}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle
+                  className={`h-5 w-5 ${isAdultAge ? "text-blue-600" : "text-amber-600"}`}
+                />
+                {isAdultAge
+                  ? "Your account is registered as a youth player"
+                  : "Youth Player Account"}
+              </CardTitle>
+              <CardDescription className="mt-2">
+                {isAdultAge ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Upgrading...
+                    Welcome back, {playerIdentity.firstName}! You&apos;re in our
+                    system as{" "}
+                    <span className="font-medium">
+                      {playerIdentity.firstName} {playerIdentity.lastName}
+                    </span>{" "}
+                    (born {playerIdentity.dateOfBirth}, age {age}). Your history
+                    is here — you just need to upgrade your account to access
+                    the adult player portal.
                   </>
                 ) : (
                   <>
-                    <ArrowRight className="h-4 w-4" />
-                    Upgrade to Adult Account
+                    Your player account (
+                    <span className="font-medium">
+                      {playerIdentity.firstName} {playerIdentity.lastName}
+                    </span>
+                    , born {playerIdentity.dateOfBirth}) is registered as a
+                    youth account. Contact your club administrator to update
+                    your account.
                   </>
                 )}
-              </Button>
-            </CardContent>
-          )}
-        </Card>
-      </div>
-    );
+              </CardDescription>
+            </CardHeader>
+            {isAdultAge && (
+              <CardContent>
+                <Button
+                  className="gap-2"
+                  disabled={isGraduating}
+                  onClick={handleGraduate}
+                >
+                  {isGraduating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Upgrading...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="h-4 w-4" />
+                      Upgrade to Adult Account
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            )}
+          </Card>
+        </div>
+      );
+    }
+    // Youth player with parent-granted access falls through to the regular dashboard below
   }
 
   // Player data for AI assistant + weekly schedule
@@ -406,56 +418,63 @@ export default function PlayerDashboardPage() {
       <WeeklySchedule playerData={playerDataForComponents} />
 
       {/* 3. Wellness + Injury + ICE cards in a responsive grid */}
+      {/* For child accounts, only show wellness if includeWellnessAccess toggle is on */}
       <div
-        className={`grid gap-4 ${firstContact ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+        className={`grid gap-4 ${firstContact && !isChildAccount ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
       >
-        {/* Wellness card */}
-        {wellnessDone ? (
-          <Card className="border-green-200 bg-green-50">
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-                <div>
-                  <p className="font-semibold text-green-800 text-sm">
-                    ✓ Wellness checked in today
-                  </p>
-                  {wellnessScore !== undefined && (
-                    <p className="mt-0.5 font-medium text-green-700 text-xs">
-                      Score: {wellnessScore.toFixed(1)} / 5
+        {/* Wellness card — gated for child accounts */}
+        {/* Wellness card — hidden entirely for child accounts when toggle is off */}
+        {(!isChildAccount || toggles?.includeWellnessAccess) &&
+          (wellnessDone ? (
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                  <div>
+                    <p className="font-semibold text-green-800 text-sm">
+                      ✓ Wellness checked in today
                     </p>
-                  )}
+                    {wellnessScore !== undefined && (
+                      <p className="mt-0.5 font-medium text-green-700 text-xs">
+                        Score: {wellnessScore.toFixed(1)} / 5
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="border-amber-200 bg-amber-50">
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                <div className="space-y-2">
-                  <p className="font-semibold text-amber-800 text-sm">
-                    Complete your daily wellness check
-                  </p>
-                  <p className="text-amber-700 text-xs">Takes under a minute</p>
-                  <Button
-                    asChild
-                    className="border-amber-300 text-amber-800 hover:bg-amber-100"
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Link href={`/orgs/${orgId}/player/health-check` as Route}>
-                      Start Check-In
-                    </Link>
-                  </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div className="space-y-2">
+                    <p className="font-semibold text-amber-800 text-sm">
+                      Complete your daily wellness check
+                    </p>
+                    <p className="text-amber-700 text-xs">
+                      Takes under a minute
+                    </p>
+                    <Button
+                      asChild
+                      className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Link
+                        href={`/orgs/${orgId}/player/health-check` as Route}
+                      >
+                        Start Check-In
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          ))}
 
-        {/* Injury card */}
-        {hasActiveInjuries && (
+        {/* Injury card — never shown for child accounts (medical data) */}
+        {!isChildAccount && hasActiveInjuries && (
           <Card className="border-amber-200 bg-amber-50">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
@@ -488,8 +507,8 @@ export default function PlayerDashboardPage() {
           </Card>
         )}
 
-        {/* ICE card */}
-        {firstContact && (
+        {/* ICE card — never shown for child accounts (medical/emergency data) */}
+        {firstContact && !isChildAccount && (
           <Card className="border-red-200 bg-red-50">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
@@ -531,51 +550,55 @@ export default function PlayerDashboardPage() {
         </Card>
       )}
 
-      {/* 6. Latest Coach Feedback */}
-      <PlayerFeedbackSnippet
-        orgId={orgId}
-        playerIdentityId={playerIdentity._id as Id<"playerIdentities">}
-      />
-
-      {/* 7. Active Goals snippet */}
-      {activeGoals && activeGoals.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Target className="h-4 w-4 text-purple-500" />
-              Active Goals
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {activeGoals.slice(0, 2).map((goal) => (
-              <div className="space-y-1.5" key={goal._id}>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-sm">{goal.title}</p>
-                  <Badge className="shrink-0" variant="secondary">
-                    {goal.progress}%
-                  </Badge>
-                </div>
-                <Progress className="h-1.5" value={goal.progress} />
-              </div>
-            ))}
-            {activeGoals.length > 2 && (
-              <p className="text-muted-foreground text-xs">
-                +{activeGoals.length - 2} more goal
-                {activeGoals.length - 2 > 1 ? "s" : ""}
-              </p>
-            )}
-            <Button asChild className="w-full" size="sm" variant="ghost">
-              <Link href={`/orgs/${orgId}/player/progress` as Route}>
-                View My Progress
-                <ArrowRight className="ml-1 h-3 w-3" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+      {/* 6. Latest Coach Feedback — gated by includeCoachFeedback toggle for child accounts */}
+      {(!isChildAccount || toggles?.includeCoachFeedback) && (
+        <PlayerFeedbackSnippet
+          orgId={orgId}
+          playerIdentityId={playerIdentity._id as Id<"playerIdentities">}
+        />
       )}
 
-      {/* 8. AI Practice Assistant */}
-      {playerData !== undefined && (
+      {/* 7. Active Goals snippet — gated by includeDevelopmentGoals toggle for child accounts */}
+      {(!isChildAccount || toggles?.includeDevelopmentGoals) &&
+        activeGoals &&
+        activeGoals.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Target className="h-4 w-4 text-purple-500" />
+                Active Goals
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {activeGoals.slice(0, 2).map((goal) => (
+                <div className="space-y-1.5" key={goal._id}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-sm">{goal.title}</p>
+                    <Badge className="shrink-0" variant="secondary">
+                      {goal.progress}%
+                    </Badge>
+                  </div>
+                  <Progress className="h-1.5" value={goal.progress} />
+                </div>
+              ))}
+              {activeGoals.length > 2 && (
+                <p className="text-muted-foreground text-xs">
+                  +{activeGoals.length - 2} more goal
+                  {activeGoals.length - 2 > 1 ? "s" : ""}
+                </p>
+              )}
+              <Button asChild className="w-full" size="sm" variant="ghost">
+                <Link href={`/orgs/${orgId}/player/progress` as Route}>
+                  View My Progress
+                  <ArrowRight className="ml-1 h-3 w-3" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+      {/* 8. AI Practice Assistant — not shown for child accounts (no profiling/AI for youth) */}
+      {!isChildAccount && playerData !== undefined && (
         <AIPracticeAssistantPlayer
           orgId={orgId}
           playerData={playerDataForComponents}

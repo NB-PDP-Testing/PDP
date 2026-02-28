@@ -3,7 +3,8 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, MessageSquare } from "lucide-react";
+import { CheckCircle2, Lock, MessageSquare } from "lucide-react";
+import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useChildAccess } from "@/hooks/use-child-access";
 import { authClient } from "@/lib/auth-client";
 
 const sensitivityBadge: Record<string, { label: string; className: string }> = {
@@ -24,8 +26,12 @@ const sensitivityBadge: Record<string, { label: string; className: string }> = {
 };
 
 export default function PlayerFeedbackPage() {
+  const params = useParams();
+  const orgId = params.orgId as string;
   const { data: session } = authClient.useSession();
   const userEmail = session?.user?.email;
+
+  const { isChildAccount, toggles } = useChildAccess(orgId);
 
   const playerIdentity = useQuery(
     api.models.playerIdentities.findPlayerByEmail,
@@ -59,6 +65,26 @@ export default function PlayerFeedbackPage() {
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
+
+  // Child account: feedback access disabled by parent
+  if (isChildAccount && !toggles?.includeCoachFeedback) {
+    return (
+      <div className="container mx-auto max-w-3xl p-4 md:p-6">
+        <Card className="border-muted">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Lock className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <CardTitle>Coach Feedback Not Available</CardTitle>
+            <CardDescription>
+              Your parent hasn&apos;t enabled coach feedback for your account.
+              Ask them to update your access settings.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }

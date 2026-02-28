@@ -198,6 +198,36 @@ export const getRestrictedNotes = query({
 });
 
 /**
+ * Get the authorization record for the currently logged-in child player.
+ * Looks up the enrollment via playerIdentityId + organizationId, then returns the authorization.
+ * Used by the player portal to gate access for youth accounts.
+ */
+export const getChildAuthorizationByPlayerIdentity = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.union(authorizationValidator, v.null()),
+  handler: async (ctx, args) => {
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+    if (!enrollment) {
+      return null;
+    }
+    return await ctx.db
+      .query("parentChildAuthorizations")
+      .withIndex("by_child", (q) => q.eq("childPlayerId", enrollment._id))
+      .first();
+  },
+});
+
+/**
  * Validate a child account setup token.
  * Used by the /child-account-setup page to validate the URL token.
  */

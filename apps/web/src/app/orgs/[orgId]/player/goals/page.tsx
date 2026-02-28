@@ -54,6 +54,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useChildAccess } from "@/hooks/use-child-access";
 import { authClient } from "@/lib/auth-client";
 
 // Types
@@ -129,8 +130,11 @@ const formatCategory = (category: string) =>
   category.charAt(0).toUpperCase() + category.slice(1);
 
 export default function PlayerGoalsPage() {
-  useParams();
+  const { orgId } = useParams<{ orgId: string }>();
   const { data: session } = authClient.useSession();
+
+  // Child access gating for development goals (Phase 7)
+  const { isChildAccount, toggles } = useChildAccess(orgId ?? "");
 
   const userEmail = session?.user?.email;
 
@@ -355,6 +359,24 @@ export default function PlayerGoalsPage() {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="text-muted-foreground">Loading goals...</div>
+      </div>
+    );
+  }
+
+  // Child account: development goals access disabled by parent
+  if (isChildAccount && !toggles?.includeDevelopmentGoals) {
+    return (
+      <div className="container mx-auto max-w-3xl p-4 md:p-8">
+        <Card className="border-muted">
+          <CardContent className="pt-6 text-center">
+            <Target className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="font-medium">Development Goals Not Available</p>
+            <p className="mt-1 text-muted-foreground text-sm">
+              Your parent hasn&apos;t enabled development goals for your
+              account.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }

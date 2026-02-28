@@ -13,6 +13,7 @@ import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useChildAccess } from "@/hooks/use-child-access";
 import { authClient } from "@/lib/auth-client";
 import { BasicInformationSection } from "../../players/[playerId]/components/basic-info-section";
 import { EmergencyContactsSection } from "../../players/[playerId]/components/emergency-contacts-section";
@@ -49,6 +50,9 @@ function MyPassportsContent() {
 
   const { data: session } = authClient.useSession();
   const { data: activeOrganization } = authClient.useActiveOrganization();
+
+  // Child access check for assessments gating (Phase 7)
+  const { isChildAccount, toggles } = useChildAccess(orgId);
 
   const userEmail = session?.user?.email;
   const playerIdentity = useQuery(
@@ -118,6 +122,27 @@ function MyPassportsContent() {
               Contact your club administrator.
             </p>
           </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Child account: assessments access disabled by parent
+  if (isChildAccount && !toggles?.includeAssessments) {
+    return (
+      <div className="container mx-auto p-4 md:p-8">
+        <Card className="border-muted">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Trophy className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <CardTitle>Passport Not Available</CardTitle>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                Your parent hasn&apos;t enabled assessments for your account.
+              </p>
+            </CardContent>
+          </CardHeader>
         </Card>
       </div>
     );

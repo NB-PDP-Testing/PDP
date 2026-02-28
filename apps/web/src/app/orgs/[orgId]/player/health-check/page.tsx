@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useChildAccess } from "@/hooks/use-child-access";
 import { authClient } from "@/lib/auth-client";
 import { WellnessTrendCharts } from "./wellness-trend-charts";
 
@@ -246,6 +247,9 @@ export default function PlayerHealthCheckPage() {
 
   const { data: session, isPending: sessionLoading } = authClient.useSession();
   const userEmail = session?.user?.email;
+
+  // Child access check for wellness gating (Phase 7)
+  const { isChildAccount, toggles } = useChildAccess(orgId);
 
   // Player identity lookup
   const playerIdentity = useQuery(
@@ -572,11 +576,32 @@ export default function PlayerHealthCheckPage() {
     );
   }
 
-  // Under-18 gate
-  // TODO: Phase 7 — check parentChildAuthorizations.includeWellnessAccess.
-  // Safe default: deny access when dateOfBirth is missing (cannot verify age)
-  // or when the player is under 18 (parent must grant wellness access first).
-  if (!playerIdentity.dateOfBirth) {
+  // Child account gate: check includeWellnessAccess toggle (Phase 7)
+  if (isChildAccount && !toggles?.includeWellnessAccess) {
+    return (
+      <div className="container mx-auto max-w-3xl p-4 md:p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Wellness Access Required</CardTitle>
+            <CardDescription>
+              Your parent hasn&apos;t enabled wellness check-ins for your
+              account yet.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-sm">
+              Ask your parent or guardian to enable wellness access from their
+              Parent Portal settings. Once they&apos;ve done so, you&apos;ll be
+              able to submit your daily wellness check-in here.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Legacy under-18 gate (for youth players without a parentChildAuthorizations record)
+  if (!(playerIdentity.dateOfBirth || isChildAccount)) {
     return (
       <div className="container mx-auto max-w-3xl p-4 md:p-8">
         <Card>
@@ -590,19 +615,21 @@ export default function PlayerHealthCheckPage() {
           <CardContent>
             <p className="text-muted-foreground text-sm">
               Ask your parent or guardian to enable wellness access from their
-              Parent Portal settings. Once they've done so, you'll be able to
-              submit your daily wellness check-in here.
+              Parent Portal settings. Once they&apos;ve done so, you&apos;ll be
+              able to submit your daily wellness check-in here.
             </p>
           </CardContent>
         </Card>
       </div>
     );
   }
-  const dob = new Date(playerIdentity.dateOfBirth);
-  const ageDiff = Date.now() - dob.getTime();
+  const dob = playerIdentity.dateOfBirth
+    ? new Date(playerIdentity.dateOfBirth)
+    : null;
+  const ageDiff = dob ? Date.now() - dob.getTime() : 0;
   const ageDate = new Date(ageDiff);
   const age = Math.abs(ageDate.getUTCFullYear() - 1970);
-  if (age < 18) {
+  if (!isChildAccount && dob && age < 18) {
     return (
       <div className="container mx-auto max-w-3xl p-4 md:p-8">
         <Card>

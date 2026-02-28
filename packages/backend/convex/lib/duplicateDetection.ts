@@ -19,6 +19,7 @@ export interface RecentMessage {
   _id: string;
   messageType: string;
   body?: string;
+  mediaUrl?: string;
   mediaContentType?: string;
   receivedAt: number;
   status: string;
@@ -28,6 +29,7 @@ export interface DuplicateCheckOptions {
   recentMessages: RecentMessage[];
   messageType: string;
   body?: string;
+  mediaUrl?: string;
   mediaContentType?: string;
   now?: number;
   textWindowMs?: number;
@@ -38,7 +40,7 @@ export interface DuplicateCheckOptions {
  * Check if a message is a duplicate of a recent message from the same sender.
  *
  * For text messages: exact body match within the time window.
- * For audio messages: same mediaContentType within a shorter window.
+ * For audio messages: same mediaUrl within a shorter window.
  */
 export function checkDuplicate(
   opts: DuplicateCheckOptions
@@ -47,6 +49,7 @@ export function checkDuplicate(
     recentMessages,
     messageType,
     body,
+    mediaUrl,
     mediaContentType,
     now = Date.now(),
     textWindowMs = DEFAULT_TEXT_WINDOW_MS,
@@ -84,9 +87,9 @@ export function checkDuplicate(
       messageType === "audio" &&
       recent.messageType === "audio" &&
       timeDiff <= audioWindowMs &&
-      mediaContentType !== undefined &&
-      recent.mediaContentType !== undefined &&
-      mediaContentType === recent.mediaContentType
+      mediaUrl !== undefined &&
+      recent.mediaUrl !== undefined &&
+      mediaUrl === recent.mediaUrl
     ) {
       return {
         isDuplicate: true,

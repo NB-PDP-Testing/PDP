@@ -201,6 +201,7 @@ export const processIncomingMessage = internalAction({
         fromNumber: phoneNumber,
         messageType,
         body: args.body,
+        mediaUrl: args.mediaUrl,
         mediaContentType: args.mediaContentType,
         excludeMessageId: messageId,
       }

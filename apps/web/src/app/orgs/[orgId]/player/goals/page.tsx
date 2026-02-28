@@ -134,7 +134,10 @@ export default function PlayerGoalsPage() {
   const { data: session } = authClient.useSession();
 
   // Child access gating for development goals (Phase 7)
-  const { isChildAccount, toggles } = useChildAccess(orgId ?? "");
+  const { isChildAccount, accessLevel, toggles } = useChildAccess(orgId ?? "");
+
+  // In view_interact mode, child can add/edit their OWN goals only
+  const isViewInteract = isChildAccount && accessLevel === "view_interact";
 
   const userEmail = session?.user?.email;
 
@@ -398,13 +401,16 @@ export default function PlayerGoalsPage() {
             </p>
           </div>
         </div>
-        <Button
-          disabled={activePassports.length === 0}
-          onClick={() => setShowCreateDialog(true)}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          New Goal
-        </Button>
+        {/* Hide goal creation for view_only child accounts */}
+        {(!isChildAccount || isViewInteract) && (
+          <Button
+            disabled={activePassports.length === 0}
+            onClick={() => setShowCreateDialog(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New Goal
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -521,7 +527,8 @@ export default function PlayerGoalsPage() {
             </EmptyDescription>
             {!searchTerm &&
               statusFilter === "active" &&
-              categoryFilter === "all" && (
+              categoryFilter === "all" &&
+              (!isChildAccount || isViewInteract) && (
                 <Button
                   disabled={activePassports.length === 0}
                   onClick={() => setShowCreateDialog(true)}
@@ -536,6 +543,10 @@ export default function PlayerGoalsPage() {
 
       {/* Goal Detail Dialog */}
       <GoalDetailDialog
+        canWrite={
+          !isChildAccount ||
+          (isViewInteract && !(selectedGoal?.isCoachGoal ?? true))
+        }
         goal={selectedGoal}
         newMilestoneText={newMilestoneText[selectedGoal?._id ?? ""] ?? ""}
         onAddMilestone={handleAddMilestone}
@@ -724,6 +735,7 @@ function GoalDetailDialog({
   onDeleteMilestone,
   onUpdateMilestone,
   onUncompleteMilestone,
+  canWrite,
 }: {
   goal: GoalWithSource | null;
   onClose: () => void;
@@ -762,6 +774,8 @@ function GoalDetailDialog({
     goalId: Id<"passportGoals">,
     milestoneId: string
   ) => void;
+  /** Whether the current user can edit/delete this goal. False for read-only child accounts. */
+  canWrite: boolean;
 }) {
   const [showSkillPicker, setShowSkillPicker] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<string[]>(
@@ -922,27 +936,31 @@ function GoalDetailDialog({
                       </p>
                     )}
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      className="h-7 w-7"
-                      onClick={() => {
-                        setEditingMilestoneId(milestone.id);
-                        setEditingMilestoneText(milestone.description);
-                      }}
-                      size="icon"
-                      variant="ghost"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      className="h-7 w-7 text-red-500 hover:text-red-700"
-                      onClick={() => onDeleteMilestone(goal._id, milestone.id)}
-                      size="icon"
-                      variant="ghost"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
+                  {canWrite && (
+                    <div className="flex shrink-0 gap-1">
+                      <Button
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setEditingMilestoneId(milestone.id);
+                          setEditingMilestoneText(milestone.description);
+                        }}
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        className="h-7 w-7 text-red-500 hover:text-red-700"
+                        onClick={() =>
+                          onDeleteMilestone(goal._id, milestone.id)
+                        }
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))
             ) : (
@@ -952,35 +970,39 @@ function GoalDetailDialog({
             )}
           </div>
 
-          {/* Add new milestone */}
-          <div className="mt-3 flex gap-2">
-            <Input
-              onChange={(e) => onMilestoneTextChange(e.target.value)}
-              placeholder="Add a milestone..."
-              value={newMilestoneText}
-            />
-            <Button
-              disabled={!newMilestoneText.trim()}
-              onClick={() => onAddMilestone(goal._id)}
-              size="sm"
-            >
-              Add
-            </Button>
-          </div>
+          {/* Add new milestone (write access only) */}
+          {canWrite && (
+            <div className="mt-3 flex gap-2">
+              <Input
+                onChange={(e) => onMilestoneTextChange(e.target.value)}
+                placeholder="Add a milestone..."
+                value={newMilestoneText}
+              />
+              <Button
+                disabled={!newMilestoneText.trim()}
+                onClick={() => onAddMilestone(goal._id)}
+                size="sm"
+              >
+                Add
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Linked Skills */}
         <div>
           <div className="mb-2 flex items-center justify-between">
             <h3 className="font-bold">Linked Skills</h3>
-            <Button
-              onClick={() => setShowSkillPicker(!showSkillPicker)}
-              size="sm"
-              variant="outline"
-            >
-              <Link2 className="mr-1 h-3 w-3" />
-              {showSkillPicker ? "Cancel" : "Edit Skills"}
-            </Button>
+            {canWrite && (
+              <Button
+                onClick={() => setShowSkillPicker(!showSkillPicker)}
+                size="sm"
+                variant="outline"
+              >
+                <Link2 className="mr-1 h-3 w-3" />
+                {showSkillPicker ? "Cancel" : "Edit Skills"}
+              </Button>
+            )}
           </div>
           {showSkillPicker ? (
             <div className="space-y-2">
@@ -1064,45 +1086,51 @@ function GoalDetailDialog({
         )}
 
         <DialogFooter className="flex-col gap-2 sm:flex-row">
-          <Button onClick={onEdit} variant="outline">
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Goal
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                Update Status <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem
-                onClick={() => onUpdateStatus(goal._id, "not_started")}
-              >
-                <Undo2 className="mr-2 h-4 w-4" />
-                Not Started
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onUpdateStatus(goal._id, "in_progress")}
-              >
-                In Progress
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onUpdateStatus(goal._id, "completed")}
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Completed
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onUpdateStatus(goal._id, "on_hold")}
-              >
-                On Hold
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button onClick={() => onDelete(goal._id)} variant="destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Goal
-          </Button>
+          {canWrite && (
+            <Button onClick={onEdit} variant="outline">
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Goal
+            </Button>
+          )}
+          {canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  Update Status <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem
+                  onClick={() => onUpdateStatus(goal._id, "not_started")}
+                >
+                  <Undo2 className="mr-2 h-4 w-4" />
+                  Not Started
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onUpdateStatus(goal._id, "in_progress")}
+                >
+                  In Progress
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onUpdateStatus(goal._id, "completed")}
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Completed
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onUpdateStatus(goal._id, "on_hold")}
+                >
+                  On Hold
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {canWrite && (
+            <Button onClick={() => onDelete(goal._id)} variant="destructive">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Goal
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

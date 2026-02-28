@@ -2453,6 +2453,10 @@ export default defineSchema({
     // Child view restriction (Phase 7 - Child Player Passport Authorization)
     restrictChildView: v.optional(v.boolean()), // If true, hidden from child's portal
 
+    // Child response (Phase 7 - View+Interact mode, ages 16–17)
+    childResponse: v.optional(v.string()), // Child's text response to this feedback item
+    childResponseAt: v.optional(v.number()), // Timestamp when child added response
+
     // Override tracking (Phase 4 - Learning Loop)
     // Tracks when coach overrides AI decisions to learn patterns
     overrideType: v.optional(

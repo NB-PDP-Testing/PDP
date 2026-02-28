@@ -107,8 +107,8 @@
         "npm run check-types passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "Follow the Phase 2 claim-account pattern very closely — token validation, auth gating, onboarding orchestrator integration. Read onboarding-orchestrator.tsx and unified-guardian-claim-step.tsx before implementing."
+      "passes": true,
+      "notes": "Full child account setup flow implemented: sendChildAccountInviteEmail(), /child-account-setup route with token validation, claimChildAccount mutation, child_account_setup onboarding step. tokenType discriminator added to playerClaimTokens. Session timeout deferred (Better Auth limitation). Commit: 3d41e4a2"
     },
     {
       "id": "US-P7-004",
@@ -132,8 +132,8 @@
         "npm run check-types passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "US-P7-001 and US-P7-003 must be complete first. Implement a shared hook or utility function useChildAccess() that reads getChildAuthorization and returns the access level and toggle state — use it on every portal page rather than duplicating the check."
+      "passes": true,
+      "notes": "useChildAccess hook in apps/web/src/hooks/use-child-access.ts. getChildAuthorizationByPlayerIdentity query added to backend. Youth Account badge in layout header + sidebar. Access revoked redirect in layout. Dashboard sections gated by toggles. Feedback/health-check/goals/passports pages gated. Commit: 42f6d5cb"
     },
     {
       "id": "US-P7-005",

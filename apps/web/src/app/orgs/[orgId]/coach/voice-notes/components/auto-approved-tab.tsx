@@ -490,6 +490,16 @@ export function AutoApprovedTab({
                               </span>
                             </div>
                           )}
+
+                        {/* Child response (Phase 7 - View+Interact) */}
+                        {summary.childResponse && (
+                          <div className="rounded-md border border-teal-200 bg-teal-50 p-2">
+                            <p className="mb-1 font-medium text-teal-800 text-xs">
+                              Player response
+                            </p>
+                            <p className="text-xs">{summary.childResponse}</p>
+                          </div>
+                        )}
                       </div>
 
                       {summary.isRevocable && (

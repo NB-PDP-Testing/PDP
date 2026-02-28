@@ -1,440 +1,160 @@
 # Ralph Progress Log
-Started: Sat 28 Feb 2026 09:07:30 GMT
+Started: Sat 28 Feb 2026 17:53:24 GMT
 ---
 
 ## Codebase Patterns
-**Last Updated**: 2026-02-28 - Iteration 1 (Phase 8)
+**Last Updated**: 2026-02-28 - Iteration 1
 
 ### Architecture
 - All routes scoped under `/orgs/[orgId]/`
-- Turborepo monorepo: `apps/web/` (Next.js 14), `packages/backend/` (Convex)
-- Better Auth for authentication, Convex for backend
+- Two table systems: Better Auth tables use adapter; Application tables use ctx.db
+- User ID is `user._id`, NOT `user.id`
 
 ### Convex Backend Patterns
-- NEVER use `.filter()` — always use `.withIndex()`
+- NEVER use `.filter()` - always use `.withIndex()`
 - All functions need `args` and `returns` validators
 - Use `Id<"tableName">` types, not `string`
-- Index names include all fields: `by_orgId_and_status`
-- Public queries/mutations via `api`, internal via `internal`
-- Webhook handlers need `internalMutation`/`internalQuery` (no auth required)
-- `"use node"` directive at top of file for Node.js actions (crypto, fetch, etc.)
+- Biome linter requires block statements for all if: `if (!x) { return; }` NOT `if (!x) return;`
+- internalMutation/internalQuery imports from `../_generated/server` (same as mutation/query)
 
 ### Quality Checks
-- Run in order: `npx -w packages/backend convex codegen` then type check then biome check
-- Biome needs multi-line braces: `if (x) {\n  return null;\n}` not `if (x) { return null; }`
-- useTopLevelRegex: all regex must be at top-level scope
-- noShadow: don't use `v` as a parameter name (shadows Convex `v` import)
-- noIncrementDecrement: use `+= 1` not `++`
-- useConsistentTypeDefinitions: use `type` not `interface`
-- useBlockStatements: always use braces, multi-line format
+- Run: `npx -w packages/backend convex codegen` → `npm run check-types`
+- 248 pre-existing lint errors — new files must pass biome with zero errors
+- Pre-commit hook runs `npx biome check --diagnostic-level=error` on staged files only
 
-### Phase 8 Specific Patterns
-- Two separate API integrations: Twilio (existing) and Meta (new) -- NEVER mix
-- WellnessDispatchService is the ONLY entry point for sending wellness checks
-- WhatsApp Flows channel is STATELESS -- no whatsappWellnessSessions records
-- wa_id (WhatsApp ID) must be immediately resolved to playerIdentityId -- never persist wa_id (GDPR)
-- processFlowCompletionWebhook must always check idempotency before inserting health check
-
-### File Locations (Phase 8)
-- Meta actions: `packages/backend/convex/actions/metaWhatsapp.ts`
-- Dispatch service: `packages/backend/convex/lib/wellnessDispatchService.ts`
-- Session models: `packages/backend/convex/models/whatsappWellness.ts`
-- Health check model: `packages/backend/convex/models/playerHealthChecks.ts`
-- HTTP routes: `packages/backend/convex/http.ts`
+### File Locations
+- Player data: `orgPlayerEnrollments` + `playerIdentities` tables
+- Admin pages: `apps/web/src/app/orgs/[orgId]/admin/`
+- Convex models: `packages/backend/convex/models/`
+- Convex lib (shared constants): `packages/backend/convex/lib/`
+- Schema: `packages/backend/convex/schema.ts` (~5900 lines after P9 additions)
 
 ---
 
-## 2026-02-28 - US-P8-001 - Backend: Dual-Channel Schema, Meta API Setup & Channel Abstraction Service
+## 2026-02-28 - US-P9-001 - Backend Erasure Request Schema, Category Map & Core Mutations
 **Iteration**: 1
-**Commit**: 4e20a85aae961cdf6d3bf0644d357bdd873c4aee
+**Commit**: 92d2442624d006f4c6a46aa6bb241cdd0efa7900
 **Status**: Complete
 
 ### What was implemented
-- Schema: whatsappWellnessSessions table, extended playerWellnessSettings, source field on dailyPlayerHealthChecks
-- New metaWhatsapp.ts action: checkWhatsappAvailability, sendFlowMessage, verifyMetaSignature, processFlowCompletion, processFlowCompletionWebhook, registerFlow
-- New wellnessDispatchService.ts: sendWellnessCheck() routes to Meta or Twilio
-- New whatsappWellness.ts: all session CRUD, channel registration, admin queries, GDPR helpers
-- Modified playerHealthChecks.ts: source field, submitDailyHealthCheckInternal, getTodayHealthCheckInternal
+- Created `packages/backend/convex/lib/erasureCategoryMap.ts` — DATA_CATEGORY_CONFIG with 8 GDPR categories
+- Added to schema.ts: erasureRequests, orgRetentionConfig, retentionCronLogs, breachRegister tables
+- Added to dailyPlayerHealthChecks: retentionExpiresAt, retentionExpired, retentionExpiredAt + by_retention_expired index
+- Added to orgPlayerEnrollments: isDeleted, deletedAt
+- Created `packages/backend/convex/models/erasureRequests.ts` with all required mutations/queries
+- Created `packages/backend/convex/models/retentionConfig.ts` with config queries, upsert, soft-delete helpers
 
 ### Files changed
-- packages/backend/convex/schema.ts (+60)
-- packages/backend/convex/actions/metaWhatsapp.ts (new, ~620 lines)
-- packages/backend/convex/lib/wellnessDispatchService.ts (new, ~180 lines)
-- packages/backend/convex/models/whatsappWellness.ts (new, ~540 lines)
-- packages/backend/convex/models/playerHealthChecks.ts (+130)
-
-### Quality checks
-- Type check: passed (no errors in new/modified files)
-- Linting: passed biome check
-- Codegen: succeeded
-- Commit: pre-commit hook passed
-
-### Learnings for future iterations
-**Patterns:**
-- submitDailyHealthCheckInternal exists for webhook use (no auth) -- always use this from internal actions
-- getSettingsByWhatsappNumber for wa_id pseudonymization pattern
-- sendConversationalQuestion has @ts-expect-error in dispatch service -- added in US-P8-004
-
-**Gotchas:**
-- `v` cannot be used as variable name (shadows Convex v import)
-- Biome: multi-line braces required, `type` not `interface`, `+= 1` not `++`
-- String-based internal refs don't work -- use typed `internal.models.xxx` after codegen
-
----
-
-## 2026-02-28 - US-P8-002 - Meta Webhook Endpoints — Flow Completion & Data Exchange
-**Iteration**: 2
-**Commit**: fc9326dae0b8a4d0cc9e27250af0d1dc47445a21
-**Status**: Complete
-
-### What was implemented
-- GET /whatsapp/meta/webhook — hub.challenge verification using META_WEBHOOK_VERIFY_TOKEN
-- POST /whatsapp/meta/webhook — X-Hub-Signature-256 verification + Flow completion routing
-- POST /whatsapp/flows/exchange — RSA-OAEP-SHA256 + AES-128-GCM encrypted data exchange
-- verifyMetaSignatureAction — "use node" action wrapper callable from http.ts
-- handleFlowsExchange — decrypt, resolve player, build dynamic screen, encrypt response
-- decryptFlowRequest / encryptFlowResponse — Meta's official crypto algorithm helpers
-- buildEnabledDimensionGroups — RadioButtonsGroup components for only enabled dimensions
-- META_PRIVATE_KEY env var documented (PEM RSA private key)
-
-### Files changed
-- packages/backend/convex/actions/metaWhatsapp.ts (+280 lines)
-- packages/backend/convex/http.ts (+130 lines)
+- packages/backend/convex/lib/erasureCategoryMap.ts (new)
+- packages/backend/convex/models/erasureRequests.ts (new)
+- packages/backend/convex/models/retentionConfig.ts (new)
+- packages/backend/convex/schema.ts (+~100 lines)
 
 ### Quality checks
 - ✅ Codegen: passed
 - ✅ Type check: passed
-- ✅ Linting: clean
-- ✅ Pre-commit hook: passed
+- ✅ Linting: passed
+- ✅ Browser verification: N/A (backend-only)
 
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- httpAction handlers without async must use `Promise.resolve(new Response(...))` — Biome `useAwait` rejects async without await
-- Biome `noBitwiseOperators` blocks `~x` — use `255 - x` for byte flipping (equivalent for uint8)
-- http.ts can access `process.env` without "use node" — works in all Convex function types
-- For Node.js crypto in http.ts, delegate to "use node" internalAction via ctx.runAction
-- Meta Flows data exchange algorithm: RSA-PKCS1-OAEP-SHA256 to decrypt AES key, AES-128-GCM to decrypt body, AES-128-GCM with flipped IV (255 - original_byte) for response
-- handleFlowsExchange returns discriminated union — use `success: true as const` / `false as const`
-
-**Gotchas encountered:**
-- `~` bitwise NOT blocked by Biome — use `255 - x` for byte values
-- GET webhook handler must be non-async with Promise.resolve returns
-- META_PRIVATE_KEY must be set in Convex dashboard before /whatsapp/flows/exchange works
+### Learnings
+- Biome `useBlockStatements` requires braces on ALL if bodies (even single-line throws)
+- Schema file is huge — grep for table names, then offset/limit to read
+- Don't import `components` unless actually used — linter removes it and causes errors
 
 ---
 
-## 2026-02-28 - US-P8-003 - Meta WhatsApp Flows Template — Design & Registration
-**Iteration**: 3
-**Commit**: fad69bb2
+## 2026-02-28 - US-P9-002 - GDPR Erasure Request UI (Player Settings)
 **Status**: Complete
-
-### What was implemented
-- Created `packages/backend/convex/flows/wellness-check-flow.json` — full Flow JSON (version 3.1, data_api_version 3.0, single WELLNESS_SCREEN with 8 RadioButtonsGroup components + Footer)
-- Created `docs/meta-whatsapp-flows-setup.md` — comprehensive setup guide covering RSA key setup, webhook config, Flow registration, data exchange endpoint, template creation, sandbox testing, GDPR requirements
-- `registerFlow` internalAction was already implemented in US-P8-001 — no additional code needed
-
-### Files changed
-- packages/backend/convex/flows/wellness-check-flow.json (new, 118 lines)
-- docs/meta-whatsapp-flows-setup.md (new, 257 lines)
-
-### Quality checks
-- ✅ Codegen: passed (no TypeScript changes needed)
-- ✅ Type check: passed
-- ✅ Linting: clean (JSON/MD files only)
-- ✅ Pre-commit hook: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- US-P8-003 is primarily documentation + JSON artifact — registerFlow already existed from US-P8-001
-- Flow JSON must have `required: false` on all dimensions — dynamic exchange endpoint controls which appear
-- When a published Flow needs updating: create a NEW Flow (cannot modify published), update META_FLOWS_WELLNESS_ID
-
-**Notes for manual steps (human must complete after deploy):**
-- Register Flow via `registerFlow` action in Convex dashboard → get Flow ID → set META_FLOWS_WELLNESS_ID
-- Create message template in Meta Business Manager with Flow button
-- Wait 24-48h for template approval; set WELLNESS_TEMPLATE_NAME env var
+- Created `data-rights-section.tsx` in player settings with Your Data Rights section
+- Three rights cards: access, portability, erasure/deletion
+- ErasureRequestForm: textarea, checkbox confirmation, submit button (disabled until confirmed)
+- StatusCard: shows Pending/In Review/Completed/Rejected status + admin response note
+- Calls `api.models.erasureRequests.submitErasureRequest`
 
 ---
 
-## 2026-02-28 - US-P8-004 - Twilio Conversational/SMS Channel (Retained & Updated)
-**Iteration**: 4
-**Commit**: 74757224 (run git log -1 --format=%H for full hash)
+## 2026-02-28 - US-P9-003 - Admin Erasure Request Processing
 **Status**: Complete
-
-### What was implemented
-- `sendConversationalQuestion` internalAction — sends formatted wellness Q via Twilio WhatsApp
-- `handleWellnessReply` helper — processes 1-5 replies, invalid counting, advances Q&A
-- `handleWellnessOnDemand` helper — WELLNESS command creates on-demand session
-- Wellness session priority check added to `processIncomingMessage` (before coach routing)
-- SKIP command: abandons session with "No problem! Check in via the app anytime."
-- WELLNESSSTOP: deregisters player (exact Meta Business Policy phrasing — NOT optional)
-- WELLNESS: creates on-demand session if player is registered and opted-in
-- Removed `@ts-expect-error` from wellnessDispatchService.ts (sendConversationalQuestion now exists)
-- Score interpretation: ≤2.0=💙, 2.1-3.5=🟡, 3.6-4.5=🟢, 4.6+=🔥
-- Source tracking: isWhatsApp based on `args.from.startsWith("whatsapp:")` → 'whatsapp_conversational' or 'sms'
-
-### Files changed
-- packages/backend/convex/actions/whatsapp.ts (+339, -0)
-- packages/backend/convex/lib/wellnessDispatchService.ts (-2 lines, removed @ts-expect-error)
-
-### Quality checks
-- ✅ Codegen: passed
-- ✅ Type check: passed (0 errors)
-- ✅ Biome check: passed (0 errors on changed files, 3 warnings = existing biome-ignore comments)
-- ✅ Pre-commit hook: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- Wellness session check is inserted AFTER RESET command, BEFORE pending org selection in processIncomingMessage
-- `handleWellnessReply` and `handleWellnessOnDemand` are plain `async function` (not actions) — they receive `ctx: any` and call `ctx.runMutation/runQuery` directly
-- `sendConversationalQuestion` is an exported `internalAction` so dispatch service can call it via `ctx.runAction`
-- Internal helpers call `sendWhatsAppMessage` directly (same file) — no action dispatch overhead
-- `!(settings && settings.whatsappOptIn)` → Biome prefers `!settings?.whatsappOptIn` (optional chain rule)
-- WhatsApp vs SMS detection: check if `args.from` starts with "whatsapp:" prefix (before it's stripped)
-
-**Gotchas:**
-- WELLNESSSTOP response must use EXACT wording: "You have been removed from wellness check-ins. Reply WELLNESS to re-subscribe." (Meta Business Policy requirement)
-- `recordWellnessAnswer` increments `currentDimensionIndex` in DB, so check `session.currentDimensionIndex + 1 === session.enabledDimensions.length` BEFORE calling it to determine if it's the last Q
-- `allResponses` must be built as `{...session.collectedResponses, [currentDimension]: value}` because DB hasn't been updated yet when computing completion
+- Created `packages/backend/convex/actions/erasureExecution.ts` — executes soft-delete per category
+- Category handlers: WELLNESS_DATA, COMMUNICATION_DATA, PLAYER_PROFILE (soft-delete enrollment)
+- AUDIT_LOGS + CHILD_AUTH_LOGS always retained (legal obligation)
+- Calls `retentionConfig.softDeleteAllWellnessForPlayer` and `softDeleteAllWellnessSessionsForPlayer`
 
 ---
 
-## 2026-02-28 - US-P8-005 - Player Channel Registration & Phone Verification (Settings UI)
-**Iteration**: 5
-**Commit**: c5072602cc342c3eabaa82f6bab585bca531c823
+## 2026-02-28 - US-P9-004 - Admin Erasure Request Review Dashboard
 **Status**: Complete
-
-### What was implemented
-- New `packages/backend/convex/actions/phoneVerification.ts` (`"use node"` action file):
-  - `sendVerificationPin`: generates crypto-random 6-digit PIN, stores in `verificationPins` table, sends via Twilio plain SMS
-  - `verifyPinAndDetectChannel`: claims PIN, calls `checkWhatsappAvailability`, registers channel in `playerWellnessSettings` (opt-in defaults to false)
-- New mutations in `whatsappWellness.ts`:
-  - `storeVerificationPin` (internalMutation), `claimVerificationPin` (internalMutation): PIN storage and verification
-  - `setWellnessOptIn` (public mutation): opt-in toggle for player settings UI
-  - `clearWellnessPhone` (public mutation): clears phone/channel/optIn for "Change number"
-- New `wellness-checkin-section.tsx`: multi-step flow (phone → PIN → channel → opt-in). Uses PhoneInput + InputOTP. GDPR Article 9 consent text (mandatory wording). Registered view with masked phone.
-- Updated `page.tsx`: added `authClient.useActiveOrganization()`, inserted `WellnessCheckInSection`
-
-### Files changed
-- packages/backend/convex/actions/phoneVerification.ts (new, ~170 lines)
-- packages/backend/convex/models/whatsappWellness.ts (+165 lines)
-- apps/web/src/app/orgs/[orgId]/player/settings/wellness-checkin-section.tsx (new, ~650 lines)
-- apps/web/src/app/orgs/[orgId]/player/settings/page.tsx (+10 lines)
-
-### Quality checks
-- ✅ Codegen: passed
-- ✅ Type check: passed (0 errors in new files)
-- ✅ Biome: clean on changed files
-- ✅ Pre-commit hook: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- Discriminated union returns from Convex mutations need `as const`: `return { valid: true as const }`
-- When calling mutations returning discriminated unions from actions, explicitly type the intermediate: `const result: { valid: true } | { valid: false; error: string } = await ctx.runMutation(...)`
-- `authClient.useActiveOrganization()` gives `{ data: { name, ... } }` for org name
-- `PhoneInput` component at `@/components/ui/phone-input.tsx` — gives E.164, default IE country
-- `InputOTP` at `@/components/ui/input-otp.tsx` — 6 slots for 6-digit PIN
-- `verificationPins` table already existed in schema (from earlier phase) — no schema change needed
-
-**Gotchas:**
-- Unused constant in module scope → Biome noUnusedVariables blocks commit. Remove unused constants.
-- PlayerSettingsPage had pre-existing complexity 18, adding more pushes over limit. Added biome-ignore comment.
-- `TWILIO_SMS_FROM` new env var needed for plain SMS PIN verification (falls back to `TWILIO_WHATSAPP_NUMBER`)
+- Created `/admin/data-rights/page.tsx` with pending/completed request tables
+- Per-category decision table with locked rows (AUDIT_LOGS, CHILD_AUTH_LOGS)
+- Process Request flow with confirm dialog
+- Fixed `session.user._id` → `session.user.id` (Better Auth uses `.id`)
+- Fixed `noNonNullAssertion` Biome error with explicit object spread
 
 ---
 
-## 2026-02-28 - US-P8-006 - Admin WhatsApp Wellness Scheduling Configuration
-**Iteration**: 6
-**Commit**: 275706c0baf49ea67f7f28f1a77698102f1c3ef1
+## 2026-02-28 - US-P9-005 - Data Retention Configuration UI
 **Status**: Complete
-
-### What was implemented
-- Extended `wellnessOrgConfig` schema with 5 optional WhatsApp dispatch fields: `whatsappEnabled`, `dispatchTime`, `dispatchTimezone`, `dispatchActiveDays`, `dispatchTargetTeamIds`
-- Updated `getWellnessOrgConfig` returns validator to include optional new fields
-- Updated `updateWellnessOrgConfig` args to accept optional dispatch fields (backwards-compatible)
-- Added `getWhatsappDispatchStatus` query that checks META_FLOWS_WELLNESS_ID and TWILIO_WHATSAPP_FROM env vars, returns booleans
-- Created `wellness-dispatch-section.tsx` as self-contained client component with: master toggle, integration status badges, channel counts, time picker (15-min), timezone dropdown, active day checkboxes with presets, target teams multi-select, next dispatch preview
-- Inserted `WellnessDispatchSection` into admin settings page Wellness Reminders card
-
-### Files changed
-- packages/backend/convex/schema.ts (+10)
-- packages/backend/convex/models/playerHealthChecks.ts (+60)
-- apps/web/src/app/orgs/[orgId]/admin/settings/wellness-dispatch-section.tsx (new, ~390 lines)
-- apps/web/src/app/orgs/[orgId]/admin/settings/page.tsx (+5)
-
-### Quality checks
-- ✅ Codegen: passed
-- ✅ Type check: passed
-- ✅ Biome check on changed files: clean
-- ✅ Pre-commit hook: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- When the linter fires between Edit calls it removes unused imports. Add JSX usage FIRST, then the import.
-- `getWhatsappDispatchStatus` uses `process.env` in a Convex query — no "use node" needed
-- shadcn Checkbox inside `<label>` triggers noLabelWithoutControl — add biome-ignore (Radix renders button)
-- Pre-existing complexity errors in playerHealthChecks.ts at 1026, 1127, 1195, 1413 — ignore these
-
-**Gotchas:**
-- Admin settings page uses `session?.user?.id` (NOT `._id`) for userId prop
-- Must pass current reminder config values through when only updating dispatch fields
-- WellnessDispatchSection goes inside the existing card, not as a separate card
+- Added `getUpcomingExpiryCountsForOrg` query to `retentionConfig.ts`
+- Stamped `retentionExpiresAt` on wellness records in `playerHealthChecks.ts`
+- Created `/admin/data-retention/page.tsx` with 6-category config table + preview
+- Legal minimums: injuryDays ≥ 2555 (locked), auditLogDays ≥ 1095 (locked)
+- Added Clock icon + Data Retention link to admin sidebar Compliance group
 
 ---
 
-## 2026-02-28 - US-P8-007 - Daily Dispatch Cron — Channel-Aware
-**Iteration**: 7
-**Commit**: d58a6a22cfa4337b412617dfdc7a95bca736ba37
+## 2026-02-28 - US-P9-006 - Retention Enforcement Cron
 **Status**: Complete
-
-### What was implemented
-- Schema: `lastFlowSentDate: v.optional(v.string())` added to `playerWellnessSettings` (tracks last date Flow was dispatched to prevent double-send)
-- Schema: Added `by_org` index on `playerWellnessSettings` for efficient org-level queries
-- `getOptedInPlayers` query: updated to use new `by_org` index (fixed `.filter()` violation), includes `lastFlowSentDate`
-- `updateFlowSentDate` internalMutation: updates `lastFlowSentDate` after successful Flow dispatch
-- New `packages/backend/convex/jobs/wellnessDispatch.ts`:
-  - `getEnabledOrgConfigs`: internalQuery — fetches wellnessOrgConfigs with whatsappEnabled=true
-  - `checkWellnessDispatch`: internalAction — 15-min cron entry. Checks each org's timezone-local time against dispatchTime. Schedules `dispatchWellnessForOrg` for orgs in window.
-  - `dispatchWellnessForOrg`: internalAction — per-org dispatch. Deduplication checks (health check exists, Flow sent today, session exists). Batches >50 players via `ctx.scheduler.runAfter` staggered 1 min apart.
-  - `dispatchWellnessBatch`: internalAction — rate-limited batch executor, called by scheduler.
-  - `getPlayerIdentity`: internalQuery — resolves playerIdentityId to firstName/lastName for dispatch messages.
-  - `sendBatch` private function: calls WellnessDispatchService, handles fallback from Flows to SMS on Meta API failure.
-- Registered `check-wellness-dispatch` cron (every 15 minutes) in `crons.ts`
-
-### Files changed
-- packages/backend/convex/schema.ts (+6)
-- packages/backend/convex/models/whatsappWellness.ts (+60)
-- packages/backend/convex/jobs/wellnessDispatch.ts (new, ~550 lines)
-- packages/backend/convex/crons.ts (+7)
-
-### Quality checks
-- ✅ Codegen: passed
-- ✅ Type check: passed (0 errors)
-- ✅ Biome check on changed files: clean (1 biome-ignore for complexity in dispatch handler)
-- ✅ Pre-commit hook: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- `internalAction` (not `internalMutation`) needed for cron jobs that call WellnessDispatchService (ActionCtx required)
-- `crons.ts` can reference `internal.jobs.wellnessDispatch.checkWellnessDispatch` for actions registered in jobs/
-- `Intl.DateTimeFormat` available in Convex V8 runtime without "use node" — use for timezone conversion
-- Use `formatToParts()` for reliable timezone-local date/time extraction
-- `useMaxParams` Biome rule: functions with >4 params need an options object
-- `noExcessiveCognitiveComplexity` > 15: add `biome-ignore lint/complexity/noExcessiveCognitiveComplexity`
-- For deduplication of WhatsApp Flows dispatch: `lastFlowSentDate` field on `playerWellnessSettings` (simpler than a log table)
-- Batching pattern: `if batches.length === 1` → inline; else `ctx.scheduler.runAfter(i * DELAY, batchAction, {...})`
-
-**Gotchas:**
-- `Parameters<typeof someAction.handler>` fails — `RegisteredAction` doesn't expose `.handler`. Use `ActionCtx` import instead.
-- `BATCH_DELAY_MS` constant triggers `noUnusedVariables` if batch path not taken — keep it as it IS used in multi-batch path
-- `getOptedInPlayers` was using `.filter()` — fixed to use new `by_org` index (performance fix)
+- Created `packages/backend/convex/jobs/retentionEnforcement.ts`
+  - `enforceRetentionPolicy`: daily 02:00 UTC — phase 1 soft-delete, phase 2 hard-delete (30-day grace)
+  - `sendWeeklyRetentionDigest`: Monday 08:00 UTC — 7-day summary log
+- Registered in `crons.ts`: crons.daily + crons.weekly
 
 ---
 
-## 2026-02-28 - US-P8-008 - App Sync, Completion UX & Channel Source Tracking
-**Iteration**: 8
-**Commit**: 70b277d2d23073ce33283f447e49ce42db632ad9
+## 2026-02-28 - US-P9-007 - axe-playwright Accessibility Setup
 **Status**: Complete
-
-### What was implemented
-- Added `SourceBadge` component to health-check page: shows channel icon for whatsapp_flows (green MessageSquare), whatsapp_conversational (green MessageSquare), sms (Smartphone), null/app (nothing)
-- Added "Recent Check-Ins" section to player health-check page showing last 7 records with date, avg score, and SourceBadge
-- Score interpretation thresholds and completion messages were already correct in both channels (verified)
-- Idempotency already handled in processFlowCompletionWebhook (US-P8-002)
-- Streak, coach dashboard, and overview card are already source-agnostic
-
-### Files changed
-- apps/web/src/app/orgs/[orgId]/player/health-check/page.tsx (+101 lines: SourceBadge component + Recent Check-Ins section)
-
-### Quality checks
-- ✅ Type check: passed
-- ✅ Biome: no errors on changed file (3 pre-existing warnings from nested ternary in existing code)
-- ✅ Pre-commit hook: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- Most of US-P8-008 was already implemented in US-P8-001/002/004 — score interpretation, completion messages, idempotency
-- The main new work was the source badge UI in the health-check page
-- `source` field is already included in `getWellnessHistory` returns validator — no backend changes needed
-- `new Date(dateStr).toLocaleDateString("en-GB", ...)` is the established pattern for date display
+- Installed `@axe-core/playwright ^4.11.1` in apps/web
+- Created `apps/web/uat/tests/accessibility.spec.ts` with AxeBuilder audits on 5 pages
+- Critical/serious violations fail test; moderate/minor are console.warn
 
 ---
 
-## 2026-02-28 - US-P8-009 - Admin WhatsApp Wellness Monitoring Dashboard
-**Iteration**: 9
-**Commit**: 058dbe75e5a7d3c49c05a9ef2d2ab27e55e0fdb5
+## 2026-02-28 - US-P9-008 - WCAG AA: Emoji Scale, Focus, Contrast
 **Status**: Complete
-
-### What was implemented
-- Schema: `wellnessDispatchLog` table (eventType: sent/failed/fallback, by_org_and_date index)
-- Schema: Added `by_org_and_date` index to `whatsappWellnessSessions`
-- New `logDispatchEvent` internalMutation in whatsappWellness.ts
-- New `getDispatchErrors` query (last 7 days failures/fallbacks)
-- New `get30DayChannelBreakdown` query (stacked bar chart data)
-- New `getTodayDispatchSummary` query (today's sent/completed counts per channel)
-- Updated `wellnessDispatch.ts` sendBatch to log fallbacks and failures to wellnessDispatchLog
-- New `whatsapp-notifications-tab.tsx` frontend component with: today's summary, 30-day stacked bar chart, fallback events, error log, not-registered info
-- Added "Notifications" tab to admin analytics page
-
-### Files changed
-- packages/backend/convex/schema.ts (+25)
-- packages/backend/convex/models/whatsappWellness.ts (+267)
-- packages/backend/convex/jobs/wellnessDispatch.ts (+23)
-- packages/backend/convex/_generated/api.d.ts (+2)
-- apps/web/src/app/orgs/[orgId]/admin/analytics/whatsapp-notifications-tab.tsx (new, ~350 lines)
-- apps/web/src/app/orgs/[orgId]/admin/analytics/page.tsx (+13)
-
-### Quality checks
-- ✅ Codegen: passed
-- ✅ Type check: passed
-- ✅ Biome: clean on changed files
-- ✅ Pre-commit hook: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- `dailyPlayerHealthChecks` has `by_org_and_date` (not `by_org`) — use range queries: `.withIndex("by_org_and_date", q => q.eq("organizationId", ...).gte("checkDate", cutoff))`
-- Lucide icon imports removed by linter if not yet used in JSX — add import AND JSX usage in same edit
-- Map<string, obj> without `date` field needs `{ date: dateStr, ...counts }` pattern when building results
-- `whatsappWellnessSessions` needed a `by_org_and_date` index for org-level queries in monitoring
-
-**Gotchas:**
-- Biome auto-formats long JSX attributes onto multiple lines when line > ~80 chars
-- JS Array.prototype.filter() in handler code is fine — only Convex DB .filter() is prohibited
+- Applied WAI-ARIA APG radio group pattern to health check emoji scale
+- `role="radiogroup"`, `aria-labelledby`, ArrowKey keyboard navigation
+- Each button: `role="radio"`, `aria-checked`, `aria-label` with plain text
+- Emoji `aria-hidden="true"`, `sr-only` label spans inside buttons
+- Roving `tabIndex` pattern; `focus-visible:ring-2` focus indicator
+- Added `prefers-reduced-motion` block to `index.css`
 
 ---
 
-## 2026-02-28 - US-P8-UAT - Phase 8 Dual-Channel Wellness E2E Tests
-**Iteration**: 10
-**Commit**: 95483543e39e2c1a21f4cdf63c3d2b09f21e2a3f
+## 2026-02-28 - US-P9-009 - Form Labels, Keyboard Nav, Skip Links
 **Status**: Complete
+- Added `aria-label="Search players by name"` to admin players search input
+- Verified skip link (SkipLink component) exists in root layout
+- Verified shadcn/Radix dialog keyboard handling (Escape to close)
+- Verified touch targets already have min-h/min-w from Phase 4
 
-### What was implemented
-- Created `apps/web/uat/tests/whatsapp-wellness-phase8.spec.ts`
-- UI tests (P8-001 through P8-012):
-  - Player settings page: wellness section visible, phone input present, GDPR text
-  - Admin settings: dispatch section visible
-  - Health check page: recent check-ins section renders
-  - Admin analytics: Notifications tab visible, shows summary, error log, 30-day chart
-- Manual test protocol (tests 1-17) documented in comments:
-  - WhatsApp Flows channel end-to-end (tests 1-7)
-  - SMS/conversational end-to-end (tests 8-12)
-  - Fallback and edge cases (tests 13-16)
-  - WELLNESSSTOP command test (test 17)
+---
 
-### Files changed
-- apps/web/uat/tests/whatsapp-wellness-phase8.spec.ts (new, 394 lines)
+## 2026-02-28 - US-P9-010 - Data Breach Notification & Breach Register
+**Status**: Complete
+- Created `packages/backend/convex/models/breachRegister.ts`
+  - listBreaches, getBreachById, logBreach, updateBreachStatus
+- Created `/admin/breach-register/page.tsx`
+  - 72-hour overdue warning banner, LogBreachDialog, UpdateBreachDialog
+  - Severity color codes (low/medium/high/critical), status tracking table
+- Created `docs/breach-notification-procedure.md` — Irish DPC 6-step procedure
 
-### Quality checks
-- ✅ Type check: passed
-- ✅ Biome: uat/ directory is excluded from biome (0 files checked — expected)
-- ✅ Pre-commit hook: passed
+---
 
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- UAT tests in `apps/web/uat/tests/` are excluded from biome checks (correct)
-- E2E tests follow pattern: import fixtures from `../fixtures/test-fixtures`, use `ownerPage` fixture
-- `test.skip(true, "reason")` for conditionally skipping when tab/section not visible
-- Tests should gracefully handle both logged-in states (with/without player profile)
-- Manual tests for WhatsApp Flows require a real Meta Business API + physical device
+## 2026-02-28 - US-P9-UAT - Phase 9 Compliance E2E Tests
+**Status**: Complete
+- Created `apps/web/uat/tests/compliance-phase9.spec.ts`
+  - 26 automated UI tests across erasure player/admin flows, retention config, breach register, WCAG
+  - Manual test protocol: keyboard nav, VoiceOver, high-contrast, retention cron, breach workflow
+- All previous stories US-P9-001 through US-P9-010 complete and passing
 
 ---

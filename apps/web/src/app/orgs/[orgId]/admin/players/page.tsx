@@ -1337,6 +1337,7 @@ export default function ManagePlayersPage() {
         <div className="relative flex-1">
           <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
           <Input
+            aria-label="Search players by name"
             className="pl-10"
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search players by name..."

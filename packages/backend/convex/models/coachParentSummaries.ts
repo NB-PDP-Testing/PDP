@@ -92,6 +92,8 @@ const summaryValidator = v.object({
       otherReason: v.optional(v.string()),
     })
   ),
+  // Phase 7: if true, this summary is hidden from the child's player portal
+  restrictChildView: v.optional(v.boolean()),
 });
 
 const playerIdentityValidator = v.object({

@@ -2443,6 +2443,9 @@ export default defineSchema({
     revokedBy: v.optional(v.string()), // userId of coach who revoked
     revocationReason: v.optional(v.string()), // Why coach revoked
 
+    // Child view restriction (Phase 7 - Child Player Passport Authorization)
+    restrictChildView: v.optional(v.boolean()), // If true, hidden from child's portal
+
     // Override tracking (Phase 4 - Learning Loop)
     // Tracks when coach overrides AI decisions to learn patterns
     overrideType: v.optional(
@@ -5604,4 +5607,63 @@ export default defineSchema({
   })
     .index("by_player", ["playerIdentityId"])
     .index("by_player_and_date", ["playerIdentityId", "generatedAt"]),
+
+  // ============================================================
+  // PHASE 7: CHILD PLAYER PASSPORT AUTHORIZATION
+  // Parent-controlled access for under-18 players to view their
+  // own development data. GDPR/COPPA compliant with audit log.
+  // ============================================================
+
+  // One record per child — unified access level regardless of how many guardians
+  parentChildAuthorizations: defineTable({
+    parentUserId: v.string(), // Better Auth user ID of granting parent
+    childPlayerId: v.id("orgPlayerEnrollments"), // The child's enrollment record
+    organizationId: v.string(), // Better Auth organization ID
+    accessLevel: v.union(
+      v.literal("none"), // No platform access
+      v.literal("view_only"), // Read-only (recommended ages 13–15)
+      v.literal("view_interact") // Can add goals/notes (recommended ages 16–17)
+    ),
+    grantedAt: v.number(), // Timestamp of initial grant
+    grantedBy: v.string(), // Better Auth user ID of parent who granted
+    revokedAt: v.optional(v.number()), // Set when access is revoked
+    revokedBy: v.optional(v.string()), // User ID of parent who revoked
+    // Granular content toggles (all default true)
+    includeCoachFeedback: v.boolean(),
+    includeVoiceNotes: v.boolean(),
+    includeDevelopmentGoals: v.boolean(),
+    includeAssessments: v.boolean(),
+    includeWellnessAccess: v.boolean(),
+  })
+    .index("by_parent_and_child", ["parentUserId", "childPlayerId"])
+    .index("by_child", ["childPlayerId"])
+    .index("by_org", ["organizationId"]),
+
+  // WRITE-ONCE audit log — satisfies GDPR Article 5 accountability + COPPA
+  parentChildAuthorizationLogs: defineTable({
+    authorizationId: v.id("parentChildAuthorizations"),
+    childPlayerId: v.id("orgPlayerEnrollments"), // Denormalised for by_child queries
+    changedAt: v.number(),
+    changedBy: v.string(), // Better Auth user ID
+    action: v.union(
+      v.literal("granted"),
+      v.literal("updated"),
+      v.literal("revoked"),
+      v.literal("toggle_changed")
+    ),
+    fromAccessLevel: v.optional(v.string()),
+    toAccessLevel: v.optional(v.string()),
+    togglesChanged: v.optional(
+      v.array(
+        v.object({
+          field: v.string(), // e.g. "includeCoachFeedback"
+          from: v.boolean(),
+          to: v.boolean(),
+        })
+      )
+    ),
+  })
+    .index("by_authorization", ["authorizationId"])
+    .index("by_child", ["childPlayerId"])
+    .index("by_changed_at", ["changedAt"]),
 });

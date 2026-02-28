@@ -540,6 +540,10 @@ export default defineSchema({
     // Metadata
     enrolledAt: v.number(),
     updatedAt: v.number(),
+
+    // Phase 9: GDPR Article 17 soft-delete (anonymisation) fields
+    isDeleted: v.optional(v.boolean()),
+    deletedAt: v.optional(v.number()),
   })
     .index("by_playerIdentityId", ["playerIdentityId"])
     .index("by_organizationId", ["organizationId"])
@@ -5556,10 +5560,16 @@ export default defineSchema({
         v.literal("sms")
       )
     ),
+
+    // Phase 9: GDPR Article 5 retention fields
+    retentionExpiresAt: v.optional(v.number()), // Unix ms when record should be soft-deleted
+    retentionExpired: v.optional(v.boolean()), // true once soft-deleted by cron
+    retentionExpiredAt: v.optional(v.number()), // when soft-delete was applied
   })
     .index("by_player_and_date", ["playerIdentityId", "checkDate"])
     .index("by_org_and_date", ["organizationId", "checkDate"])
-    .index("by_player", ["playerIdentityId"]),
+    .index("by_player", ["playerIdentityId"])
+    .index("by_retention_expired", ["retentionExpired", "retentionExpiredAt"]),
 
   // Per-player wellness dimension settings
   playerWellnessSettings: defineTable({
@@ -5796,4 +5806,109 @@ export default defineSchema({
     .index("by_phone_and_date", ["phoneNumber", "sessionDate"])
     .index("by_player_and_date", ["playerIdentityId", "sessionDate"])
     .index("by_org_and_date", ["organizationId", "sessionDate"]),
+
+  // ============================================================
+  // PHASE 9: GDPR COMPLIANCE — ERASURE REQUESTS
+  // GDPR Article 17 — Adult right to erasure
+  // This table is NEVER subject to retention cron or future erasure processing
+  // It is the Article 5(2) accountability record of how erasure requests were handled
+  // ============================================================
+
+  erasureRequests: defineTable({
+    playerId: v.id("orgPlayerEnrollments"),
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    requestedByUserId: v.string(),
+    submittedAt: v.number(),
+    deadline: v.number(), // submittedAt + 2592000000 (30 days in ms)
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_review"),
+      v.literal("completed"),
+      v.literal("rejected")
+    ),
+    playerGrounds: v.optional(v.string()), // Player's optional reason for the request
+    categoryDecisions: v.optional(
+      v.array(
+        v.object({
+          category: v.string(),
+          decision: v.union(v.literal("approved"), v.literal("rejected")),
+          grounds: v.optional(v.string()),
+          erasedAt: v.optional(v.number()),
+        })
+      )
+    ),
+    adminUserId: v.optional(v.string()),
+    processedAt: v.optional(v.number()),
+    adminResponseNote: v.optional(v.string()),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_deadline", ["status", "deadline"]),
+
+  // ============================================================
+  // PHASE 9: GDPR COMPLIANCE — ORG RETENTION CONFIGURATION
+  // GDPR Article 5(1)(e) — Storage limitation
+  // Org-configurable retention periods per data category
+  // ============================================================
+
+  orgRetentionConfig: defineTable({
+    organizationId: v.string(),
+    wellnessDays: v.number(), // default 730 (2 years)
+    assessmentDays: v.number(), // default 1825 (5 years)
+    injuryDays: v.number(), // default 2555 (7 years — legal minimum)
+    coachFeedbackDays: v.number(), // default 1825 (5 years)
+    auditLogDays: v.number(), // default 1095 (3 years — legal minimum)
+    communicationDays: v.number(), // default 365 (1 year)
+    updatedAt: v.number(),
+    updatedByUserId: v.string(),
+  }).index("by_org", ["organizationId"]),
+
+  // ============================================================
+  // PHASE 9: GDPR COMPLIANCE — RETENTION CRON LOGS
+  // Audit trail of nightly retention enforcement runs
+  // ============================================================
+
+  retentionCronLogs: defineTable({
+    runAt: v.number(),
+    softDeletedCount: v.number(),
+    hardDeletedCount: v.number(),
+    tablesProcessed: v.array(v.string()),
+    errors: v.optional(v.array(v.string())),
+  }).index("by_runAt", ["runAt"]),
+
+  // ============================================================
+  // PHASE 9: GDPR COMPLIANCE — BREACH REGISTER
+  // GDPR Articles 33/34 — Data breach notification obligations
+  // ============================================================
+
+  breachRegister: defineTable({
+    organizationId: v.string(),
+    detectedAt: v.number(),
+    detectedByUserId: v.string(),
+    description: v.string(),
+    affectedDataCategories: v.array(v.string()),
+    estimatedAffectedCount: v.optional(v.number()),
+    severity: v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("critical")
+    ),
+    status: v.union(
+      v.literal("detected"),
+      v.literal("under_assessment"),
+      v.literal("dpc_notified"),
+      v.literal("individuals_notified"),
+      v.literal("closed")
+    ),
+    dpcNotifiedAt: v.optional(v.number()),
+    individualsNotifiedAt: v.optional(v.number()),
+    resolutionNotes: v.optional(v.string()),
+    closedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_org", ["organizationId"])
+    .index("by_org_and_status", ["organizationId", "status"]),
 });

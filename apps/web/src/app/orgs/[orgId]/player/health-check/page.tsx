@@ -3,7 +3,14 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, ChevronDown, Loader2, WifiOff } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  Loader2,
+  MessageSquare,
+  Smartphone,
+  WifiOff,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -234,6 +241,56 @@ function GdprConsentModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ============================================================
+// Channel Source Badge
+// ============================================================
+
+type HealthCheckSource =
+  | "app"
+  | "whatsapp_flows"
+  | "whatsapp_conversational"
+  | "sms"
+  | null
+  | undefined;
+
+function SourceBadge({ source }: { source: HealthCheckSource }) {
+  if (!source || source === "app") {
+    return null;
+  }
+  if (source === "whatsapp_flows") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-green-800 text-xs"
+        title="Via WhatsApp"
+      >
+        <MessageSquare className="h-3 w-3" />
+        Via WhatsApp
+      </span>
+    );
+  }
+  if (source === "whatsapp_conversational") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-green-800 text-xs"
+        title="Via WhatsApp chat"
+      >
+        <MessageSquare className="h-3 w-3" />
+        Via WhatsApp chat
+      </span>
+    );
+  }
+  // sms
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-slate-700 text-xs"
+      title="Via SMS"
+    >
+      <Smartphone className="h-3 w-3" />
+      Via SMS
+    </span>
   );
 }
 
@@ -850,6 +907,49 @@ export default function PlayerHealthCheckPage() {
             </div>
           </CollapsibleContent>
         </Collapsible>
+      )}
+
+      {/* Recent Check-Ins with channel source badges */}
+      {wellnessHistory && wellnessHistory.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="font-semibold text-base">Recent Check-Ins</h2>
+          <div className="space-y-1">
+            {wellnessHistory.slice(0, 7).map((record) => {
+              const scores: number[] = [];
+              for (const dim of record.enabledDimensions) {
+                const val = record[dim as keyof typeof record];
+                if (typeof val === "number") {
+                  scores.push(val);
+                }
+              }
+              const avg =
+                scores.length > 0
+                  ? scores.reduce((a, b) => a + b, 0) / scores.length
+                  : null;
+              return (
+                <div
+                  className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
+                  key={record._id}
+                >
+                  <span className="text-muted-foreground">
+                    {new Date(record.checkDate).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {avg !== null && (
+                      <span className="font-medium">
+                        {(Math.round(avg * 10) / 10).toFixed(1)}/5
+                      </span>
+                    )}
+                    <SourceBadge source={record.source} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* Trend Charts */}

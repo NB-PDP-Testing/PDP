@@ -705,6 +705,76 @@ export const getTodayPriorityData = query({
 });
 
 // ============================================================
+// PHASE 9: GDPR ARTICLE 17 — ANONYMISATION
+// ============================================================
+
+/**
+ * Anonymise a player's profile data as part of an approved GDPR erasure request.
+ *
+ * This does NOT delete the orgPlayerEnrollments record (referential integrity must
+ * be preserved for historical assessments, injuries, etc.). Instead:
+ * - Marks the enrollment as deleted (isDeleted, deletedAt)
+ * - Anonymises the playerIdentities record (replaces PII with placeholder values)
+ * - Deletes associated emergency contacts
+ *
+ * The record ID is preserved so historical records remain internally consistent.
+ */
+export const anonymisePlayerProfile = internalMutation({
+  args: {
+    playerId: v.id("orgPlayerEnrollments"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const enrollment = await ctx.db.get(args.playerId);
+    if (!enrollment) {
+      return null;
+    }
+
+    const now = Date.now();
+
+    // Mark enrollment as deleted (soft delete)
+    await ctx.db.patch(args.playerId, {
+      isDeleted: true,
+      deletedAt: now,
+    });
+
+    // Anonymise the playerIdentities record — replace PII with placeholder values
+    const playerIdentity = await ctx.db.get(enrollment.playerIdentityId);
+    if (playerIdentity) {
+      await ctx.db.patch(enrollment.playerIdentityId, {
+        firstName: "Deleted",
+        lastName: "Player",
+        dateOfBirth: "1900-01-01",
+        email: undefined,
+        phone: undefined,
+        address: undefined,
+        address2: undefined,
+        town: undefined,
+        county: undefined,
+        postcode: undefined,
+        country: undefined,
+        userId: undefined, // Unlink the Better Auth user account
+        updatedAt: now,
+      });
+    }
+
+    // Delete associated emergency contacts (these are PII and have no referential value)
+    const emergencyContacts = await ctx.db
+      .query("playerEmergencyContacts")
+      .withIndex("by_priority", (q) =>
+        q.eq("playerIdentityId", enrollment.playerIdentityId)
+      )
+      .collect();
+
+    for (const contact of emergencyContacts) {
+      await ctx.db.delete(contact._id);
+    }
+
+    return null;
+  },
+});
+
+// ============================================================
 // HELPER FUNCTIONS
 // ============================================================
 

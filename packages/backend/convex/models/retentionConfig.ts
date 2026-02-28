@@ -191,3 +191,72 @@ export const softDeleteWellnessRecord = internalMutation({
     return null;
   },
 });
+
+/**
+ * Soft-delete all dailyPlayerHealthChecks for a player in an org (erasure execution).
+ * Processes all records via the by_player index.
+ * For very large datasets, further batching via ctx.scheduler.runAfter() could be added.
+ */
+export const softDeleteAllWellnessForPlayer = internalMutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const records = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    let count = 0;
+    for (const record of records) {
+      if (record.organizationId !== args.organizationId) {
+        continue;
+      }
+      if (!record.retentionExpired) {
+        await ctx.db.patch(record._id, {
+          retentionExpired: true,
+          retentionExpiredAt: now,
+        });
+        count += 1;
+      }
+    }
+    return count;
+  },
+});
+
+/**
+ * Soft-delete all whatsappWellnessSessions for a player in an org.
+ * Used by the erasure execution action for COMMUNICATION_DATA category.
+ */
+export const softDeleteAllWellnessSessionsForPlayer = internalMutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const sessions = await ctx.db
+      .query("whatsappWellnessSessions")
+      .withIndex("by_player_and_date", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    let count = 0;
+    for (const session of sessions) {
+      if (session.organizationId !== args.organizationId) {
+        continue;
+      }
+      // whatsappWellnessSessions sessions expire naturally — we delete them directly
+      // They are short-lived session records with no long-term historical value
+      await ctx.db.delete(session._id);
+      count += 1;
+    }
+    return count;
+  },
+});

@@ -30,6 +30,7 @@ import type * as actions_phase4TestSeed from "../actions/phase4TestSeed.js";
 import type * as actions_phoneVerification from "../actions/phoneVerification.js";
 import type * as actions_platformStaffInvitations from "../actions/platformStaffInvitations.js";
 import type * as actions_practicePlans from "../actions/practicePlans.js";
+import type * as actions_retentionEnforcement from "../actions/retentionEnforcement.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_sessionPlans from "../actions/sessionPlans.js";
 import type * as actions_syncQueueProcessor from "../actions/syncQueueProcessor.js";
@@ -283,6 +284,7 @@ declare const fullApi: ApiFromModules<{
   "actions/phoneVerification": typeof actions_phoneVerification;
   "actions/platformStaffInvitations": typeof actions_platformStaffInvitations;
   "actions/practicePlans": typeof actions_practicePlans;
+  "actions/retentionEnforcement": typeof actions_retentionEnforcement;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/sessionPlans": typeof actions_sessionPlans;
   "actions/syncQueueProcessor": typeof actions_syncQueueProcessor;

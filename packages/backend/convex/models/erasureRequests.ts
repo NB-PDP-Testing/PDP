@@ -10,7 +10,12 @@
  */
 
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 import { authComponent } from "../auth";
 
 // ============================================================
@@ -135,9 +140,20 @@ export const listPendingErasureRequests = query({
 });
 
 /**
- * Get a single erasure request by ID.
+ * Get a single erasure request by ID (public query).
  */
 export const getErasureRequestById = query({
+  args: {
+    requestId: v.id("erasureRequests"),
+  },
+  returns: v.union(erasureRequestValidator, v.null()),
+  handler: async (ctx, args) => await ctx.db.get(args.requestId),
+});
+
+/**
+ * Get a single erasure request by ID (internal — for use in actions).
+ */
+export const getErasureRequestByIdInternal = internalQuery({
   args: {
     requestId: v.id("erasureRequests"),
   },
@@ -245,6 +261,31 @@ export const updateErasureRequestStatus = mutation({
         args.status === "completed" || args.status === "rejected"
           ? Date.now()
           : request.processedAt,
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Mark the erasure request as completed (called by the execution action).
+ * Internal — not callable directly by admin UI (use updateErasureRequestStatus).
+ */
+export const completeErasureRequest = internalMutation({
+  args: {
+    requestId: v.id("erasureRequests"),
+    processedAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const request = await ctx.db.get(args.requestId);
+    if (!request) {
+      return null;
+    }
+
+    await ctx.db.patch(args.requestId, {
+      status: "completed",
+      processedAt: args.processedAt,
     });
 
     return null;

@@ -244,4 +244,144 @@ http.route({
   ),
 });
 
+// ============================================================
+// META WHATSAPP WEBHOOK
+// ============================================================
+
+/**
+ * Meta webhook verification (GET request)
+ * Meta sends: GET /whatsapp/meta/webhook?hub.mode=subscribe&hub.challenge=NONCE&hub.verify_token=TOKEN
+ * Respond with hub.challenge if token matches META_WEBHOOK_VERIFY_TOKEN env var.
+ */
+http.route({
+  path: "/whatsapp/meta/webhook",
+  method: "GET",
+  handler: httpAction((_ctx, request) => {
+    const url = new URL(request.url);
+    const hubMode = url.searchParams.get("hub.mode");
+    const hubChallenge = url.searchParams.get("hub.challenge");
+    const hubVerifyToken = url.searchParams.get("hub.verify_token");
+
+    const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
+
+    if (!verifyToken) {
+      console.error("[Meta Webhook] META_WEBHOOK_VERIFY_TOKEN not set");
+      return Promise.resolve(
+        new Response("Service misconfigured", { status: 500 })
+      );
+    }
+
+    if (hubMode === "subscribe" && hubVerifyToken === verifyToken) {
+      console.log("[Meta Webhook] Verification successful");
+      return Promise.resolve(new Response(hubChallenge ?? "", { status: 200 }));
+    }
+
+    console.warn("[Meta Webhook] Verification failed — invalid token");
+    return Promise.resolve(new Response("Forbidden", { status: 403 }));
+  }),
+});
+
+/**
+ * Meta webhook events (POST request)
+ * Receives Flow completion events and status updates from Meta Cloud API.
+ * Verifies X-Hub-Signature-256 before processing.
+ * Returns 200 quickly — processing happens asynchronously.
+ */
+http.route({
+  path: "/whatsapp/meta/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const rawBody = await request.text();
+    const signatureHeader = request.headers.get("x-hub-signature-256") ?? "";
+
+    // Verify signature using HMAC-SHA256 (delegated to "use node" action)
+    const isValid = await ctx.runAction(
+      internal.actions.metaWhatsapp.verifyMetaSignatureAction,
+      { rawBody, signatureHeader }
+    );
+
+    if (!isValid) {
+      console.warn("[Meta Webhook] Invalid signature — rejecting");
+      return new Response("Forbidden", { status: 403 });
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+
+    // Route based on change field and message type
+    const p = payload as {
+      entry?: Array<{
+        changes?: Array<{
+          field?: string;
+          value?: {
+            messages?: Array<{
+              interactive?: { type?: string };
+            }>;
+          };
+        }>;
+      }>;
+    };
+
+    const change = p.entry?.[0]?.changes?.[0];
+    const field = change?.field;
+    const msgType = change?.value?.messages?.[0]?.interactive?.type;
+
+    if (field === "messages" && msgType === "nfm_reply") {
+      // WhatsApp Flow completion — process asynchronously
+      await ctx.runAction(
+        internal.actions.metaWhatsapp.processFlowCompletionWebhook,
+        { payload }
+      );
+    } else {
+      // Status updates, delivery receipts, etc. — no-op
+      console.log("[Meta Webhook] Non-Flow event received, field:", field);
+    }
+
+    return new Response(JSON.stringify({ status: "ok" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+// ============================================================
+// META WHATSAPP FLOWS DATA EXCHANGE
+// ============================================================
+
+/**
+ * WhatsApp Flows data exchange endpoint (POST request)
+ * Called by Meta's servers when a player opens the wellness Flow.
+ * Decrypts the request, resolves the player's enabled dimensions,
+ * and returns an encrypted dynamic screen payload.
+ *
+ * Encryption uses RSA-OAEP-SHA256 + AES-128-GCM per Meta's Flows spec.
+ * Requires META_PRIVATE_KEY env var (PEM-encoded RSA private key).
+ */
+http.route({
+  path: "/whatsapp/flows/exchange",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const rawBody = await request.text();
+
+    const result = await ctx.runAction(
+      internal.actions.metaWhatsapp.handleFlowsExchange,
+      { rawBody }
+    );
+
+    if (!result.success) {
+      console.error("[Flows Exchange] Failed:", result.error);
+      return new Response("Internal Server Error", { status: 500 });
+    }
+
+    return new Response(result.encryptedResponse, {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }),
+});
+
 export default http;

@@ -4,12 +4,15 @@
  * Meta WhatsApp Business Cloud API Integration
  *
  * REQUIRED ENVIRONMENT VARIABLES:
- *   META_GRAPH_API_TOKEN   — Meta app access token (long-lived system user token)
- *   META_PHONE_NUMBER_ID   — WhatsApp Business phone number ID from Meta Business Manager
- *   META_WABA_ID           — WhatsApp Business Account ID
- *   META_FLOWS_WELLNESS_ID — ID of the published wellness Flow (after Flow registration)
+ *   META_GRAPH_API_TOKEN      — Meta app access token (long-lived system user token)
+ *   META_PHONE_NUMBER_ID      — WhatsApp Business phone number ID from Meta Business Manager
+ *   META_WABA_ID              — WhatsApp Business Account ID
+ *   META_FLOWS_WELLNESS_ID    — ID of the published wellness Flow (after Flow registration)
  *   META_WEBHOOK_VERIFY_TOKEN — Random secret token for Meta webhook GET challenge
- *   META_APP_SECRET        — Meta app secret for verifying X-Hub-Signature-256
+ *   META_APP_SECRET           — Meta app secret for verifying X-Hub-Signature-256
+ *   META_PRIVATE_KEY          — PEM-encoded RSA private key for decrypting Flows data exchange requests.
+ *                               Register the corresponding public key with Meta via Business Manager.
+ *                               Required only for the /whatsapp/flows/exchange endpoint.
  *
  * NEVER mix with Twilio env vars:
  *   Twilio: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM
@@ -620,3 +623,285 @@ async function sendFlowConfirmation(
     console.error("[metaWhatsapp] sendFlowConfirmation error:", error);
   }
 }
+
+// ============================================================
+// WEBHOOK SIGNATURE VERIFICATION (ACTION WRAPPER)
+// ============================================================
+
+/**
+ * Action wrapper for verifyMetaSignature — allows http.ts to delegate
+ * signature verification to a "use node" context.
+ */
+export const verifyMetaSignatureAction = internalAction({
+  args: {
+    rawBody: v.string(),
+    signatureHeader: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (_ctx, args) =>
+    verifyMetaSignature(args.rawBody, args.signatureHeader),
+});
+
+// ============================================================
+// FLOWS DATA EXCHANGE ENDPOINT HANDLER
+// ============================================================
+
+// Dimension order and labels as per PRD
+const DIMENSION_ORDER = [
+  "sleepQuality",
+  "energyLevel",
+  "foodIntake",
+  "waterIntake",
+  "mood",
+  "motivation",
+  "physicalFeeling",
+  "muscleRecovery",
+] as const;
+
+type DimensionKey = (typeof DIMENSION_ORDER)[number];
+
+const DIMENSION_LABELS: Record<DimensionKey, string> = {
+  sleepQuality: "😴 Sleep Quality",
+  energyLevel: "⚡ Energy Level",
+  foodIntake: "🥗 Food Intake",
+  waterIntake: "💧 Water Intake",
+  mood: "😊 Mood",
+  motivation: "🔥 Motivation",
+  physicalFeeling: "💪 Physical Feeling",
+  muscleRecovery: "🏋️ Muscle Recovery",
+};
+
+const WELLNESS_OPTIONS = [
+  { id: "1", title: "😢 Very Poor" },
+  { id: "2", title: "😕 Poor" },
+  { id: "3", title: "😐 Neutral" },
+  { id: "4", title: "🙂 Good" },
+  { id: "5", title: "😁 Great" },
+];
+
+/**
+ * Decrypt an incoming Meta Flows data exchange request.
+ * Uses RSA-OAEP-SHA256 to decrypt the AES key, then AES-128-GCM to decrypt the payload.
+ * Algorithm from Meta's official sample code.
+ */
+function decryptFlowRequest(
+  encryptedAesKey: string,
+  encryptedFlowData: string,
+  initialVector: string,
+  privateKeyPem: string
+): {
+  decryptedBody: unknown;
+  aesKeyBuffer: Buffer;
+  initialVectorBuffer: Buffer;
+} {
+  // Decrypt AES key with RSA private key (PKCS1-OAEP, SHA-256)
+  const aesKeyBuffer = crypto.privateDecrypt(
+    {
+      key: crypto.createPrivateKey({ key: privateKeyPem }),
+      padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+      oaepHash: "sha256",
+    },
+    Buffer.from(encryptedAesKey, "base64")
+  );
+
+  const flowDataBuffer = Buffer.from(encryptedFlowData, "base64");
+  const initialVectorBuffer = Buffer.from(initialVector, "base64");
+
+  const TAG_LENGTH = 16;
+  const encryptedBody = flowDataBuffer.subarray(0, -TAG_LENGTH);
+  const authTag = flowDataBuffer.subarray(-TAG_LENGTH);
+
+  const decipher = crypto.createDecipheriv(
+    "aes-128-gcm",
+    aesKeyBuffer,
+    initialVectorBuffer
+  );
+  decipher.setAuthTag(authTag);
+
+  const decryptedJSON = Buffer.concat([
+    decipher.update(encryptedBody),
+    decipher.final(),
+  ]).toString("utf-8");
+
+  return {
+    decryptedBody: JSON.parse(decryptedJSON),
+    aesKeyBuffer,
+    initialVectorBuffer,
+  };
+}
+
+/**
+ * Encrypt a response for the Meta Flows data exchange endpoint.
+ * Uses AES-128-GCM with the flipped IV (Meta's spec).
+ * Algorithm from Meta's official sample code.
+ */
+function encryptFlowResponse(
+  response: unknown,
+  aesKeyBuffer: Buffer,
+  initialVectorBuffer: Buffer
+): string {
+  // Flip the IV per Meta's spec (255 - x is equivalent to bitwise NOT for bytes)
+  const flippedIV = Buffer.alloc(initialVectorBuffer.length);
+  for (let i = 0; i < initialVectorBuffer.length; i += 1) {
+    flippedIV[i] = 255 - initialVectorBuffer[i];
+  }
+
+  const cipher = crypto.createCipheriv("aes-128-gcm", aesKeyBuffer, flippedIV);
+
+  return Buffer.concat([
+    cipher.update(JSON.stringify(response)),
+    cipher.final(),
+    cipher.getAuthTag(),
+  ]).toString("base64");
+}
+
+/**
+ * Build dynamic RadioButtonsGroup components for enabled dimensions.
+ * Returns only the dimensions in the player's enabledDimensions list,
+ * in canonical order.
+ */
+function buildEnabledDimensionGroups(enabledDimensions: string[]) {
+  const enabledSet = new Set(enabledDimensions);
+
+  return DIMENSION_ORDER.filter((dim) => enabledSet.has(dim)).map((dim) => ({
+    type: "RadioButtonsGroup",
+    name: dim,
+    label: DIMENSION_LABELS[dim],
+    required: true,
+    "data-source": WELLNESS_OPTIONS,
+  }));
+}
+
+/**
+ * Build the full Flow screen response payload with dynamic dimension groups.
+ */
+function buildFlowScreenResponse(
+  version: string,
+  dimensionGroups: ReturnType<typeof buildEnabledDimensionGroups>
+) {
+  return {
+    version,
+    screen: "WELLNESS_SCREEN",
+    data: {
+      screen_0_Layout_0_children: [
+        ...dimensionGroups,
+        {
+          type: "Footer",
+          label: "Submit my check-in",
+          "on-click-action": {
+            name: "complete",
+            payload: {},
+          },
+        },
+      ],
+    },
+  };
+}
+
+/**
+ * Handle a Meta Flows data exchange request.
+ * Called from /whatsapp/flows/exchange HTTP route.
+ * Decrypts the request, resolves the player, builds dynamic screen, encrypts response.
+ */
+export const handleFlowsExchange = internalAction({
+  args: {
+    rawBody: v.string(),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true), encryptedResponse: v.string() }),
+    v.object({ success: v.literal(false), error: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const privateKeyPem = process.env.META_PRIVATE_KEY;
+
+    if (!privateKeyPem) {
+      console.error("[metaWhatsapp] META_PRIVATE_KEY not set");
+      return { success: false as const, error: "META_PRIVATE_KEY not set" };
+    }
+
+    // Parse and decrypt the request
+    let decryptedBody: unknown;
+    let aesKeyBuffer: Buffer;
+    let initialVectorBuffer: Buffer;
+
+    try {
+      const parsed = JSON.parse(args.rawBody) as {
+        encrypted_aes_key: string;
+        encrypted_flow_data: string;
+        initial_vector: string;
+      };
+
+      const result = decryptFlowRequest(
+        parsed.encrypted_aes_key,
+        parsed.encrypted_flow_data,
+        parsed.initial_vector,
+        privateKeyPem
+      );
+      decryptedBody = result.decryptedBody;
+      aesKeyBuffer = result.aesKeyBuffer;
+      initialVectorBuffer = result.initialVectorBuffer;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      console.error("[metaWhatsapp] Flows exchange decryption failed:", msg);
+      return { success: false as const, error: `Decryption failed: ${msg}` };
+    }
+
+    const body = decryptedBody as {
+      version: string;
+      action: string;
+      flow_token?: string;
+      screen?: string;
+      data?: Record<string, unknown>;
+    };
+
+    // Handle ping (health check from Meta)
+    if (body.action === "ping") {
+      const pingResponse = {
+        version: body.version,
+        data: { status: "active" },
+      };
+      const encrypted = encryptFlowResponse(
+        pingResponse,
+        aesKeyBuffer,
+        initialVectorBuffer
+      );
+      return { success: true as const, encryptedResponse: encrypted };
+    }
+
+    // Resolve wa_id → playerIdentityId (GDPR pseudonymization)
+    // wa_id may appear at body.data.wa_id
+    const rawWaId = body.data?.wa_id as string | undefined;
+    let dimensionGroups = buildEnabledDimensionGroups(
+      DIMENSION_ORDER as unknown as string[]
+    );
+
+    if (rawWaId) {
+      // Normalize wa_id to E.164 (Meta sends without leading +)
+      const whatsappNumber = rawWaId.startsWith("+") ? rawWaId : `+${rawWaId}`;
+
+      const playerSettings = await ctx.runQuery(
+        internal.models.whatsappWellness.getSettingsByWhatsappNumber,
+        { whatsappNumber }
+      );
+
+      // wa_id resolved — do NOT log or store the raw wa_id (GDPR Article 9)
+      if (playerSettings?.enabledDimensions?.length) {
+        dimensionGroups = buildEnabledDimensionGroups(
+          playerSettings.enabledDimensions
+        );
+      }
+    }
+
+    const screenResponse = buildFlowScreenResponse(
+      body.version,
+      dimensionGroups
+    );
+    const encrypted = encryptFlowResponse(
+      screenResponse,
+      aesKeyBuffer,
+      initialVectorBuffer
+    );
+
+    return { success: true as const, encryptedResponse: encrypted };
+  },
+});

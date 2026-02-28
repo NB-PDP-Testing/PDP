@@ -1,0 +1,197 @@
+{
+  "project": "Adult Player Lifecycle — Phase 6: Multi-Role UX",
+  "branchName": "ralph/adult-player-phase6-multi-role",
+  "description": "Enhances the experience for users who hold multiple roles simultaneously (player+coach, player+parent, player+admin). The role switcher already exists (org-role-switcher.tsx) — this phase extends it with: primary role setting (controls default dashboard on login), a persistent role context badge in the page header/sidebar, the ability to add the player role to an existing account, cross-role permission guard rails (server-enforced self-assessment block, confirmed-flag pattern for admin-own-record edits), role-scoped notification routing (targetRole field), and a deep link role-context prompt.",
+  "readinessLevel": "100% - Role switcher already built. NOTE: primaryFunctionalRole field does NOT yet exist in the schema — it must be added (see criticalContext). Phases 1–5 must be complete for the player role to be fully functional.",
+  "contextAndDependencies": {
+    "criticalContext": [
+      "EXTEND the existing role switcher (org-role-switcher.tsx) — do NOT recreate it. The role switcher already handles switching between roles and routing to role dashboards.",
+      "primaryFunctionalRole field does NOT yet exist in the schema. ADD it to packages/backend/convex/betterAuth/schema.ts alongside activeFunctionalRole (around line 214). Field type: v.optional(v.union(v.literal('coach'), v.literal('parent'), v.literal('admin'), v.literal('player'))). Also add a setPrimaryFunctionalRole mutation in packages/backend/convex/models/members.ts following the pattern of switchActiveFunctionalRole (line ~3041). Do NOT confuse with activeFunctionalRole (current session role that changes on every switch) — primaryFunctionalRole is the persisted default for post-login redirect only.",
+      "activeFunctionalRole field EXISTS in the schema (packages/backend/convex/betterAuth/schema.ts ~line 214) and is used by the role switcher to track the current session role. Read org-role-switcher.tsx to understand the full role state management before building on top of it.",
+      "EXISTING BUG — fix when extending the role switcher: apps/web/src/components/org-role-switcher.tsx accesses membership?.pendingRoleRequests but the schema defines this field as pendingFunctionalRoleRequests. Fix this mismatch when extending the component — use the correct schema field name pendingFunctionalRoleRequests everywhere. Do NOT propagate the wrong field name.",
+      "Phase 1 (player portal) MUST be complete — adding the player role only makes sense if the player portal exists",
+      "The youth profile matching function from Phase 3 is reused when a user registers themselves as a player — do NOT recreate it. READ packages/backend/convex/models/playerMatching.ts fully to identify the correct exported function name. The function was implemented in Phase 3 but may not be exported as 'findMatchingYouthProfile' — find the actual function name before referencing it.",
+      "The 'Add player role' flow creates a new playerIdentity + orgPlayerEnrollment with status pending, then waits for admin approval. Do NOT auto-approve.",
+      "Admin pending player review UI must already exist from Phase 3 — this flow adds to that queue",
+      "BetterAuth tables (user/member): use ctx.runQuery(components.betterAuth.adapter.*). Application tables: ctx.db.",
+      "Always use .withIndex() — NEVER .filter() in Convex. All mutations/queries must include returns validator."
+    ],
+    "keyFiles": [
+      "apps/web/src/components/org-role-switcher.tsx — READ FULLY before starting. This is the existing role switcher to extend.",
+      "packages/backend/convex/betterAuth/schema.ts — ADD primaryFunctionalRole field to the member schema (around line 214 where activeFunctionalRole is defined).",
+      "apps/web/src/app/orgs/[orgId]/layout.tsx — where the role switcher likely lives in the layout. Read before modifying.",
+      "packages/backend/convex/models/members.ts — add setPrimaryFunctionalRole mutation following the pattern of switchActiveFunctionalRole (line ~3041). The primaryFunctionalRole field must first be added to the schema.",
+      "apps/web/src/app/orgs/[orgId]/admin/players/ — existing admin player management UI where new player role requests appear",
+      "packages/backend/convex/models/playerMatching.ts — READ FULLY to find the existing youth profile matching function (implemented in Phase 3). Do NOT assume it is exported as 'findMatchingYouthProfile' — find the actual exported name.",
+      "packages/backend/convex/models/playerIdentities.ts or adultPlayers.ts — find how new playerIdentity records are created for existing users"
+    ],
+    "criticalPatterns": {
+      "ExtendNotRebuild": "The role switcher already exists. Extend it. Do NOT create a new role management system.",
+      "PrimaryRoleField": "primaryFunctionalRole does NOT yet exist in the schema and must be ADDED to packages/backend/convex/betterAuth/schema.ts. Follow the activeFunctionalRole field definition (~line 214) for the type, then add a setPrimaryFunctionalRole mutation in models/members.ts following the switchActiveFunctionalRole pattern (~line 3041).",
+      "NoDuplicateAccounts": "Adding the player role to an existing account must NEVER create a new user account. It creates a playerIdentity linked to the existing userId.",
+      "SafeDefault": "If the youth profile matching function (found in playerMatching.ts) returns a HIGH confidence match when user self-registers as player, the admin must review before linking — auto-link is not allowed.",
+      "ReturnValidators": "All new queries and mutations must include returns validator."
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-P6-001",
+      "title": "Primary Role & Default Dashboard Setting",
+      "description": "As a user with multiple roles, I want to set which role I land on after logging in so that my most important dashboard is immediately accessible.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "Find or create a 'My Roles' section in account/org settings accessible from any role context (likely in /orgs/[orgId]/settings/ or via profile menu)",
+        "Section shows all functional roles the user holds (from their member record's functionalRoles array) with their associated dashboard paths",
+        "Each role row has a 'Set as primary' button. On click: calls mutation to update primaryFunctionalRole on the member record. This field must be ADDED to the schema and a setPrimaryFunctionalRole mutation added to models/members.ts — see criticalContext for exact instructions.",
+        "Current primary role shows a 'Primary' badge instead of the 'Set as primary' button",
+        "On next login: org routing reads primaryFunctionalRole and redirects to that role's dashboard. If primaryFunctionalRole is null or the role is no longer held: fall back to existing default behaviour.",
+        "Changing the primary role does NOT log the user out or redirect them mid-session — takes effect on next login",
+        "npm run check-types passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Read org-role-switcher.tsx and the layout files FULLY before implementing. primaryFunctionalRole does NOT yet exist — add the schema field and mutation before implementing this story (betterAuth/schema.ts + models/members.ts). Find where login redirects are handled to update the post-login routing."
+    },
+    {
+      "id": "US-P6-002",
+      "title": "Role Context Badge in Navigation",
+      "description": "As a user with multiple roles, I want to always know which role I am currently acting as so that I cannot accidentally take actions in the wrong context.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "Add a persistent role context badge/chip to the page header or sidebar header — visible on EVERY page within /orgs/[orgId]/",
+        "Badge shows: 'Acting as: [Role Name]' — e.g. 'Acting as: Player', 'Acting as: Coach', 'Acting as: Admin'",
+        "Badge uses the org theme colours (--org-primary, --org-secondary) to colour-code by role",
+        "Badge only appears when the user holds MORE than one role (single-role users see no badge — no change to their experience)",
+        "Role switcher dropdown remains accessible within ≤ 2 clicks from any page",
+        "Switching role via the role switcher: navigates to that role's home dashboard AND updates the badge",
+        "On mobile (375px): badge is visible without opening any menu — may be abbreviated (e.g. just the role initial or a coloured dot with role name on hover/tap)",
+        "If the user is on a role-specific page and switches away: they land on the new role's home dashboard, not an error page",
+        "npm run check-types passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Read the existing org layout and org-role-switcher.tsx before touching anything. The badge reads from the same role state as the existing role switcher. Only add badge for users with 2+ roles."
+    },
+    {
+      "id": "US-P6-003",
+      "title": "Adding Player Role to an Existing Account",
+      "description": "As an existing platform member (coach, parent, or admin), I want to register myself as a player so that I can access the player portal without creating a new account.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "In the 'My Roles' settings section (US-P6-001): add an 'Add a role' expandable section below the role list",
+        "Show 'Register as a player' option (only if the user does NOT already hold the 'player' functional role)",
+        "On click: open a form with DOB field (required, date picker) and optional team selection dropdown (fetches org teams)",
+        "On submit: backend calls the youth profile matching function from packages/backend/convex/models/playerMatching.ts (READ that file to find the correct exported function name — implemented in Phase 3) passing the user's name and DOB to check for existing youth records",
+        "If HIGH confidence youth match found: show message 'A youth profile may match your record. An admin will review and link your history.' — create a pending playerIdentity request with the matchedPlayerIdentityId stored. Do NOT auto-link.",
+        "If no match: create new playerIdentity + orgPlayerEnrollment with status 'pending'. Admin must approve in existing pending players UI.",
+        "After submission: show 'Your player registration is with the admin for review. You'll be notified when approved.' — user cannot access player portal until approved.",
+        "On admin approval: user's functionalRoles gains 'player', player portal becomes accessible. In-app notification to user: 'Your player role has been approved. You can now access the Player portal.'",
+        "FIRST-RUN MOMENT: the first time the user switches to the Player role (after approval), show a dismissible welcome banner at the top of the player portal: 'Welcome to your Player portal — explore your profile, wellness check-ins, and more.' Banner is shown only once — store a 'playerPortalWelcomeDismissed' flag in localStorage after the user dismisses it. Do NOT show it on subsequent visits.",
+        "No duplicate user account is created under any path",
+        "npm run check-types passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "The youth profile matching function is from Phase 3 — find its actual exported name in packages/backend/convex/models/playerMatching.ts and reuse it. The pending players admin UI already exists from Phase 3 — this adds to that queue, not a new UI. Read the existing pending players UI before implementing the admin notification/approval path."
+    },
+    {
+      "id": "US-P6-004",
+      "title": "Cross-Role Permission Scenarios",
+      "description": "As a user with multiple roles, I want the platform to handle cross-role situations correctly so that I have appropriate access without confusion or security gaps.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "COACH who is also a PLAYER (viewing own player profile via coach interface):",
+        "When a coach navigates to their own player profile from the team roster, show an enhanced read-only view of their own data (assessments, goals, passport)",
+        "Self-assessment is disabled in the UI: assessment submit buttons, rating inputs, and coach feedback forms are greyed out with tooltip 'You cannot assess yourself'",
+        "BACKEND GUARD REQUIRED — not UI-only: the assessment submission mutation must validate that the assessor's userId does not match the assessed playerIdentity's userId field (the field is named userId on the playerIdentities table — confirmed in schema). If they match, throw a validation error ('A coach cannot submit an assessment for their own player record'). Read how assessments are stored before implementing — find the mutation and add the userId comparison check. This guard fires regardless of which role the user is currently acting in.",
+        "The 'Add voice note' and 'Create coach parent summary' actions are disabled for the coach's own player record",
+        "PARENT who is also a PLAYER:",
+        "Parent portal and player portal are entirely separate role contexts navigated via the role switcher",
+        "No data from the player role bleeds into the parent portal's dashboard (e.g. player's own wellness data does not appear in the parent portal)",
+        "ADMIN who is also a PLAYER on a team they manage:",
+        "Admin can add themselves to a team lineup from the admin interface (no restriction)",
+        "Any admin action that directly modifies their own player record (e.g. editing their enrollment, changing their status) must show a confirmation dialog: 'You are about to make admin changes to your own player record. Continue?' — admin can still proceed after confirming",
+        "BACKEND GUARD FOR ADMIN-OWN-RECORD: the mutations that update playerEnrollment status, edit enrollment details, or change a player's team must accept a required boolean arg: confirmed: v.boolean(). If the target playerIdentity's userId field (on the playerIdentities table) matches the admin's userId AND confirmed is false, the mutation throws ('Self-modification requires explicit confirmation'). The UI dialog sets confirmed=true before calling the mutation. This prevents any path (direct API call, future UI change) from bypassing the confirmation. Read the existing enrollment update mutations before implementing — find and extend them.",
+        "npm run check-types passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "These are guard rails, not major features. For the coach self-assessment guard: (1) find where assessment actions are rendered in the coach player view and add a conditional disable based on whether the playerIdentity belongs to the current user — UI-level first signal; (2) ALSO find the assessment submission mutation and add a server-side check: if assessor.userId === assessedPlayer.userId (the userId field on playerIdentities, confirmed in schema ~line 260), throw validation error. The backend guard is mandatory — UI alone is insufficient. The admin confirmation dialog pattern: find existing confirmation dialogs in the codebase and follow the same pattern."
+    },
+    {
+      "id": "US-P6-005",
+      "title": "Role-Scoped Notification Routing",
+      "description": "As a user with multiple roles, I want notifications to appear only in the role context they belong to, so that coach notifications don't interrupt me while I'm acting as a player.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "Add an optional targetRole field to the notifications table schema: targetRole: v.optional(v.union(v.literal('coach'), v.literal('admin'), v.literal('parent'), v.literal('player'))). This is a backward-compatible addition — existing notifications without targetRole continue to display to all roles.",
+        "Update all existing notification creation call sites to include targetRole. Mapping: injury_reported / injury_status_changed / severe_injury_alert / injury_cleared / milestone_completed / clearance_received → 'coach'; invitation_request / child_declined / org_invitation_received → 'admin'; role_granted → omit targetRole (global, shown to all); team_assigned / team_removed → 'coach'.",
+        "Add player-portal notification type: add v.literal('player_role_approved') to the notificationTypeValidator union (used by Phase 6 US-P6-003 approval flow). This notification's targetRole = 'player'.",
+        "Update the getUserNotifications query in packages/backend/convex/models/notifications.ts: add an optional activeRole arg. When provided: return notifications where targetRole === activeRole OR targetRole is null/undefined. When not provided: return all (existing behaviour, preserves backward compatibility).",
+        "Update the notification-provider.tsx to pass the user's current activeFunctionalRole to the notifications query. Read org-role-switcher.tsx to understand how activeFunctionalRole is determined — use the same source. Do NOT duplicate the role detection logic.",
+        "The notification bell badge count and toast popups respect the active role filter — a coach acting as player does not see coach injury notifications.",
+        "When the user switches role, the notification provider re-queries with the new role — the bell count and unseen toasts update immediately.",
+        "npm run check-types passes",
+        "npx -w packages/backend convex codegen passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "The notifications table is in packages/backend/convex/schema.ts (search 'General-purpose notifications'). The model is at packages/backend/convex/models/notifications.ts. The provider is at apps/web/src/components/notification-provider.tsx. Read all three before starting. The schema change (adding targetRole) does not require a data migration — existing records have no targetRole and continue to show universally."
+    },
+    {
+      "id": "US-P6-006",
+      "title": "Deep Link Role Context Prompt",
+      "description": "As a multi-role user who follows a shared link to a role-specific page, I want to be offered a role switch rather than hitting a blank or forbidden page, so that the link takes me where it intended.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "EXTEND the existing role switcher (org-role-switcher.tsx) — do NOT create a new routing layer. The role switcher already contains ROLE_PATHNAME_REGEX which extracts the role from the current pathname. Extend this logic.",
+        "When the user navigates to a URL whose role segment (/admin/, /coach/, /parents/, /player/) does NOT match their activeFunctionalRole, AND they hold the required role in their functionalRoles array: show a non-blocking dialog/sheet: 'This page is for your [RequiredRole] context. Switch to [RequiredRole]?' with two buttons: 'Switch to [RequiredRole]' and 'Stay as [CurrentRole]'.",
+        "'Switch to [RequiredRole]': calls the existing role switch mutation (updateActiveFunctionalRole), updates the badge, and allows navigation to the target page to complete.",
+        "'Stay as [CurrentRole]': dismisses the dialog. Navigation proceeds to the URL — if the page's own access guard blocks them, that guard's existing error/redirect behaviour handles it. Do NOT add a second layer of route blocking here.",
+        "If the user does NOT hold the required role (e.g., a parent-only user follows a /coach/ link): do NOT show the switch prompt. Let the existing page-level access guard handle it (typically a redirect to their own dashboard).",
+        "The prompt is shown at most ONCE per navigation event — no loops. If the user dismisses ('Stay as [CurrentRole]') and stays on the same URL, do not re-prompt.",
+        "The prompt does NOT fire when the user explicitly switches role via the role switcher dropdown — only on URL-driven navigation.",
+        "On mobile (375px): the prompt is a bottom sheet, not a centered dialog, to avoid covering the full viewport.",
+        "npm run check-types passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Read org-role-switcher.tsx fully before starting — ROLE_PATHNAME_REGEX and the activeFunctionalRole state are already there. The role switch mutation already exists. This story is purely additive: detect mismatch → prompt → optionally switch. Do not change any existing routing guards."
+    },
+    {
+      "id": "US-P6-UAT",
+      "title": "Phase 6 Multi-Role E2E Tests",
+      "description": "As a developer, I want Playwright E2E tests covering all Phase 6 multi-role stories so that role-switching, primary role setting, and cross-role permissions work correctly.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "Create test file: apps/web/uat/tests/multi-role-phase6.spec.ts",
+        "Test: primary role setting updates primaryFunctionalRole on member record in DB",
+        "Test: role context badge visible in header for a user with 2+ roles",
+        "Test: role context badge NOT visible for a user with only 1 role",
+        "Test: 'Register as player' form is not shown to a user who already has the player role",
+        "Test: submitting player registration creates a pending playerIdentity record",
+        "Test: coach cannot submit self-assessment on their own player profile (actions disabled in UI)",
+        "Test: direct API call to assessment submission mutation with assessor userId === assessed player userId returns a validation error (backend guard fires independent of UI)",
+        "Test: direct API call to enrollment update mutation with confirmed=false and admin userId === player's userId (on playerIdentities) returns a validation error",
+        "Test: as coach+player acting as player, notification bell does NOT show coach injury notifications (role-scoped filter working)",
+        "Test: as coach+player acting as coach, notification bell DOES show coach injury notifications",
+        "Test: navigating to /orgs/[orgId]/coach/ while activeFunctionalRole is 'player' (and user holds coach role) shows the role-switch prompt dialog",
+        "Test: dismissing the role-switch prompt ('Stay as Player') does not re-trigger the prompt on the same URL",
+        "Manual test 1: Log in as a user with Player + Coach roles → My Roles settings → set Player as primary → log out → log back in → confirm landing on /player/ dashboard",
+        "Manual test 2: Confirm role context badge is visible in header showing current active role",
+        "Manual test 3: Switch to Coach role via role switcher → confirm navigation to coach dashboard and badge updates to 'Coach'",
+        "Manual test 4: Switch back to Player role → confirm landing on player portal, not an error page",
+        "Manual test 5: Log in as parent-only user → My Roles → Register as player → submit with DOB → log in as admin → confirm pending player request appears in admin pending list",
+        "Manual test 6: Admin approves the player request → log back in as the user → confirm Player now appears in role switcher and player portal is accessible",
+        "Manual test 7: As user who is both coach and player: navigate to team roster as coach → find own name → click own player profile → confirm assessment form fields are disabled with 'cannot assess yourself' tooltip",
+        "Manual test 8: As admin-player: attempt to edit own enrollment status from admin panel → confirm confirmation dialog appears before proceeding, AND confirm that directly calling the mutation with confirmed=false throws",
+        "Manual test 9: As coach+player acting as player → copy the URL of a coach-specific page → open it in the same session → confirm the role-switch prompt appears",
+        "Manual test 10: Choose 'Switch to Coach' in prompt → confirm badge updates and page loads correctly",
+        "Manual test 11: Trigger an injury notification as admin → log in as the injured player's coach who is also a player → switch to Player role → confirm injury notification does NOT appear in the notification bell"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Phases 1–5 must be complete for player role to be fully functional. Use test account neil.B@blablablak.com / lien1979. All stories US-P6-001 through US-P6-006 must be complete before this UAT."
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-# Security Report - 2026-02-28 14:50:41
+# Security Report - 2026-02-28 20:08:24
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -22,6 +22,7 @@ apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OP
   - packages/backend/convex/models/passportComparison.ts
   - packages/backend/convex/models/trustGatePermissions.ts
   - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/breachRegister.ts
   - packages/backend/convex/models/federationConnectors.ts
   - packages/backend/convex/models/teamCollaboration.ts
   - packages/backend/convex/models/guardianIdentities.ts
@@ -67,6 +68,7 @@ apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OP
   - packages/backend/convex/models/gdpr.ts
   - packages/backend/convex/models/userProfiles.ts
   - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/retentionConfig.ts
   - packages/backend/convex/models/coachTrustLevels.ts
   - packages/backend/convex/models/coachParentSummaries.ts
   - packages/backend/convex/models/onboarding.ts
@@ -91,6 +93,7 @@ apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OP
   - packages/backend/convex/models/guardianManagement.ts
   - packages/backend/convex/models/importTemplateSeeds.ts
   - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/erasureRequests.ts
   - packages/backend/convex/models/importSessionDrafts.ts
   - packages/backend/convex/models/teamDecisions.ts
   - packages/backend/convex/models/gaaTestMutations.ts

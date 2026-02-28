@@ -1,0 +1,67 @@
+# Ralph Progress Log
+Started: Wed 25 Feb 2026 22:06:51 GMT
+---
+
+## Phase 5 Complete — Adult Player Portal Remaining Sections
+
+All 7 stories + UAT committed to branch: ralph/adult-player-phase5-portal-sections
+
+### Stories Implemented
+
+**US-P5-001: My Progress — Player View of Sport Passports**
+- Read-only skill ratings (technical/tactical/physical/mental) with trend arrows (↑↓=)
+- Multi-sport tab/pill switcher when multiple passports exist
+- Assessment history timeline with date + score per session
+- Player notes textarea (self-editable via existing mutation)
+- Empty state when no passports exist
+- Key pattern: `getPassportsForPlayer` query, player cannot edit coach ratings
+
+**US-P5-006: Radar Chart Visual Progress Profile** (added to progress page)
+- Recharts RadarChart with 5 dimensions displayed as spider chart
+- Toggle between chart and list view, persisted in localStorage
+- Ghost/comparison radar overlay showing previous assessment scores
+- Assessment history card below the ratings section
+
+**US-P5-002: My Passport Sharing Management**
+- New backend mutations: `getMyPassportSharingData`, `revokeMyPassportSharing`, `respondToAccessRequestAsPlayer`
+- Player can approve/decline pending requests and revoke active shares
+- Pending coach acceptance state shown separately
+- Info card explaining passport sharing
+
+**US-P5-003: My Injuries**
+- Full injury history grouped by active/past
+- Report New Injury dialog with body part, type, severity, date fields
+- Player-reported injuries get `reportedByRole: "player"` (visible to coaches with badge)
+- Status badges (active/recovering/cleared)
+
+**US-P5-004: My Coach Feedback & AI Summaries**
+- New backend queries: `getCoachFeedbackForPlayer`, `acknowledgeCoachFeedbackAsPlayer`
+- CRITICAL: Only returns `publicSummary.content` — NEVER `privateInsight`
+- Unacknowledged feedback shown prominently with "New" badge
+- Acknowledge button marks feedback as read
+- All 3 sensitivity categories (normal/injury/behavior) shown to player
+
+**US-P5-005: Player Data Export (GDPR Article 20)**
+- Backend: `assemblePlayerDataExport` query with 9 domains
+- CRITICAL: cyclePhase only if consent active, NEVER privateInsight
+- Frontend: "Privacy & Data" card in settings page with Download button
+- Rate limiting: 24h cooldown stored in localStorage
+- State-driven export: `useGdprExport` hook with `exportTriggered` toggle + useEffect
+
+**US-P5-UAT: Phase 5 E2E Tests**
+- 24 test cases in `apps/web/uat/tests/player-portal-phase5.spec.ts`
+- Covers all pages: progress, sharing, injuries, feedback, settings
+- Critical: PP5-019 verifies privateInsight NEVER appears in page source
+- Critical: PP5-024 verifies exported JSON contains Article 20 basis and no privateInsight
+
+### Key Patterns Learned
+
+**Imperative Convex query triggering**: Use state-driven approach — boolean state → query with "skip" → useEffect watches for data. Convex queries cannot be triggered imperatively.
+
+**Cognitive complexity limits (biome max 15)**: When async map callbacks contain multiple conditionals and DB lookups, extract them into module-level helper functions (e.g., `enrichAutoApprovedSummary`, `fetchSummariesForLink`, `groupSummariesBySport`, `lookupCoachName`).
+
+**View toggle persistence**: `localStorage.getItem("playerProgressView")` with SSR guard. Pass as initializer function to `useState(() => getInitialViewMode())`.
+
+**ReactMutation type**: `useMutation` returns `ReactMutation<T>` which returns `Promise<unknown>`, not `Promise<void>`. Use `Promise<unknown>` for custom hook parameters.
+
+**aria-label on div**: Requires `role="img"` to pass accessibility lint.

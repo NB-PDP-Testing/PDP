@@ -17,6 +17,7 @@ import {
   query,
 } from "../_generated/server";
 import { authComponent } from "../auth";
+import { requireAuthAndOrg } from "../lib/authHelpers";
 
 // ============================================================
 // SHARED VALIDATORS
@@ -135,19 +136,19 @@ export const listPendingErasureRequests = query({
 
     const pending = await ctx.db
       .query("erasureRequests")
-      .withIndex("by_deadline", (q) => q.eq("status", "pending"))
-      .order("asc")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "pending")
+      )
       .collect();
 
     const inReview = await ctx.db
       .query("erasureRequests")
-      .withIndex("by_deadline", (q) => q.eq("status", "in_review"))
-      .order("asc")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "in_review")
+      )
       .collect();
 
-    return [...pending, ...inReview]
-      .filter((r) => r.organizationId === args.organizationId)
-      .sort((a, b) => a.deadline - b.deadline);
+    return [...pending, ...inReview].sort((a, b) => a.deadline - b.deadline);
   },
 });
 
@@ -268,6 +269,7 @@ export const submitErasureRequest = mutation({
 export const updateErasureRequestStatus = mutation({
   args: {
     requestId: v.id("erasureRequests"),
+    organizationId: v.string(),
     status: v.union(
       v.literal("in_review"),
       v.literal("completed"),
@@ -279,6 +281,13 @@ export const updateErasureRequestStatus = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const { role } = await requireAuthAndOrg(ctx, args.organizationId);
+    if (role !== "admin" && role !== "owner") {
+      throw new Error(
+        "Only admins or owners can update erasure request status"
+      );
+    }
+
     const request = await ctx.db.get(args.requestId);
     if (!request) {
       throw new Error("Erasure request not found");

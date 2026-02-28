@@ -14,10 +14,10 @@
  */
 
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
-import { internalAction } from "../_generated/server";
+import { components, internal } from "../_generated/api";
+import { action } from "../_generated/server";
 
-export const executeApprovedErasureCategories = internalAction({
+export const executeApprovedErasureCategories = action({
   args: {
     requestId: v.id("erasureRequests"),
     approvedCategories: v.array(v.string()),
@@ -27,6 +27,33 @@ export const executeApprovedErasureCategories = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Require authentication and admin/owner role in the org
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: { cursor: null, numItems: 1 },
+        where: [
+          { field: "userId", value: identity.subject, operator: "eq" },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+    const member = memberResult.page[0] as
+      | { _id: string; role: string }
+      | undefined;
+    if (!member || (member.role !== "admin" && member.role !== "owner")) {
+      throw new Error("Admin or owner access required to execute erasure");
+    }
+
     const now = Date.now();
 
     for (const category of args.approvedCategories) {

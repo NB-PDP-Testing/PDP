@@ -37,18 +37,12 @@ export const softDeleteExpiredWellnessRecords = internalMutation({
     const now = Date.now();
     let softDeletedCount = 0;
 
-    // Find records where retentionExpiresAt has passed but not yet soft-deleted
-    // Index: by_retention_expired on [retentionExpired, retentionExpiredAt]
-    // We query for records where retentionExpired is not set (undefined) — scan with collect + filter
-    // Note: Convex indexes treat undefined as a distinct value; querying .eq("retentionExpired", undefined)
-    // is not supported, so we use a broad collect and filter in memory for the first pass.
-    // For large tables this is acceptable — Phase 9 note says to flag as future optimisation.
-    const candidates = await ctx.db
-      .query("dailyPlayerHealthChecks")
-      .withIndex("by_retention_expired", (q) =>
-        q.eq("retentionExpired", undefined as unknown as boolean)
-      )
-      .collect();
+    // Find records where retentionExpiresAt has passed but not yet soft-deleted.
+    // We collect all records and filter in memory — Convex does not support
+    // querying for undefined-valued index fields without a type cast, so a full
+    // collect + filter is the cleanest approach. For large tables a dedicated
+    // by_org_and_retentionExpiresAt index would be a future optimisation.
+    const candidates = await ctx.db.query("dailyPlayerHealthChecks").collect();
 
     const expired = candidates.filter(
       (r) =>
@@ -168,9 +162,6 @@ export const enforceRetentionPolicy = internalMutation({
     try {
       const count = await ctx.db
         .query("dailyPlayerHealthChecks")
-        .withIndex("by_retention_expired", (q) =>
-          q.eq("retentionExpired", undefined as unknown as boolean)
-        )
         .collect()
         .then(async (candidates) => {
           const graceCutoff = now;

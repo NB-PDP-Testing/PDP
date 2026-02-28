@@ -43,6 +43,7 @@ type BreachStatus =
 
 interface BreachRecord {
   _id: Id<"breachRegister">;
+  organizationId: string;
   detectedAt: number;
   description: string;
   severity: Severity;
@@ -329,6 +330,7 @@ function UpdateBreachDialog({
     try {
       await updateStatus({
         breachId: breach._id,
+        organizationId: breach.organizationId,
         status: form.status,
         dpcNotifiedAt: form.dpcNotifiedAt
           ? new Date(form.dpcNotifiedAt).getTime()

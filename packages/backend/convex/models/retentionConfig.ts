@@ -11,6 +11,7 @@
 
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "../_generated/server";
+import { requireAuthAndOrg } from "../lib/authHelpers";
 
 // ============================================================
 // DEFAULT RETENTION PERIODS (days)
@@ -143,6 +144,13 @@ export const upsertOrgRetentionConfig = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const { role } = await requireAuthAndOrg(ctx, args.organizationId);
+    if (role !== "admin" && role !== "owner") {
+      throw new Error(
+        "Only admins or owners can update retention configuration"
+      );
+    }
+
     // Enforce legal minimums
     if (args.config.auditLogDays < RETENTION_LEGAL_MINIMUMS.auditLogDays) {
       throw new Error(
@@ -282,15 +290,19 @@ export const softDeleteAllWellnessSessionsForPlayer = internalMutation({
       )
       .collect();
 
+    const now = Date.now();
     let count = 0;
     for (const session of sessions) {
       if (session.organizationId !== args.organizationId) {
         continue;
       }
-      // whatsappWellnessSessions sessions expire naturally — we delete them directly
-      // They are short-lived session records with no long-term historical value
-      await ctx.db.delete(session._id);
-      count += 1;
+      if (!session.retentionExpired) {
+        await ctx.db.patch(session._id, {
+          retentionExpired: true,
+          retentionExpiredAt: now,
+        });
+        count += 1;
+      }
     }
     return count;
   },

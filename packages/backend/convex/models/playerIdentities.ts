@@ -84,6 +84,31 @@ export const getPlayerById = query({
 });
 
 /**
+ * Batch-fetch player names by ID list.
+ * Used by admin lists to avoid N+1 queries per row.
+ */
+export const getPlayerNamesByIds = query({
+  args: { ids: v.array(v.id("playerIdentities")) },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const results = await Promise.all(args.ids.map((id) => ctx.db.get(id)));
+    return results
+      .filter((p): p is NonNullable<typeof p> => p !== null)
+      .map((p) => ({
+        _id: p._id,
+        firstName: p.firstName,
+        lastName: p.lastName,
+      }));
+  },
+});
+
+/**
  * Get a player identity by ID (alias for getPlayerById)
  */
 export const getPlayerIdentity = query({

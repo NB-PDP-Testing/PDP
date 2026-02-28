@@ -157,7 +157,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // ============================================================
-// PLAYER NAME LOOKUP
+// PLAYER NAME LOOKUP (single — used in ReviewDialog only)
 // ============================================================
 
 function usePlayerName(playerIdentityId: Id<"playerIdentities">) {
@@ -168,6 +168,29 @@ function usePlayerName(playerIdentityId: Id<"playerIdentities">) {
     return "Loading...";
   }
   return `${identity.firstName} ${identity.lastName}`;
+}
+
+/**
+ * Build a name map from a batch query result.
+ * Returns Record<id, "First Last"> for use in request row lists.
+ */
+function buildPlayerNameMap(
+  batch:
+    | Array<{
+        _id: Id<"playerIdentities">;
+        firstName: string;
+        lastName: string;
+      }>
+    | undefined
+): Record<string, string> {
+  if (!batch) {
+    return {};
+  }
+  const map: Record<string, string> = {};
+  for (const p of batch) {
+    map[p._id] = `${p.firstName} ${p.lastName}`;
+  }
+  return map;
 }
 
 // ============================================================
@@ -246,6 +269,7 @@ function ReviewDialog({
 
       await updateStatus({
         requestId: request._id,
+        organizationId: orgId,
         status: "in_review",
         adminUserId: session.user.id,
         categoryDecisions,
@@ -268,6 +292,7 @@ function ReviewDialog({
         // No categories to erase — mark completed directly
         await updateStatus({
           requestId: request._id,
+          organizationId: orgId,
           status: "completed",
           adminUserId: session.user.id,
           categoryDecisions,
@@ -293,6 +318,7 @@ function ReviewDialog({
     try {
       await updateStatus({
         requestId: request._id,
+        organizationId: orgId,
         status: "rejected",
         adminUserId: session.user.id,
         adminResponseNote: adminNote,
@@ -497,6 +523,16 @@ export default function DataRightsPage() {
     }
   );
 
+  // Batch-fetch all player names at once to avoid N+1 subscriptions per row
+  const allPlayerIds = requests
+    ? [...new Set(requests.map((r) => r.playerIdentityId))]
+    : [];
+  const playerNamesBatch = useQuery(
+    api.models.playerIdentities.getPlayerNamesByIds,
+    allPlayerIds.length > 0 ? { ids: allPlayerIds } : "skip"
+  );
+  const playerNames = buildPlayerNameMap(playerNamesBatch ?? undefined);
+
   const [reviewRequest, setReviewRequest] = useState<ErasureRequest | null>(
     null
   );
@@ -577,6 +613,9 @@ export default function DataRightsPage() {
                   <RequestRow
                     key={req._id}
                     onReview={() => setReviewRequest(req as ErasureRequest)}
+                    playerName={
+                      playerNames[req.playerIdentityId] ?? "Loading..."
+                    }
                     request={req as ErasureRequest}
                   />
                 ))}
@@ -598,6 +637,9 @@ export default function DataRightsPage() {
                   <RequestRow
                     key={req._id}
                     onReview={() => setReviewRequest(req as ErasureRequest)}
+                    playerName={
+                      playerNames[req.playerIdentityId] ?? "Loading..."
+                    }
                     request={req as ErasureRequest}
                   />
                 ))}
@@ -612,11 +654,12 @@ export default function DataRightsPage() {
 function RequestRow({
   request,
   onReview,
+  playerName,
 }: {
   request: ErasureRequest;
   onReview: () => void;
+  playerName: string;
 }) {
-  const playerName = usePlayerName(request.playerIdentityId);
   const canReview =
     request.status === "pending" || request.status === "in_review";
 

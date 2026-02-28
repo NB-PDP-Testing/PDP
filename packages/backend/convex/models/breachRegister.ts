@@ -13,6 +13,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
+import { requireAuthAndOrg } from "../lib/authHelpers";
 
 // ============================================================
 // SHARED VALIDATORS
@@ -97,7 +98,7 @@ export const getBreachById = query({
 
 /**
  * Log a new data breach incident.
- * Called by the admin when a breach is detected.
+ * Admin-only — requires admin or owner role in the organisation.
  * Returns the ID of the new breach record.
  */
 export const logBreach = mutation({
@@ -111,16 +112,16 @@ export const logBreach = mutation({
   },
   returns: v.id("breachRegister"),
   handler: async (ctx, args) => {
-    const user = await authComponent.getAuthUser(ctx);
-    if (!user) {
-      throw new Error("Authentication required");
+    const { userId, role } = await requireAuthAndOrg(ctx, args.organizationId);
+    if (role !== "admin" && role !== "owner") {
+      throw new Error("Only admins or owners can log breach incidents");
     }
 
     const now = Date.now();
     const breachId = await ctx.db.insert("breachRegister", {
       organizationId: args.organizationId,
       detectedAt: args.detectedAt,
-      detectedByUserId: user._id,
+      detectedByUserId: userId,
       description: args.description,
       affectedDataCategories: args.affectedDataCategories,
       estimatedAffectedCount: args.estimatedAffectedCount,
@@ -136,11 +137,12 @@ export const logBreach = mutation({
 
 /**
  * Update the status of a breach record.
- * Used to track DPC notification, individual notification, and closure.
+ * Admin-only — requires admin or owner role in the organisation.
  */
 export const updateBreachStatus = mutation({
   args: {
     breachId: v.id("breachRegister"),
+    organizationId: v.string(),
     status: statusValidator,
     dpcNotifiedAt: v.optional(v.number()),
     individualsNotifiedAt: v.optional(v.number()),
@@ -149,6 +151,11 @@ export const updateBreachStatus = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const { role } = await requireAuthAndOrg(ctx, args.organizationId);
+    if (role !== "admin" && role !== "owner") {
+      throw new Error("Only admins or owners can update breach status");
+    }
+
     const breach = await ctx.db.get(args.breachId);
     if (!breach) {
       throw new Error("Breach record not found");

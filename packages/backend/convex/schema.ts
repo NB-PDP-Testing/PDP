@@ -5802,6 +5802,9 @@ export default defineSchema({
     expiresAt: v.number(), // sentAt + 8 hours
     dailyHealthCheckId: v.optional(v.id("dailyPlayerHealthChecks")),
     invalidReplyCount: v.number(), // abandon after 3 invalid replies
+    // Soft-delete fields (GDPR Article 17 erasure via COMMUNICATION_DATA category)
+    retentionExpired: v.optional(v.boolean()),
+    retentionExpiredAt: v.optional(v.number()),
   })
     .index("by_phone_and_date", ["phoneNumber", "sessionDate"])
     .index("by_player_and_date", ["playerIdentityId", "sessionDate"])

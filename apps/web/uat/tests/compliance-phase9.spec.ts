@@ -74,12 +74,12 @@ test.describe("US-P9-002: Erasure Request — Player Settings", () => {
     ownerPage: page,
   }) => {
     await goTo(page, PLAYER_SETTINGS_URL);
-    // Three rights: access, portability, erasure (deletion)
+    // Three rights: access, rectification, erasure (deletion)
     await expect(page.getByText("access", { exact: false }).first()).toBeVisible(
       { timeout: 10000 }
     );
     await expect(
-      page.getByText("portability", { exact: false })
+      page.getByText("rectification", { exact: false })
     ).toBeVisible();
     await expect(
       page.getByText("deletion", { exact: false }).or(
@@ -287,7 +287,7 @@ test.describe("US-P9-010: Data Breach Register", () => {
   }) => {
     await goTo(page, ADMIN_BREACH_REGISTER_URL);
     await expect(
-      page.getByRole("button", { name: /log breach/i }).first()
+      page.getByRole("button", { name: /log new incident/i }).first()
     ).toBeVisible({ timeout: 10000 });
   });
 
@@ -295,7 +295,7 @@ test.describe("US-P9-010: Data Breach Register", () => {
     ownerPage: page,
   }) => {
     await goTo(page, ADMIN_BREACH_REGISTER_URL);
-    await page.getByRole("button", { name: /log breach/i }).first().click();
+    await page.getByRole("button", { name: /log new incident/i }).first().click();
     // Dialog should appear with key fields
     await expect(page.getByText(/description/i).first()).toBeVisible({
       timeout: 5000,

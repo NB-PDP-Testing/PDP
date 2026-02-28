@@ -73,9 +73,13 @@ export default function RootLayout({
             <KeyboardShortcutsOverlay />
             <PWAInstallPrompt />
             <PWAUpdatePrompt />
-            <div className="flex min-h-svh flex-col" id="main-content">
+            <main
+              className="flex min-h-svh flex-col"
+              id="main-content"
+              tabIndex={-1}
+            >
               {children}
-            </div>
+            </main>
           </FlowInterceptor>
         </Providers>
       </body>

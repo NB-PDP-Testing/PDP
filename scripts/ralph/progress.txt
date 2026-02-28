@@ -29,6 +29,19 @@ Started: Sat 28 Feb 2026 00:59:03 GMT
 - Models: `packages/backend/convex/models/<domain>.ts`
 - `restrictChildView` added to `coachParentSummaries` table (not voiceNotes)
 - Parent-child auth: `packages/backend/convex/models/parentChildAuthorizations.ts`
+- Child access hook: `apps/web/src/hooks/use-child-access.ts`
+- Player portal sidebar: `apps/web/src/components/layout/player-sidebar.tsx`
+- Player portal layout: `apps/web/src/app/orgs/[orgId]/player/layout.tsx`
+- Parent summary card: `apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx`
+- Coach delivered summaries view: `apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/auto-approved-tab.tsx`
+- Goals: `apps/web/src/app/orgs/[orgId]/player/goals/page.tsx` (uses `createdBy` NOT `setByRole` to distinguish player vs coach goals)
+
+### Portal Child Access Patterns
+- `useChildAccess(orgId)` hook detects youth accounts and returns `{ isChildAccount, accessLevel, toggles }`
+- For redirect gating: use `useEffect` + `router.replace()` in the layout, not in render body
+- `{condition && (ternary)}` NOT `{condition && a ? A : B}` — operator precedence
+- Cycle phase section already gated by `age >= 18` in health-check page — no change needed for youth
+- Emergency contacts in passports page already gated by `playerType === 'adult'`
 
 ---
 
@@ -128,5 +141,169 @@ Started: Sat 28 Feb 2026 00:59:03 GMT
 - [ ] Create playerClaimTokens entry with type='child_account_setup' on grant
 - [ ] Add child_account_setup task to onboarding orchestrator
 - [ ] Trigger email from grantChildAccess when isNewGrant (first time only)
+
+---
+
+## US-P7-003: Child Account Creation & Onboarding — COMPLETE ✅
+**Branch:** ralph/adult-player-phase7-child-authorization
+**Commit:** 3d41e4a2
+
+### Summary
+Created full child account setup flow: invite email → token-based /child-account-setup page → Better Auth sign-up → claimChildAccount mutation → onboarding welcome step.
+
+### Files changed
+- `packages/backend/convex/schema.ts` — added `tokenType` to `playerClaimTokens`
+- `packages/backend/convex/utils/email.ts` — added `sendChildAccountInviteEmail()`
+- `packages/backend/convex/actions/childAuthorizations.ts` — new file, `sendChildAccountInviteEmailAction` internal action
+- `packages/backend/convex/models/parentChildAuthorizations.ts` — updated `grantChildAccess` (childEmail arg, token creation, email scheduling), added `resendChildAccountInvite`, `claimChildAccount`, `getChildAccountSetupStatus`
+- `packages/backend/convex/models/onboarding.ts` — added `child_account_setup` task type (priority 4.6)
+- `apps/web/src/app/child-account-setup/page.tsx` — new public route
+- `apps/web/src/components/onboarding/child-account-setup-step.tsx` — new welcome step
+- `apps/web/src/components/onboarding/onboarding-orchestrator.tsx` — wired child_account_setup handler
+- `apps/web/src/app/orgs/[orgId]/parents/components/grant-child-access-section.tsx` — email input + resend UI
+
+### Quality checks
+- ✅ `npx -w packages/backend convex codegen` — passed
+- ✅ `npm run check-types` — passed
+- ✅ Biome pre-commit hook — passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- `markPlayerWelcomed` mutation takes `args: {}` — no arguments needed, it uses `ctx.auth.getUserIdentity()` internally
+- When reusing `playerClaimTokens` for a new token type: add `tokenType: v.optional(v.literal("graduation") | v.literal("child_account_setup"))` discriminator field; treat absent `tokenType` as graduation (backward compat)
+- Child setup tokens use 7 days expiry (`Date.now() + 7 * 24 * 60 * 60 * 1000`), graduation tokens use 30 days
+- The `/child-account-setup` page uses `useSearchParams()` → must be wrapped in `<Suspense>` in the page.tsx export
+- `noExcessiveCognitiveComplexity` fires on the signup handler — add biome-ignore comment to the function definition
+- `useBlockStatements` rule requires braces around single-line if/return in the handler
+
+**Deferred items (not in MVP):**
+- SESSION TIMEOUT for child accounts: Better Auth doesn't support per-user idle timeout natively. Would require middleware intercepting all requests to check last activity timestamp. Deferred.
+- Server-side age enforcement: DOB check in `claimChildAccount` (currently client-side only)
+
+**What to do next** (US-P7-004):
+- Child player sees their portal with access gated by the authorization toggles
+- Need to read `getChildAuthorization` query and use it in each player portal section
+
+---
+
+## 2026-02-28 - US-P7-004 - Child Player Dashboard — View Only Mode
+**Iteration**: 4
+**Commit**: 42f6d5cb6f04df0b803913af7bb47884f1fd68b4
+**Status**: Complete
+
+### What was implemented
+- Added `getChildAuthorizationByPlayerIdentity(playerIdentityId, organizationId)` query to `parentChildAuthorizations.ts`
+  - Uses `by_player_and_org` index on orgPlayerEnrollments, then `by_child` index to get authorization
+  - No `.filter()` — fully index-based
+- Created `apps/web/src/hooks/use-child-access.ts` — shared hook for all portal pages
+  - Detects youth accounts via `playerByUserId.playerType === 'youth'`
+  - Returns `{ isChildAccount, accessLevel, toggles, isLoading, playerIdentityId }`
+- Updated `player/layout.tsx`:
+  - Uses `useChildAccess` hook
+  - Redirects to `/player/access-revoked` when `accessLevel === 'none'`
+  - Shows "Youth Account" badge in header when `isChildAccount`
+  - Passes `isChildAccount` to PlayerSidebar and PlayerMobileNav
+- Updated `apps/web/src/components/layout/player-sidebar.tsx`:
+  - Added `hiddenForChildren` flag to nav items (injuries, passport sharing hidden)
+  - Added `isChildAccount` prop — filters nav items and shows Youth Account badge
+- Created `apps/web/src/app/orgs/[orgId]/player/access-revoked/page.tsx`
+- Updated `player/page.tsx`:
+  - Youth players with valid authorization (`view_only`/`view_interact`) see the dashboard instead of "Youth Player Account" card
+  - ICE card hidden (`!isChildAccount`)
+  - Injury card hidden (`!isChildAccount`)
+  - Wellness card gated by `includeWellnessAccess`
+  - Coach Feedback snippet gated by `includeCoachFeedback`
+  - Active Goals snippet gated by `includeDevelopmentGoals`
+  - AI Practice Assistant hidden for child accounts (no profiling rule)
+- Updated `player/feedback/page.tsx` — shows "not available" card when `!toggles?.includeCoachFeedback`
+- Updated `player/health-check/page.tsx` — replaced age-based gate with proper `isChildAccount && !toggles?.includeWellnessAccess` check; cycle phase already gated by `age >= 18`
+- Updated `player/goals/page.tsx` — shows "not available" card when `!toggles?.includeDevelopmentGoals`
+- Updated `player/passports/page.tsx` — shows "not available" card when `!toggles?.includeAssessments`
+
+### Files changed
+- packages/backend/convex/models/parentChildAuthorizations.ts (+30, new query)
+- apps/web/src/hooks/use-child-access.ts (+115, new file)
+- apps/web/src/components/layout/player-sidebar.tsx (+55, -20)
+- apps/web/src/app/orgs/[orgId]/player/layout.tsx (+35, -5)
+- apps/web/src/app/orgs/[orgId]/player/page.tsx (+80, -40)
+- apps/web/src/app/orgs/[orgId]/player/feedback/page.tsx (+30, -0)
+- apps/web/src/app/orgs/[orgId]/player/health-check/page.tsx (+50, -15)
+- apps/web/src/app/orgs/[orgId]/player/goals/page.tsx (+25, -0)
+- apps/web/src/app/orgs/[orgId]/player/passports/page.tsx (+30, -0)
+- apps/web/src/app/orgs/[orgId]/player/access-revoked/page.tsx (+35, new file)
+
+### Quality checks
+- ✅ `npx -w packages/backend convex codegen` — passed
+- ✅ `npm run check-types` — passed (0 errors)
+- ✅ Biome `--diagnostic-level=error` on changed files — no errors
+- ✅ Pre-commit hook (lint-staged) — passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- The player portal `page.tsx` currently has an early return for `playerType !== 'adult'`. To let youth accounts through to the dashboard, I added a condition: if `isChildAccount && (accessLevel === 'view_only' || 'view_interact')`, skip the early return and fall through to the regular dashboard.
+- `useEffect` + `router.replace()` is the correct pattern for conditional redirects in client components (not `useRouter()` called directly in render)
+- The cycle phase section in health-check already has `return age >= 18` — no change needed for youth accounts
+- `getChildAuthorizationByPlayerIdentity` is the main query for portal-side access checks; `getChildAuthorization` is for parent-side (takes enrollment ID directly)
+- Emergency contacts in `passports/page.tsx` are already gated by `playerType === 'adult'` — no change needed
+
+**Gotchas encountered:**
+- `{condition && wellnessDone ? A : B}` evaluates as `{(condition && wellnessDone) ? A : B}` NOT as `{condition && (wellnessDone ? A : B)}` — use explicit `{condition && (ternary)}` pattern
+- `useParams()` was called without destructuring in goals/page.tsx — changed to `const { orgId } = useParams<{ orgId: string }>()` to pass orgId to the hook
+- The `isLoading` variable I computed in `useChildAccess` was unused (the early return paths inline their own loading state) — removed to fix biome error
+
+**What to do next** (US-P7-005):
+- Child View + Interact Mode: youth with view_interact access can add goals and respond to feedback
+- Read existing goal creation flow and coachParentSummaries model first
+- The `setByRole` field on goals distinguishes coach goals from player goals
+
+---
+
+## 2026-02-28 - US-P7-005 - Child View + Interact Mode (Ages 16–17)
+**Iteration**: 5
+**Commit**: c9cbacad9b2d2b95866803707e46365cf8abc1d5
+**Status**: Complete
+
+### What was implemented
+- **Schema**: Added `childResponse: v.optional(v.string())` and `childResponseAt: v.optional(v.number())` to `coachParentSummaries` table in schema.ts AND to `summaryValidator` in the model
+- **Backend**: Added `getCoachFeedbackForChildPlayer` query — same as `getCoachFeedbackForPlayer` but filters `restrictChildView: true` items and returns `childResponse`/`childResponseAt`
+- **Backend**: Added `setChildFeedbackResponse` mutation — sets `childResponse` on a summary, only callable by the player whose feedback it is
+- **Backend**: Updated `getAutoApprovedSummaries` returns validator and helper to include `childResponse`/`childResponseAt` (for coach's view)
+- **Goals page**: Added `isViewInteract` computed flag; "New Goal" button and empty-state "Create Goal" button now hidden for `view_only` child accounts
+- **Goals page**: Added `canWrite` prop to `GoalDetailDialog` that gates: Edit Goal button, Update Status dropdown, Delete Goal button, milestone edit/delete buttons, "Add milestone" input, "Edit Skills" button. `canWrite = !isChildAccount || (isViewInteract && !isCoachGoal)`
+- **Feedback page**: Complete rewrite — uses `getCoachFeedbackForChildPlayer` for child accounts, `getCoachFeedbackForPlayer` for adults. Added `FeedbackItem` explicit type. Added response textarea for `view_interact` accounts. Shows existing `childResponse` as a teal card.
+- **ParentSummaryCard**: Added `childResponse`/`childResponseAt` fields to the type. Displays "Player response" teal card if present.
+- **Auto-approved tab (coach)**: Displays "Player response" teal card for summaries with `childResponse`.
+
+### Files changed
+- packages/backend/convex/schema.ts (+3, -0)
+- packages/backend/convex/models/coachParentSummaries.ts (+165, +12 in summaryValidator and returns/handler)
+- apps/web/src/app/orgs/[orgId]/player/feedback/page.tsx (full rewrite, +160)
+- apps/web/src/app/orgs/[orgId]/player/goals/page.tsx (+40, -20)
+- apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx (+22, -0)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/auto-approved-tab.tsx (+12, -0)
+- scripts/ralph/prd.json (US-P7-003 and US-P7-005 marked passes: true)
+
+### Quality checks
+- ✅ `npx -w packages/backend convex codegen` — passed
+- ✅ `npm run check-types` — passed (0 errors)
+- ✅ Biome `--diagnostic-level=error` on changed files — no errors
+- ✅ Pre-commit hook (lint-staged) — passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- Goals use `createdBy` field (NOT `setByRole`) to distinguish player vs coach goals. `isCoachGoal = !goal.createdBy || goal.createdBy !== playerUserId`
+- When querying with two different Convex queries based on a condition (isChildAccount), call both with "skip" for the inactive one — React hooks cannot be called conditionally
+- Create a union `FeedbackItem` type when combining two similar-shaped query results (adult vs child feedback) to avoid TypeScript `unknown` type errors
+- `summaryValidator` in coachParentSummaries.ts must be updated manually when adding new schema fields — it doesn't auto-sync
+
+**Gotchas encountered:**
+- `(typeof feedbackItems)[number]` gives `unknown` when `feedbackItems` is a union type from two different queries — define an explicit FeedbackItem type instead
+- The `getAutoApprovedSummaries` has its own custom return shape (not based on summaryValidator) — required adding childResponse to BOTH the returns validator AND the helper function
+
+**What to do next** (US-P7-006):
+- Coach Parent-Only Note Filtering: toggle for coaches to mark notes as `restrictChildView: true`
+- The field is already in schema (added in US-P7-001)
+- Find the voice note creation/editing UI and add the toggle there
+- The child portal filtering (getRestrictedNotes, getCoachFeedbackForChildPlayer) is already implemented
 
 ---

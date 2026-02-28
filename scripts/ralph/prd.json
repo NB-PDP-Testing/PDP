@@ -152,8 +152,8 @@
         "npm run check-types passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "US-P7-004 must be complete first. Read the existing goal creation flow and coachParentSummaries model before implementing. Find how existing goals are labelled to understand the setByRole pattern."
+      "passes": true,
+      "notes": "Goals use createdBy (not setByRole) to distinguish player vs coach goals. Goals page: canWrite prop gates edit/delete/milestone/skills for child accounts. New Goal button hidden for view_only. Feedback page: getCoachFeedbackForChildPlayer filters restrictChildView. setChildFeedbackResponse mutation for responses. childResponse displayed in parent summary card and coach auto-approved tab. Commit: c9cbacad"
     },
     {
       "id": "US-P7-006",

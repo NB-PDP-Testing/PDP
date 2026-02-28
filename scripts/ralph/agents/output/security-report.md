@@ -1,4 +1,4 @@
-# Security Report - 2026-02-28 09:02:01
+# Security Report - 2026-02-28 14:50:41
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -73,6 +73,7 @@ apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OP
   - packages/backend/convex/models/guardianPlayerLinks.ts
   - packages/backend/convex/models/orgGuardianProfiles.ts
   - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/whatsappWellness.ts
   - packages/backend/convex/models/playerGraduations.ts
   - packages/backend/convex/models/members.ts
   - packages/backend/convex/models/voiceNoteEntityResolutions.ts

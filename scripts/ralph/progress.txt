@@ -1,476 +1,440 @@
 # Ralph Progress Log
-Started: Sat 28 Feb 2026 00:59:03 GMT
+Started: Sat 28 Feb 2026 09:07:30 GMT
 ---
 
 ## Codebase Patterns
-**Last Updated**: 2026-02-28 - Iteration 1
+**Last Updated**: 2026-02-28 - Iteration 1 (Phase 8)
 
 ### Architecture
 - All routes scoped under `/orgs/[orgId]/`
-- Better Auth for auth, Convex for backend, shadcn/ui for components
-- Two table systems: Better Auth tables use `ctx.runQuery(components.betterAuth.adapter.*)`, app tables use `ctx.db`
+- Turborepo monorepo: `apps/web/` (Next.js 14), `packages/backend/` (Convex)
+- Better Auth for authentication, Convex for backend
 
 ### Convex Backend Patterns
 - NEVER use `.filter()` — always use `.withIndex()`
 - All functions need `args` and `returns` validators
 - Use `Id<"tableName">` types, not `string`
-- Index names include all fields: `by_parent_and_child`
-- `v.partial()` does NOT exist in Convex — use `v.optional(v.boolean())` individually
-- `authComponent.safeGetAuthUser(ctx)` returns a user with `._id` as string (not `.id`)
+- Index names include all fields: `by_orgId_and_status`
+- Public queries/mutations via `api`, internal via `internal`
+- Webhook handlers need `internalMutation`/`internalQuery` (no auth required)
+- `"use node"` directive at top of file for Node.js actions (crypto, fetch, etc.)
 
 ### Quality Checks
-- `npx -w packages/backend convex codegen` — must pass before type check
-- `npm run check-types` — full project type check
-- `npx @biomejs/biome check <specific files>` to check only changed files
-- Pre-commit hook runs biome at error level — warnings allowed, errors block commit
+- Run in order: `npx -w packages/backend convex codegen` then type check then biome check
+- Biome needs multi-line braces: `if (x) {\n  return null;\n}` not `if (x) { return null; }`
+- useTopLevelRegex: all regex must be at top-level scope
+- noShadow: don't use `v` as a parameter name (shadows Convex `v` import)
+- noIncrementDecrement: use `+= 1` not `++`
+- useConsistentTypeDefinitions: use `type` not `interface`
+- useBlockStatements: always use braces, multi-line format
 
-### File Locations (discovered during work)
-- Schema: `packages/backend/convex/schema.ts` (~5607 lines)
-- Models: `packages/backend/convex/models/<domain>.ts`
-- `restrictChildView` added to `coachParentSummaries` table (not voiceNotes)
-- Parent-child auth: `packages/backend/convex/models/parentChildAuthorizations.ts`
-- Child access hook: `apps/web/src/hooks/use-child-access.ts`
-- Player portal sidebar: `apps/web/src/components/layout/player-sidebar.tsx`
-- Player portal layout: `apps/web/src/app/orgs/[orgId]/player/layout.tsx`
-- Parent summary card: `apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx`
-- Coach delivered summaries view: `apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/auto-approved-tab.tsx`
-- Goals: `apps/web/src/app/orgs/[orgId]/player/goals/page.tsx` (uses `createdBy` NOT `setByRole` to distinguish player vs coach goals)
+### Phase 8 Specific Patterns
+- Two separate API integrations: Twilio (existing) and Meta (new) -- NEVER mix
+- WellnessDispatchService is the ONLY entry point for sending wellness checks
+- WhatsApp Flows channel is STATELESS -- no whatsappWellnessSessions records
+- wa_id (WhatsApp ID) must be immediately resolved to playerIdentityId -- never persist wa_id (GDPR)
+- processFlowCompletionWebhook must always check idempotency before inserting health check
 
-### Portal Child Access Patterns
-- `useChildAccess(orgId)` hook detects youth accounts and returns `{ isChildAccount, accessLevel, toggles }`
-- For redirect gating: use `useEffect` + `router.replace()` in the layout, not in render body
-- `{condition && (ternary)}` NOT `{condition && a ? A : B}` — operator precedence
-- Cycle phase section already gated by `age >= 18` in health-check page — no change needed for youth
-- Emergency contacts in passports page already gated by `playerType === 'adult'`
+### File Locations (Phase 8)
+- Meta actions: `packages/backend/convex/actions/metaWhatsapp.ts`
+- Dispatch service: `packages/backend/convex/lib/wellnessDispatchService.ts`
+- Session models: `packages/backend/convex/models/whatsappWellness.ts`
+- Health check model: `packages/backend/convex/models/playerHealthChecks.ts`
+- HTTP routes: `packages/backend/convex/http.ts`
 
 ---
 
-## 2026-02-28 - US-P7-001 - Backend: parentChildAuthorizations Schema & Queries
+## 2026-02-28 - US-P8-001 - Backend: Dual-Channel Schema, Meta API Setup & Channel Abstraction Service
 **Iteration**: 1
-**Commit**: 1e0fc4cea50bff66407eea9511c6fdedd7ff4a72
+**Commit**: 4e20a85aae961cdf6d3bf0644d357bdd873c4aee
 **Status**: Complete
 
 ### What was implemented
-- Added `parentChildAuthorizations` table to schema.ts (one record per child, unified access level)
-- Added `parentChildAuthorizationLogs` table to schema.ts (WRITE-ONCE GDPR/COPPA audit log)
-- Added `restrictChildView: v.optional(v.boolean())` field to `coachParentSummaries` table
-- Added `restrictChildView` to summaryValidator in coachParentSummaries.ts model
-- Created `packages/backend/convex/models/parentChildAuthorizations.ts` with:
-  - `getChildAuthorization` — query by childPlayerId using by_child index
-  - `getChildrenForParent` — query by parentUserId scoped to org
-  - `getChildAuthorizationInternal` — internal query for crons/actions
-  - `getRestrictedNotes` — filters child-visible coach summaries (excludes restrictChildView:true and non-approved statuses)
-  - `grantChildAccess` — creates or updates authorization + logs; validates age >= 13 via DOB
-  - `revokeChildAccess` — sets accessLevel='none', records revokedAt/revokedBy, logs 'revoked'
-  - `updateChildAccessToggles` — patches individual boolean toggles, logs 'toggle_changed' with field-level diff
-  - `setNoteChildRestriction` — patches restrictChildView on a coachParentSummary
-  - `grantChildAccessInternal` — internal mutation variant for system use
+- Schema: whatsappWellnessSessions table, extended playerWellnessSettings, source field on dailyPlayerHealthChecks
+- New metaWhatsapp.ts action: checkWhatsappAvailability, sendFlowMessage, verifyMetaSignature, processFlowCompletion, processFlowCompletionWebhook, registerFlow
+- New wellnessDispatchService.ts: sendWellnessCheck() routes to Meta or Twilio
+- New whatsappWellness.ts: all session CRUD, channel registration, admin queries, GDPR helpers
+- Modified playerHealthChecks.ts: source field, submitDailyHealthCheckInternal, getTodayHealthCheckInternal
 
 ### Files changed
-- packages/backend/convex/schema.ts (+58, -1)
-- packages/backend/convex/models/parentChildAuthorizations.ts (+515, new file)
-- packages/backend/convex/models/coachParentSummaries.ts (+3, -0)
+- packages/backend/convex/schema.ts (+60)
+- packages/backend/convex/actions/metaWhatsapp.ts (new, ~620 lines)
+- packages/backend/convex/lib/wellnessDispatchService.ts (new, ~180 lines)
+- packages/backend/convex/models/whatsappWellness.ts (new, ~540 lines)
+- packages/backend/convex/models/playerHealthChecks.ts (+130)
 
 ### Quality checks
-- ✅ `npx -w packages/backend convex codegen` — passed
-- ✅ `npm run check-types` — passed (0 errors)
-- ✅ Linting: biome check on changed files passed (no errors)
+- Type check: passed (no errors in new/modified files)
+- Linting: passed biome check
+- Codegen: succeeded
+- Commit: pre-commit hook passed
+
+### Learnings for future iterations
+**Patterns:**
+- submitDailyHealthCheckInternal exists for webhook use (no auth) -- always use this from internal actions
+- getSettingsByWhatsappNumber for wa_id pseudonymization pattern
+- sendConversationalQuestion has @ts-expect-error in dispatch service -- added in US-P8-004
+
+**Gotchas:**
+- `v` cannot be used as variable name (shadows Convex v import)
+- Biome: multi-line braces required, `type` not `interface`, `+= 1` not `++`
+- String-based internal refs don't work -- use typed `internal.models.xxx` after codegen
+
+---
+
+## 2026-02-28 - US-P8-002 - Meta Webhook Endpoints — Flow Completion & Data Exchange
+**Iteration**: 2
+**Commit**: fc9326dae0b8a4d0cc9e27250af0d1dc47445a21
+**Status**: Complete
+
+### What was implemented
+- GET /whatsapp/meta/webhook — hub.challenge verification using META_WEBHOOK_VERIFY_TOKEN
+- POST /whatsapp/meta/webhook — X-Hub-Signature-256 verification + Flow completion routing
+- POST /whatsapp/flows/exchange — RSA-OAEP-SHA256 + AES-128-GCM encrypted data exchange
+- verifyMetaSignatureAction — "use node" action wrapper callable from http.ts
+- handleFlowsExchange — decrypt, resolve player, build dynamic screen, encrypt response
+- decryptFlowRequest / encryptFlowResponse — Meta's official crypto algorithm helpers
+- buildEnabledDimensionGroups — RadioButtonsGroup components for only enabled dimensions
+- META_PRIVATE_KEY env var documented (PEM RSA private key)
+
+### Files changed
+- packages/backend/convex/actions/metaWhatsapp.ts (+280 lines)
+- packages/backend/convex/http.ts (+130 lines)
+
+### Quality checks
+- ✅ Codegen: passed
+- ✅ Type check: passed
+- ✅ Linting: clean
 - ✅ Pre-commit hook: passed
 
 ### **Learnings for future iterations** ⚠️ CRITICAL
 **Patterns discovered:**
-- `v.partial()` does NOT exist in Convex values library — use individual `v.optional(v.boolean())` args instead
-- `authComponent.safeGetAuthUser(ctx)` — user `._id` is typed as string (cast with `as string`)
-- `age--` triggers biome lint error (noIncrementDecrement) — use `age -= 1` instead
-- `restrictChildView` belongs on `coachParentSummaries` (the parent-facing AI summary record), NOT on `voiceNotes` (the raw source). Coach summaries are what parents/children actually see.
-- The `parentChildAuthorizationLogs` table needs `childPlayerId` denormalized for efficient `by_child` index queries
+- httpAction handlers without async must use `Promise.resolve(new Response(...))` — Biome `useAwait` rejects async without await
+- Biome `noBitwiseOperators` blocks `~x` — use `255 - x` for byte flipping (equivalent for uint8)
+- http.ts can access `process.env` without "use node" — works in all Convex function types
+- For Node.js crypto in http.ts, delegate to "use node" internalAction via ctx.runAction
+- Meta Flows data exchange algorithm: RSA-PKCS1-OAEP-SHA256 to decrypt AES key, AES-128-GCM to decrypt body, AES-128-GCM with flipped IV (255 - original_byte) for response
+- handleFlowsExchange returns discriminated union — use `success: true as const` / `false as const`
 
 **Gotchas encountered:**
-- First codegen attempt failed with `t.partial is not a function` — Convex doesn't have v.partial
-- Lint check on entire codebase shows 243 errors + 1864 warnings (all pre-existing) — check only modified files with `npx @biomejs/biome check <files>`
-
-**What to do next** (US-P7-002):
-- [x] Find the parent portal individual child view page — it's the ChildCard component in `/parents/children/` page
-- [x] Add 'Grant Player Access' section with access level selector + granular toggles
-- [x] Wire up grantChildAccess/revokeChildAccess mutations
-- [ ] The invite email (US-P7-003) is triggered on first grant — coordinate with email.ts (deferred to US-P7-003)
+- `~` bitwise NOT blocked by Biome — use `255 - x` for byte values
+- GET webhook handler must be non-async with Promise.resolve returns
+- META_PRIVATE_KEY must be set in Convex dashboard before /whatsapp/flows/exchange works
 
 ---
 
-## 2026-02-28 - US-P7-002 - Parent Grants Child Platform Access
-**Iteration**: 2
-**Commit**: 27b677d2ba636e51b8836eadf82eab945b7ba008
-**Status**: Complete (email invite deferred to US-P7-003)
+## 2026-02-28 - US-P8-003 - Meta WhatsApp Flows Template — Design & Registration
+**Iteration**: 3
+**Commit**: fad69bb2
+**Status**: Complete
 
 ### What was implemented
-- Created `GrantChildAccessSection` component at `apps/web/src/app/orgs/[orgId]/parents/components/grant-child-access-section.tsx`
-  - Under-13 age block with COPPA message
-  - Enable/disable toggle for account access
-  - Access level selector (View Only vs View+Interact with age recommendations)
-  - Granular content toggles (assessments, goals, feedback, voice notes, wellness)
-  - Preview section showing what the child will see
-  - Save/Update calling grantChildAccess mutation
-  - Revoke button with confirmation dialog calling revokeChildAccess
-- Updated `ChildCard` to add `_id?: Id<"orgPlayerEnrollments">` to enrollment type
-- Rendered `GrantChildAccessSection` inside ChildCard for under-18 children
+- Created `packages/backend/convex/flows/wellness-check-flow.json` — full Flow JSON (version 3.1, data_api_version 3.0, single WELLNESS_SCREEN with 8 RadioButtonsGroup components + Footer)
+- Created `docs/meta-whatsapp-flows-setup.md` — comprehensive setup guide covering RSA key setup, webhook config, Flow registration, data exchange endpoint, template creation, sandbox testing, GDPR requirements
+- `registerFlow` internalAction was already implemented in US-P8-001 — no additional code needed
 
 ### Files changed
-- apps/web/src/app/orgs/[orgId]/parents/components/grant-child-access-section.tsx (+461, new file)
-- apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx (+20, -2)
+- packages/backend/convex/flows/wellness-check-flow.json (new, 118 lines)
+- docs/meta-whatsapp-flows-setup.md (new, 257 lines)
 
 ### Quality checks
-- ✅ `npm run check-types` — passed
-- ✅ Biome pre-commit hook — passed (warnings only, no errors)
+- ✅ Codegen: passed (no TypeScript changes needed)
+- ✅ Type check: passed
+- ✅ Linting: clean (JSON/MD files only)
+- ✅ Pre-commit hook: passed
 
 ### **Learnings for future iterations** ⚠️ CRITICAL
 **Patterns discovered:**
-- The parent portal individual child view is the `ChildCard` component (not a dedicated route) — it's rendered in a grid on `/parents/children/`
-- ChildCard's `enrollment` type is a manual subset — if you need a new field from enrollment records, add it to the `enrollment?: {...}` type in the ChildCard props
-- The `enrollment._id` is the `orgPlayerEnrollments` document ID needed for grantChildAccess
-- Complex UI components get `noExcessiveCognitiveComplexity` warning — add biome-ignore comment (see email.ts for pattern)
-- `initialized` state pattern is used to hydrate local state from server query once on load (don't use useEffect in Server Components)
+- US-P8-003 is primarily documentation + JSON artifact — registerFlow already existed from US-P8-001
+- Flow JSON must have `required: false` on all dimensions — dynamic exchange endpoint controls which appear
+- When a published Flow needs updating: create a NEW Flow (cannot modify published), update META_FLOWS_WELLNESS_ID
 
-**Gotchas encountered:**
-- Biome linter removes unused imports between edits — always add import and its usage in one shot, or add import directly before the usage line
-- The invite email (sendChildAccountInviteEmail) is NOT yet implemented — that's US-P7-003. For US-P7-002, the UI grant flow is complete but email sending needs US-P7-003 to add the email function
-
-**What to do next** (US-P7-003):
-- [ ] Read /claim-account page pattern for token-based auth flow
-- [ ] Add sendChildAccountInviteEmail() to packages/backend/convex/utils/email.ts
-- [ ] Create /child-account-setup/page.tsx (public route)
-- [ ] Create playerClaimTokens entry with type='child_account_setup' on grant
-- [ ] Add child_account_setup task to onboarding orchestrator
-- [ ] Trigger email from grantChildAccess when isNewGrant (first time only)
+**Notes for manual steps (human must complete after deploy):**
+- Register Flow via `registerFlow` action in Convex dashboard → get Flow ID → set META_FLOWS_WELLNESS_ID
+- Create message template in Meta Business Manager with Flow button
+- Wait 24-48h for template approval; set WELLNESS_TEMPLATE_NAME env var
 
 ---
 
-## US-P7-003: Child Account Creation & Onboarding — COMPLETE ✅
-**Branch:** ralph/adult-player-phase7-child-authorization
-**Commit:** 3d41e4a2
-
-### Summary
-Created full child account setup flow: invite email → token-based /child-account-setup page → Better Auth sign-up → claimChildAccount mutation → onboarding welcome step.
-
-### Files changed
-- `packages/backend/convex/schema.ts` — added `tokenType` to `playerClaimTokens`
-- `packages/backend/convex/utils/email.ts` — added `sendChildAccountInviteEmail()`
-- `packages/backend/convex/actions/childAuthorizations.ts` — new file, `sendChildAccountInviteEmailAction` internal action
-- `packages/backend/convex/models/parentChildAuthorizations.ts` — updated `grantChildAccess` (childEmail arg, token creation, email scheduling), added `resendChildAccountInvite`, `claimChildAccount`, `getChildAccountSetupStatus`
-- `packages/backend/convex/models/onboarding.ts` — added `child_account_setup` task type (priority 4.6)
-- `apps/web/src/app/child-account-setup/page.tsx` — new public route
-- `apps/web/src/components/onboarding/child-account-setup-step.tsx` — new welcome step
-- `apps/web/src/components/onboarding/onboarding-orchestrator.tsx` — wired child_account_setup handler
-- `apps/web/src/app/orgs/[orgId]/parents/components/grant-child-access-section.tsx` — email input + resend UI
-
-### Quality checks
-- ✅ `npx -w packages/backend convex codegen` — passed
-- ✅ `npm run check-types` — passed
-- ✅ Biome pre-commit hook — passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- `markPlayerWelcomed` mutation takes `args: {}` — no arguments needed, it uses `ctx.auth.getUserIdentity()` internally
-- When reusing `playerClaimTokens` for a new token type: add `tokenType: v.optional(v.literal("graduation") | v.literal("child_account_setup"))` discriminator field; treat absent `tokenType` as graduation (backward compat)
-- Child setup tokens use 7 days expiry (`Date.now() + 7 * 24 * 60 * 60 * 1000`), graduation tokens use 30 days
-- The `/child-account-setup` page uses `useSearchParams()` → must be wrapped in `<Suspense>` in the page.tsx export
-- `noExcessiveCognitiveComplexity` fires on the signup handler — add biome-ignore comment to the function definition
-- `useBlockStatements` rule requires braces around single-line if/return in the handler
-
-**Deferred items (not in MVP):**
-- SESSION TIMEOUT for child accounts: Better Auth doesn't support per-user idle timeout natively. Would require middleware intercepting all requests to check last activity timestamp. Deferred.
-- Server-side age enforcement: DOB check in `claimChildAccount` (currently client-side only)
-
-**What to do next** (US-P7-004):
-- Child player sees their portal with access gated by the authorization toggles
-- Need to read `getChildAuthorization` query and use it in each player portal section
-
----
-
-## 2026-02-28 - US-P7-004 - Child Player Dashboard — View Only Mode
+## 2026-02-28 - US-P8-004 - Twilio Conversational/SMS Channel (Retained & Updated)
 **Iteration**: 4
-**Commit**: 42f6d5cb6f04df0b803913af7bb47884f1fd68b4
+**Commit**: 74757224 (run git log -1 --format=%H for full hash)
 **Status**: Complete
 
 ### What was implemented
-- Added `getChildAuthorizationByPlayerIdentity(playerIdentityId, organizationId)` query to `parentChildAuthorizations.ts`
-  - Uses `by_player_and_org` index on orgPlayerEnrollments, then `by_child` index to get authorization
-  - No `.filter()` — fully index-based
-- Created `apps/web/src/hooks/use-child-access.ts` — shared hook for all portal pages
-  - Detects youth accounts via `playerByUserId.playerType === 'youth'`
-  - Returns `{ isChildAccount, accessLevel, toggles, isLoading, playerIdentityId }`
-- Updated `player/layout.tsx`:
-  - Uses `useChildAccess` hook
-  - Redirects to `/player/access-revoked` when `accessLevel === 'none'`
-  - Shows "Youth Account" badge in header when `isChildAccount`
-  - Passes `isChildAccount` to PlayerSidebar and PlayerMobileNav
-- Updated `apps/web/src/components/layout/player-sidebar.tsx`:
-  - Added `hiddenForChildren` flag to nav items (injuries, passport sharing hidden)
-  - Added `isChildAccount` prop — filters nav items and shows Youth Account badge
-- Created `apps/web/src/app/orgs/[orgId]/player/access-revoked/page.tsx`
-- Updated `player/page.tsx`:
-  - Youth players with valid authorization (`view_only`/`view_interact`) see the dashboard instead of "Youth Player Account" card
-  - ICE card hidden (`!isChildAccount`)
-  - Injury card hidden (`!isChildAccount`)
-  - Wellness card gated by `includeWellnessAccess`
-  - Coach Feedback snippet gated by `includeCoachFeedback`
-  - Active Goals snippet gated by `includeDevelopmentGoals`
-  - AI Practice Assistant hidden for child accounts (no profiling rule)
-- Updated `player/feedback/page.tsx` — shows "not available" card when `!toggles?.includeCoachFeedback`
-- Updated `player/health-check/page.tsx` — replaced age-based gate with proper `isChildAccount && !toggles?.includeWellnessAccess` check; cycle phase already gated by `age >= 18`
-- Updated `player/goals/page.tsx` — shows "not available" card when `!toggles?.includeDevelopmentGoals`
-- Updated `player/passports/page.tsx` — shows "not available" card when `!toggles?.includeAssessments`
+- `sendConversationalQuestion` internalAction — sends formatted wellness Q via Twilio WhatsApp
+- `handleWellnessReply` helper — processes 1-5 replies, invalid counting, advances Q&A
+- `handleWellnessOnDemand` helper — WELLNESS command creates on-demand session
+- Wellness session priority check added to `processIncomingMessage` (before coach routing)
+- SKIP command: abandons session with "No problem! Check in via the app anytime."
+- WELLNESSSTOP: deregisters player (exact Meta Business Policy phrasing — NOT optional)
+- WELLNESS: creates on-demand session if player is registered and opted-in
+- Removed `@ts-expect-error` from wellnessDispatchService.ts (sendConversationalQuestion now exists)
+- Score interpretation: ≤2.0=💙, 2.1-3.5=🟡, 3.6-4.5=🟢, 4.6+=🔥
+- Source tracking: isWhatsApp based on `args.from.startsWith("whatsapp:")` → 'whatsapp_conversational' or 'sms'
 
 ### Files changed
-- packages/backend/convex/models/parentChildAuthorizations.ts (+30, new query)
-- apps/web/src/hooks/use-child-access.ts (+115, new file)
-- apps/web/src/components/layout/player-sidebar.tsx (+55, -20)
-- apps/web/src/app/orgs/[orgId]/player/layout.tsx (+35, -5)
-- apps/web/src/app/orgs/[orgId]/player/page.tsx (+80, -40)
-- apps/web/src/app/orgs/[orgId]/player/feedback/page.tsx (+30, -0)
-- apps/web/src/app/orgs/[orgId]/player/health-check/page.tsx (+50, -15)
-- apps/web/src/app/orgs/[orgId]/player/goals/page.tsx (+25, -0)
-- apps/web/src/app/orgs/[orgId]/player/passports/page.tsx (+30, -0)
-- apps/web/src/app/orgs/[orgId]/player/access-revoked/page.tsx (+35, new file)
+- packages/backend/convex/actions/whatsapp.ts (+339, -0)
+- packages/backend/convex/lib/wellnessDispatchService.ts (-2 lines, removed @ts-expect-error)
 
 ### Quality checks
-- ✅ `npx -w packages/backend convex codegen` — passed
-- ✅ `npm run check-types` — passed (0 errors)
-- ✅ Biome `--diagnostic-level=error` on changed files — no errors
-- ✅ Pre-commit hook (lint-staged) — passed
+- ✅ Codegen: passed
+- ✅ Type check: passed (0 errors)
+- ✅ Biome check: passed (0 errors on changed files, 3 warnings = existing biome-ignore comments)
+- ✅ Pre-commit hook: passed
 
 ### **Learnings for future iterations** ⚠️ CRITICAL
 **Patterns discovered:**
-- The player portal `page.tsx` currently has an early return for `playerType !== 'adult'`. To let youth accounts through to the dashboard, I added a condition: if `isChildAccount && (accessLevel === 'view_only' || 'view_interact')`, skip the early return and fall through to the regular dashboard.
-- `useEffect` + `router.replace()` is the correct pattern for conditional redirects in client components (not `useRouter()` called directly in render)
-- The cycle phase section in health-check already has `return age >= 18` — no change needed for youth accounts
-- `getChildAuthorizationByPlayerIdentity` is the main query for portal-side access checks; `getChildAuthorization` is for parent-side (takes enrollment ID directly)
-- Emergency contacts in `passports/page.tsx` are already gated by `playerType === 'adult'` — no change needed
+- Wellness session check is inserted AFTER RESET command, BEFORE pending org selection in processIncomingMessage
+- `handleWellnessReply` and `handleWellnessOnDemand` are plain `async function` (not actions) — they receive `ctx: any` and call `ctx.runMutation/runQuery` directly
+- `sendConversationalQuestion` is an exported `internalAction` so dispatch service can call it via `ctx.runAction`
+- Internal helpers call `sendWhatsAppMessage` directly (same file) — no action dispatch overhead
+- `!(settings && settings.whatsappOptIn)` → Biome prefers `!settings?.whatsappOptIn` (optional chain rule)
+- WhatsApp vs SMS detection: check if `args.from` starts with "whatsapp:" prefix (before it's stripped)
 
-**Gotchas encountered:**
-- `{condition && wellnessDone ? A : B}` evaluates as `{(condition && wellnessDone) ? A : B}` NOT as `{condition && (wellnessDone ? A : B)}` — use explicit `{condition && (ternary)}` pattern
-- `useParams()` was called without destructuring in goals/page.tsx — changed to `const { orgId } = useParams<{ orgId: string }>()` to pass orgId to the hook
-- The `isLoading` variable I computed in `useChildAccess` was unused (the early return paths inline their own loading state) — removed to fix biome error
-
-**What to do next** (US-P7-005):
-- Child View + Interact Mode: youth with view_interact access can add goals and respond to feedback
-- Read existing goal creation flow and coachParentSummaries model first
-- The `setByRole` field on goals distinguishes coach goals from player goals
+**Gotchas:**
+- WELLNESSSTOP response must use EXACT wording: "You have been removed from wellness check-ins. Reply WELLNESS to re-subscribe." (Meta Business Policy requirement)
+- `recordWellnessAnswer` increments `currentDimensionIndex` in DB, so check `session.currentDimensionIndex + 1 === session.enabledDimensions.length` BEFORE calling it to determine if it's the last Q
+- `allResponses` must be built as `{...session.collectedResponses, [currentDimension]: value}` because DB hasn't been updated yet when computing completion
 
 ---
 
-## 2026-02-28 - US-P7-005 - Child View + Interact Mode (Ages 16–17)
+## 2026-02-28 - US-P8-005 - Player Channel Registration & Phone Verification (Settings UI)
 **Iteration**: 5
-**Commit**: c9cbacad9b2d2b95866803707e46365cf8abc1d5
+**Commit**: c5072602cc342c3eabaa82f6bab585bca531c823
 **Status**: Complete
 
 ### What was implemented
-- **Schema**: Added `childResponse: v.optional(v.string())` and `childResponseAt: v.optional(v.number())` to `coachParentSummaries` table in schema.ts AND to `summaryValidator` in the model
-- **Backend**: Added `getCoachFeedbackForChildPlayer` query — same as `getCoachFeedbackForPlayer` but filters `restrictChildView: true` items and returns `childResponse`/`childResponseAt`
-- **Backend**: Added `setChildFeedbackResponse` mutation — sets `childResponse` on a summary, only callable by the player whose feedback it is
-- **Backend**: Updated `getAutoApprovedSummaries` returns validator and helper to include `childResponse`/`childResponseAt` (for coach's view)
-- **Goals page**: Added `isViewInteract` computed flag; "New Goal" button and empty-state "Create Goal" button now hidden for `view_only` child accounts
-- **Goals page**: Added `canWrite` prop to `GoalDetailDialog` that gates: Edit Goal button, Update Status dropdown, Delete Goal button, milestone edit/delete buttons, "Add milestone" input, "Edit Skills" button. `canWrite = !isChildAccount || (isViewInteract && !isCoachGoal)`
-- **Feedback page**: Complete rewrite — uses `getCoachFeedbackForChildPlayer` for child accounts, `getCoachFeedbackForPlayer` for adults. Added `FeedbackItem` explicit type. Added response textarea for `view_interact` accounts. Shows existing `childResponse` as a teal card.
-- **ParentSummaryCard**: Added `childResponse`/`childResponseAt` fields to the type. Displays "Player response" teal card if present.
-- **Auto-approved tab (coach)**: Displays "Player response" teal card for summaries with `childResponse`.
+- New `packages/backend/convex/actions/phoneVerification.ts` (`"use node"` action file):
+  - `sendVerificationPin`: generates crypto-random 6-digit PIN, stores in `verificationPins` table, sends via Twilio plain SMS
+  - `verifyPinAndDetectChannel`: claims PIN, calls `checkWhatsappAvailability`, registers channel in `playerWellnessSettings` (opt-in defaults to false)
+- New mutations in `whatsappWellness.ts`:
+  - `storeVerificationPin` (internalMutation), `claimVerificationPin` (internalMutation): PIN storage and verification
+  - `setWellnessOptIn` (public mutation): opt-in toggle for player settings UI
+  - `clearWellnessPhone` (public mutation): clears phone/channel/optIn for "Change number"
+- New `wellness-checkin-section.tsx`: multi-step flow (phone → PIN → channel → opt-in). Uses PhoneInput + InputOTP. GDPR Article 9 consent text (mandatory wording). Registered view with masked phone.
+- Updated `page.tsx`: added `authClient.useActiveOrganization()`, inserted `WellnessCheckInSection`
 
 ### Files changed
-- packages/backend/convex/schema.ts (+3, -0)
-- packages/backend/convex/models/coachParentSummaries.ts (+165, +12 in summaryValidator and returns/handler)
-- apps/web/src/app/orgs/[orgId]/player/feedback/page.tsx (full rewrite, +160)
-- apps/web/src/app/orgs/[orgId]/player/goals/page.tsx (+40, -20)
-- apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx (+22, -0)
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/auto-approved-tab.tsx (+12, -0)
-- scripts/ralph/prd.json (US-P7-003 and US-P7-005 marked passes: true)
+- packages/backend/convex/actions/phoneVerification.ts (new, ~170 lines)
+- packages/backend/convex/models/whatsappWellness.ts (+165 lines)
+- apps/web/src/app/orgs/[orgId]/player/settings/wellness-checkin-section.tsx (new, ~650 lines)
+- apps/web/src/app/orgs/[orgId]/player/settings/page.tsx (+10 lines)
 
 ### Quality checks
-- ✅ `npx -w packages/backend convex codegen` — passed
-- ✅ `npm run check-types` — passed (0 errors)
-- ✅ Biome `--diagnostic-level=error` on changed files — no errors
-- ✅ Pre-commit hook (lint-staged) — passed
+- ✅ Codegen: passed
+- ✅ Type check: passed (0 errors in new files)
+- ✅ Biome: clean on changed files
+- ✅ Pre-commit hook: passed
 
 ### **Learnings for future iterations** ⚠️ CRITICAL
 **Patterns discovered:**
-- Goals use `createdBy` field (NOT `setByRole`) to distinguish player vs coach goals. `isCoachGoal = !goal.createdBy || goal.createdBy !== playerUserId`
-- When querying with two different Convex queries based on a condition (isChildAccount), call both with "skip" for the inactive one — React hooks cannot be called conditionally
-- Create a union `FeedbackItem` type when combining two similar-shaped query results (adult vs child feedback) to avoid TypeScript `unknown` type errors
-- `summaryValidator` in coachParentSummaries.ts must be updated manually when adding new schema fields — it doesn't auto-sync
+- Discriminated union returns from Convex mutations need `as const`: `return { valid: true as const }`
+- When calling mutations returning discriminated unions from actions, explicitly type the intermediate: `const result: { valid: true } | { valid: false; error: string } = await ctx.runMutation(...)`
+- `authClient.useActiveOrganization()` gives `{ data: { name, ... } }` for org name
+- `PhoneInput` component at `@/components/ui/phone-input.tsx` — gives E.164, default IE country
+- `InputOTP` at `@/components/ui/input-otp.tsx` — 6 slots for 6-digit PIN
+- `verificationPins` table already existed in schema (from earlier phase) — no schema change needed
 
-**Gotchas encountered:**
-- `(typeof feedbackItems)[number]` gives `unknown` when `feedbackItems` is a union type from two different queries — define an explicit FeedbackItem type instead
-- The `getAutoApprovedSummaries` has its own custom return shape (not based on summaryValidator) — required adding childResponse to BOTH the returns validator AND the helper function
-
-**What to do next** (US-P7-006):
-- Coach Parent-Only Note Filtering: toggle for coaches to mark notes as `restrictChildView: true`
-- The field is already in schema (added in US-P7-001)
-- Find the voice note creation/editing UI and add the toggle there
-- The child portal filtering (getRestrictedNotes, getCoachFeedbackForChildPlayer) is already implemented
+**Gotchas:**
+- Unused constant in module scope → Biome noUnusedVariables blocks commit. Remove unused constants.
+- PlayerSettingsPage had pre-existing complexity 18, adding more pushes over limit. Added biome-ignore comment.
+- `TWILIO_SMS_FROM` new env var needed for plain SMS PIN verification (falls back to `TWILIO_WHATSAPP_NUMBER`)
 
 ---
 
-## 2026-02-28 - US-P7-006 - Coach Parent-Only Note Filtering
+## 2026-02-28 - US-P8-006 - Admin WhatsApp Wellness Scheduling Configuration
 **Iteration**: 6
-**Commit**: fc34cadd
+**Commit**: 275706c0baf49ea67f7f28f1a77698102f1c3ef1
 **Status**: Complete
 
 ### What was implemented
-- **SummaryApprovalCard**: Added `restrictChildView` state (default false), amber-styled checkbox toggle "Restrict from child view — Parent and coach only". Changed `onApprove: () => void` to `onApprove: (restrictChildView: boolean) => void`. Approve button passes `restrictChildView`.
-- **InjuryApprovalCard**: Same toggle added. `approveInjurySummary` call now includes `restrictChildView`.
-- **BehaviorApprovalCard**: Same toggle added. `approveSummary` call now includes `restrictChildView`.
-- **parents-tab.tsx**: `handleApproveSummary` updated to accept `restrictChildView?: boolean` and passes it to `approveSummary` mutation. `onApprove` in commonProps passes the value through.
-- **approveSummary mutation**: Updated to accept `restrictChildView: v.optional(v.boolean())` in args and atomically patches it at approval time.
-- **approveInjurySummary mutation**: Same addition.
-- **auto-approved-tab.tsx**: Added `restrictingId` state, `setNoteChildRestriction` mutation for retroactive toggling. Added "Child restricted" badge and toggle button per card. Uses pre-existing mutation from US-P7-001.
-- **getAutoApprovedSummaries**: Returns validator updated to include `restrictChildView: v.optional(v.boolean())`. Helper function also updated.
+- Extended `wellnessOrgConfig` schema with 5 optional WhatsApp dispatch fields: `whatsappEnabled`, `dispatchTime`, `dispatchTimezone`, `dispatchActiveDays`, `dispatchTargetTeamIds`
+- Updated `getWellnessOrgConfig` returns validator to include optional new fields
+- Updated `updateWellnessOrgConfig` args to accept optional dispatch fields (backwards-compatible)
+- Added `getWhatsappDispatchStatus` query that checks META_FLOWS_WELLNESS_ID and TWILIO_WHATSAPP_FROM env vars, returns booleans
+- Created `wellness-dispatch-section.tsx` as self-contained client component with: master toggle, integration status badges, channel counts, time picker (15-min), timezone dropdown, active day checkboxes with presets, target teams multi-select, next dispatch preview
+- Inserted `WellnessDispatchSection` into admin settings page Wellness Reminders card
 
 ### Files changed
-- packages/backend/convex/models/coachParentSummaries.ts (approveSummary, approveInjurySummary, getAutoApprovedSummaries)
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/injury-approval-card.tsx
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/behavior-approval-card.tsx
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/parents-tab.tsx
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/auto-approved-tab.tsx
+- packages/backend/convex/schema.ts (+10)
+- packages/backend/convex/models/playerHealthChecks.ts (+60)
+- apps/web/src/app/orgs/[orgId]/admin/settings/wellness-dispatch-section.tsx (new, ~390 lines)
+- apps/web/src/app/orgs/[orgId]/admin/settings/page.tsx (+5)
 
 ### Quality checks
-- ✅ `npx -w packages/backend convex codegen` — passed
-- ✅ `npm run check-types` — passed (0 errors)
-- ✅ Biome `--diagnostic-level=error` on changed files — no errors
-- ✅ Pre-commit hook — passed
+- ✅ Codegen: passed
+- ✅ Type check: passed
+- ✅ Biome check on changed files: clean
+- ✅ Pre-commit hook: passed
 
 ### **Learnings for future iterations** ⚠️ CRITICAL
 **Patterns discovered:**
-- **CRITICAL**: Biome linter removes unused imports between separate edits. When adding both an import AND its usage, always write the entire file at once using `Write` tool (not sequential `Edit` calls). This happened 3 times in this story.
-- The retroactive restriction toggle (for already-sent notes) uses the pre-existing `setNoteChildRestriction` mutation from US-P7-001 — don't create a new mutation.
-- The `approveSummary` uses conditional spread for `restrictChildView`: `...(args.restrictChildView !== undefined ? { restrictChildView: args.restrictChildView } : {})` — this ensures existing records are not retroactively changed when the field is absent.
+- When the linter fires between Edit calls it removes unused imports. Add JSX usage FIRST, then the import.
+- `getWhatsappDispatchStatus` uses `process.env` in a Convex query — no "use node" needed
+- shadcn Checkbox inside `<label>` triggers noLabelWithoutControl — add biome-ignore (Radix renders button)
+- Pre-existing complexity errors in playerHealthChecks.ts at 1026, 1127, 1195, 1413 — ignore these
 
-**What to do next** (US-P7-007):
-- 30-Day and 7-Day Pre-Birthday Advance Notifications
-- Read `packages/backend/convex/jobs/graduations.ts` FULLY before modifying
-- Add `age_transition_30_days` and `age_transition_7_days` notification types
-- Extend graduation cron with pre-birthday checks and in-app notifications
-- Guard against duplicate notifications (check if already sent in last 25/5 days)
+**Gotchas:**
+- Admin settings page uses `session?.user?.id` (NOT `._id`) for userId prop
+- Must pass current reminder config values through when only updating dispatch fields
+- WellnessDispatchSection goes inside the existing card, not as a separate card
 
 ---
 
-## 2026-02-28 - US-P7-007 - 30-Day and 7-Day Pre-Birthday Advance Notifications
+## 2026-02-28 - US-P8-007 - Daily Dispatch Cron — Channel-Aware
 **Iteration**: 7
-**Commit**: a85868dd
+**Commit**: d58a6a22cfa4337b412617dfdc7a95bca736ba37
 **Status**: Complete
 
 ### What was implemented
-- Added `age_transition_30_days` and `age_transition_7_days` to `schema.ts` notifications table type union
-- Added same two literals to `notificationTypeValidator` in `models/notifications.ts`
-- Added `detectPreBirthdayNotifications` internalMutation to `jobs/graduations.ts`:
-  - DOB range ±12 hours around target date (to absorb cron drift)
-  - Uses `by_playerType` index to get youth players, JS filter for DOB range
-  - Dedup check: queries `by_org_type` index + JS filter for `relatedPlayerId` and `createdAt > threshold`
-  - Sends to each guardian via `guardianPlayerLinks.by_player` index
-  - Sends to child if `player.userId` is set (has platform account)
-  - 25-day dedup for 30-day notice, 5-day dedup for 7-day notice
-- Added new cron `detect-pre-birthday-notifications` at 6:15 AM UTC in `crons.ts`
-- Added two new types to `notification-toast.tsx` and `notification-bell.tsx` (frontend NotificationType unions)
+- Schema: `lastFlowSentDate: v.optional(v.string())` added to `playerWellnessSettings` (tracks last date Flow was dispatched to prevent double-send)
+- Schema: Added `by_org` index on `playerWellnessSettings` for efficient org-level queries
+- `getOptedInPlayers` query: updated to use new `by_org` index (fixed `.filter()` violation), includes `lastFlowSentDate`
+- `updateFlowSentDate` internalMutation: updates `lastFlowSentDate` after successful Flow dispatch
+- New `packages/backend/convex/jobs/wellnessDispatch.ts`:
+  - `getEnabledOrgConfigs`: internalQuery — fetches wellnessOrgConfigs with whatsappEnabled=true
+  - `checkWellnessDispatch`: internalAction — 15-min cron entry. Checks each org's timezone-local time against dispatchTime. Schedules `dispatchWellnessForOrg` for orgs in window.
+  - `dispatchWellnessForOrg`: internalAction — per-org dispatch. Deduplication checks (health check exists, Flow sent today, session exists). Batches >50 players via `ctx.scheduler.runAfter` staggered 1 min apart.
+  - `dispatchWellnessBatch`: internalAction — rate-limited batch executor, called by scheduler.
+  - `getPlayerIdentity`: internalQuery — resolves playerIdentityId to firstName/lastName for dispatch messages.
+  - `sendBatch` private function: calls WellnessDispatchService, handles fallback from Flows to SMS on Meta API failure.
+- Registered `check-wellness-dispatch` cron (every 15 minutes) in `crons.ts`
 
 ### Files changed
-- packages/backend/convex/schema.ts (+2 literals in notifications type union)
-- packages/backend/convex/models/notifications.ts (+2 literals in notificationTypeValidator)
-- packages/backend/convex/jobs/graduations.ts (+180 lines, new mutation)
-- packages/backend/convex/crons.ts (+7 lines, new cron)
-- apps/web/src/components/notification-toast.tsx (+2 literals)
-- apps/web/src/components/notifications/notification-bell.tsx (+3 literals incl. player_role_approved which was missing)
+- packages/backend/convex/schema.ts (+6)
+- packages/backend/convex/models/whatsappWellness.ts (+60)
+- packages/backend/convex/jobs/wellnessDispatch.ts (new, ~550 lines)
+- packages/backend/convex/crons.ts (+7)
 
 ### Quality checks
-- ✅ `npx -w packages/backend convex codegen` — passed
-- ✅ `npm run check-types` — passed (0 errors)
-- ✅ Biome `--diagnostic-level=error` on changed files — no errors
-- ✅ Pre-commit hook — passed
+- ✅ Codegen: passed
+- ✅ Type check: passed (0 errors)
+- ✅ Biome check on changed files: clean (1 biome-ignore for complexity in dispatch handler)
+- ✅ Pre-commit hook: passed
 
 ### **Learnings for future iterations** ⚠️ CRITICAL
 **Patterns discovered:**
-- Frontend `NotificationType` unions in `notification-toast.tsx` and `notification-bell.tsx` must be manually kept in sync with schema — type check catches mismatches. `notification-bell.tsx` was also missing `player_role_approved` (pre-existing gap).
-- For cron dedup checks: use `by_org_type` index + JS array filter for `relatedPlayerId` and `createdAt > threshold`. This avoids needing a new index.
-- DOB range ±12 hours is needed because `EIGHTEEN_YEARS_MS = 18 * 365.25 * ...` is approximate. A 24-hour window centered on the target day ensures no player is missed due to leap year approximation.
-- The `relatedPlayerId` field on notifications is typed as `v.id("playerIdentities")` — the field stores the player's `_id` (playerIdentities document ID), not a userId string.
+- `internalAction` (not `internalMutation`) needed for cron jobs that call WellnessDispatchService (ActionCtx required)
+- `crons.ts` can reference `internal.jobs.wellnessDispatch.checkWellnessDispatch` for actions registered in jobs/
+- `Intl.DateTimeFormat` available in Convex V8 runtime without "use node" — use for timezone conversion
+- Use `formatToParts()` for reliable timezone-local date/time extraction
+- `useMaxParams` Biome rule: functions with >4 params need an options object
+- `noExcessiveCognitiveComplexity` > 15: add `biome-ignore lint/complexity/noExcessiveCognitiveComplexity`
+- For deduplication of WhatsApp Flows dispatch: `lastFlowSentDate` field on `playerWellnessSettings` (simpler than a log table)
+- Batching pattern: `if batches.length === 1` → inline; else `ctx.scheduler.runAfter(i * DELAY, batchAction, {...})`
 
-**What to do next** (US-P7-UAT):
-- All stories complete — write Phase 7 E2E tests
+**Gotchas:**
+- `Parameters<typeof someAction.handler>` fails — `RegisteredAction` doesn't expose `.handler`. Use `ActionCtx` import instead.
+- `BATCH_DELAY_MS` constant triggers `noUnusedVariables` if batch path not taken — keep it as it IS used in multi-batch path
+- `getOptedInPlayers` was using `.filter()` — fixed to use new `by_org` index (performance fix)
 
 ---
 
-## Story: US-P7-008 - Child's Independent Right to Data Erasure (GDPR Recital 65)
-**Status**: ✅ Completed — commit `0919b61c`
-**Date**: 2026-02-28
+## 2026-02-28 - US-P8-008 - App Sync, Completion UX & Channel Source Tracking
+**Iteration**: 8
+**Commit**: 70b277d2d23073ce33283f447e49ce42db632ad9
+**Status**: Complete
 
-### What was built
-- New `childDataErasureRequests` table in schema with indexes: `by_org_and_status`, `by_child`, `by_requesting_user`
-- `child_data_erasure` notification type added to schema and `notificationTypeValidator`
-- New model `packages/backend/convex/models/childDataErasureRequests.ts` with:
-  - `getErasureRequestsForOrg` query — enriched with player names from playerIdentities
-  - `getMyErasureRequestStatus` query — `{ hasPending: boolean, requestedAt?: number }`
-  - `requestDataErasure` mutation — idempotent, notifies org admins via in-app notification
-  - `notifyAdminsOfErasureRequest` internalMutation — uses betterAuth adapter to find admin/owner members
-  - `processErasureRequest` mutation — hard-deletes: dailyPlayerHealthChecks, playerWellnessSettings, skillAssessments, passportGoals, coachParentSummaries, parentChildAuthorizations, parentChildAuthorizationLogs, playerIdentity; stubs enrollment by default
-  - `declineErasureRequest` mutation — stores reason, notifies child player
-- Player settings page: "Privacy & Data" card (child accounts only), shows button or "pending review" badge
-- Admin player-requests page: pending queue, process/decline dialogs, request history, GDPR info card
-- Admin navigation updated in both legacy layout.tsx and AdminSidebar component
+### What was implemented
+- Added `SourceBadge` component to health-check page: shows channel icon for whatsapp_flows (green MessageSquare), whatsapp_conversational (green MessageSquare), sms (Smartphone), null/app (nothing)
+- Added "Recent Check-Ins" section to player health-check page showing last 7 records with date, avg score, and SourceBadge
+- Score interpretation thresholds and completion messages were already correct in both channels (verified)
+- Idempotency already handled in processFlowCompletionWebhook (US-P8-002)
+- Streak, coach dashboard, and overview card are already source-agnostic
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/player/health-check/page.tsx (+101 lines: SourceBadge component + Recent Check-Ins section)
 
 ### Quality checks
-- ✅ `npx -w packages/backend convex codegen`
-- ✅ `npx tsc --noEmit` — zero errors
-- ✅ `npx @biomejs/biome check --diagnostic-level=error` — 3 formatting fixes needed (block statements)
-- ✅ Pre-commit hook — passed
+- ✅ Type check: passed
+- ✅ Biome: no errors on changed file (3 pre-existing warnings from nested ternary in existing code)
+- ✅ Pre-commit hook: passed
 
 ### **Learnings for future iterations** ⚠️ CRITICAL
 **Patterns discovered:**
-- `childDataErasureRequests` uses same notification pattern as `playerGraduations.ts` for notifying admins: `ctx.runQuery(components.betterAuth.adapter.findMany, { model: "member", ... })` then JS filter for `role === "admin" || role === "owner"`
-- Biome requires multi-line block format for `if` bodies: `if (x) {\n  return;\n}` not `if (x) { return; }`
-- For GDPR data deletion, hard-delete all personal data tables indexed by `playerIdentityId` or `childPlayerId`; stub the enrollment record (set `status: "inactive"`) for roster continuity rather than deleting it
-- Admin pages for request queues follow the unclaimed-guardians pattern: query, loading state, empty state, table/card list with action buttons, dialogs for confirmation
-- The `retainEnrollmentStub` arg defaults true — always keep it true for roster continuity
+- Most of US-P8-008 was already implemented in US-P8-001/002/004 — score interpretation, completion messages, idempotency
+- The main new work was the source badge UI in the health-check page
+- `source` field is already included in `getWellnessHistory` returns validator — no backend changes needed
+- `new Date(dateStr).toLocaleDateString("en-GB", ...)` is the established pattern for date display
 
 ---
 
-## 2026-02-28 - US-P7-UAT - Phase 7 Child Authorization E2E Tests
+## 2026-02-28 - US-P8-009 - Admin WhatsApp Wellness Monitoring Dashboard
 **Iteration**: 9
-**Commit**: 44e40a2c3d50ca80f9ce61634c4786ec263eab05
+**Commit**: 058dbe75e5a7d3c49c05a9ef2d2ab27e55e0fdb5
 **Status**: Complete
 
 ### What was implemented
-- Created `apps/web/uat/tests/child-authorization-phase7.spec.ts` with 36 tests
-- Also updated PRD to mark US-P7-006, US-P7-007, US-P7-008 as `passes: true` (previous iterations completed these but didn't update the PRD file)
-- Tests cover all automatable acceptance criteria grouped by story:
-  - CA-001 to CA-007: Parent grant UI (children page, grant section, access level, revoke button, content toggles, COPPA message)
-  - CA-008, CA-036: Child account setup public route structural tests
-  - CA-009 to CA-015: Player portal page load verification (dashboard, feedback, goals, passports, health-check, sidebar, access-revoked)
-  - CA-016 to CA-018: View+Interact mode (New Goal button enabled for adults, feedback response area, player response label in parent portal)
-  - CA-019 to CA-022: Coach note restriction toggle (parents tab, restrict from child view toggle in approval card, auto-approved sent tab with restriction badge)
-  - CA-023 to CA-025: Pre-birthday notification structure (notification bell in player portal and parent portal)
-  - CA-026 to CA-032: Admin erasure review (player-requests page, GDPR info section, admin nav link, erasure button absent for adult accounts)
-  - CA-033 to CA-035: Access gating validation (no private insight text exposed to parents or players)
-- Manual test steps documented inline as comments for tests requiring:
-  - Live child account (invite flow, session timeout)
-  - Cron trigger (graduation cron for pre-birthday notification)
-  - DB-level verification (Convex MCP)
+- Schema: `wellnessDispatchLog` table (eventType: sent/failed/fallback, by_org_and_date index)
+- Schema: Added `by_org_and_date` index to `whatsappWellnessSessions`
+- New `logDispatchEvent` internalMutation in whatsappWellness.ts
+- New `getDispatchErrors` query (last 7 days failures/fallbacks)
+- New `get30DayChannelBreakdown` query (stacked bar chart data)
+- New `getTodayDispatchSummary` query (today's sent/completed counts per channel)
+- Updated `wellnessDispatch.ts` sendBatch to log fallbacks and failures to wellnessDispatchLog
+- New `whatsapp-notifications-tab.tsx` frontend component with: today's summary, 30-day stacked bar chart, fallback events, error log, not-registered info
+- Added "Notifications" tab to admin analytics page
 
 ### Files changed
-- apps/web/uat/tests/child-authorization-phase7.spec.ts (+370, new file)
-- scripts/ralph/prd.json (US-P7-006, US-P7-007, US-P7-008, US-P7-UAT all marked passes: true)
+- packages/backend/convex/schema.ts (+25)
+- packages/backend/convex/models/whatsappWellness.ts (+267)
+- packages/backend/convex/jobs/wellnessDispatch.ts (+23)
+- packages/backend/convex/_generated/api.d.ts (+2)
+- apps/web/src/app/orgs/[orgId]/admin/analytics/whatsapp-notifications-tab.tsx (new, ~350 lines)
+- apps/web/src/app/orgs/[orgId]/admin/analytics/page.tsx (+13)
 
 ### Quality checks
-- ✅ `npm run check-types` — passed (0 errors)
-- ✅ Biome pre-commit hook — passed (test files excluded from linting per biome.jsonc)
+- ✅ Codegen: passed
+- ✅ Type check: passed
+- ✅ Biome: clean on changed files
+- ✅ Pre-commit hook: passed
 
 ### **Learnings for future iterations** ⚠️ CRITICAL
 **Patterns discovered:**
-- The biome.jsonc ignores `uat/` folder — test files can use any style without triggering lint errors
-- Available fixtures: `ownerPage`, `adminPage`, `coachPage`, `parentPage`, `multiRolePage` — no child fixture (child accounts not pre-seeded)
-- For tests requiring child accounts: document as manual tests inline using comments, not test.skip (keeps the test in the suite as a structural check)
-- `dismissBlockingDialogs()` handles onboarding, privacy consent, and PWA prompt dialogs — always call after page navigation
-- For soft assertions (page may or may not have data): use `isVisible({ timeout: 3000 }).catch(() => false)` pattern and only assert if `hasX === true`
+- `dailyPlayerHealthChecks` has `by_org_and_date` (not `by_org`) — use range queries: `.withIndex("by_org_and_date", q => q.eq("organizationId", ...).gte("checkDate", cutoff))`
+- Lucide icon imports removed by linter if not yet used in JSX — add import AND JSX usage in same edit
+- Map<string, obj> without `date` field needs `{ date: dateStr, ...counts }` pattern when building results
+- `whatsappWellnessSessions` needed a `by_org_and_date` index for org-level queries in monitoring
 
-**What to do next**:
-- ALL Phase 7 stories are now complete and passing! 🎉
-- Run `/document-phase` to generate phase documentation
-- Create PR to merge `ralph/adult-player-phase7-child-authorization` into `main`
+**Gotchas:**
+- Biome auto-formats long JSX attributes onto multiple lines when line > ~80 chars
+- JS Array.prototype.filter() in handler code is fine — only Convex DB .filter() is prohibited
+
+---
+
+## 2026-02-28 - US-P8-UAT - Phase 8 Dual-Channel Wellness E2E Tests
+**Iteration**: 10
+**Commit**: 95483543e39e2c1a21f4cdf63c3d2b09f21e2a3f
+**Status**: Complete
+
+### What was implemented
+- Created `apps/web/uat/tests/whatsapp-wellness-phase8.spec.ts`
+- UI tests (P8-001 through P8-012):
+  - Player settings page: wellness section visible, phone input present, GDPR text
+  - Admin settings: dispatch section visible
+  - Health check page: recent check-ins section renders
+  - Admin analytics: Notifications tab visible, shows summary, error log, 30-day chart
+- Manual test protocol (tests 1-17) documented in comments:
+  - WhatsApp Flows channel end-to-end (tests 1-7)
+  - SMS/conversational end-to-end (tests 8-12)
+  - Fallback and edge cases (tests 13-16)
+  - WELLNESSSTOP command test (test 17)
+
+### Files changed
+- apps/web/uat/tests/whatsapp-wellness-phase8.spec.ts (new, 394 lines)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Biome: uat/ directory is excluded from biome (0 files checked — expected)
+- ✅ Pre-commit hook: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- UAT tests in `apps/web/uat/tests/` are excluded from biome checks (correct)
+- E2E tests follow pattern: import fixtures from `../fixtures/test-fixtures`, use `ownerPage` fixture
+- `test.skip(true, "reason")` for conditionally skipping when tab/section not visible
+- Tests should gracefully handle both logged-in states (with/without player profile)
+- Manual tests for WhatsApp Flows require a real Meta Business API + physical device
 
 ---

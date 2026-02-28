@@ -1,8 +1,9 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
+  Bell,
   CheckCircle2,
   MessageSquare,
   RefreshCw,
@@ -10,6 +11,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -20,7 +22,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -28,10 +32,75 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 type WhatsappNotificationsTabProps = {
   organizationId: string;
 };
+
+type PlayerStatus = {
+  playerIdentityId: string;
+  firstName: string;
+  lastName: string;
+  wellnessChannel?: "whatsapp_flows" | "sms_conversational";
+  whatsappOptIn?: boolean;
+  lastCheckDate?: string;
+  lastCheckScore?: number;
+  lastCheckSource?:
+    | "app"
+    | "whatsapp_flows"
+    | "whatsapp_conversational"
+    | "sms";
+};
+
+function PlayerStatusRow({ player }: { player: PlayerStatus }) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium">
+        {player.firstName} {player.lastName}
+      </TableCell>
+      <TableCell>
+        {player.wellnessChannel ? (
+          <ChannelBadge channel={player.wellnessChannel} />
+        ) : (
+          <span className="text-muted-foreground text-xs">Not set</span>
+        )}
+      </TableCell>
+      <TableCell>
+        {player.whatsappOptIn ? (
+          <span className="flex items-center gap-1 text-green-700 text-xs">
+            <CheckCircle2 className="h-3 w-3" />
+            Opted in
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-xs">Opted out</span>
+        )}
+      </TableCell>
+      <TableCell>
+        <CheckSourceCell
+          checkDate={player.lastCheckDate}
+          source={player.lastCheckSource}
+        />
+      </TableCell>
+      <TableCell className="text-right">
+        {player.lastCheckScore !== undefined ? (
+          <span className="font-mono text-sm">
+            {player.lastCheckScore.toFixed(1)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-xs">—</span>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
 
 function formatShortDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -45,6 +114,18 @@ function formatTimestamp(ts: number): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function sourceToChannelBadgeKey(
+  source: "app" | "whatsapp_flows" | "whatsapp_conversational" | "sms"
+): "whatsapp_flows" | "sms_conversational" | "sms" {
+  if (source === "whatsapp_flows") {
+    return "whatsapp_flows";
+  }
+  if (source === "whatsapp_conversational") {
+    return "sms_conversational";
+  }
+  return "sms";
 }
 
 function ChannelBadge({
@@ -76,10 +157,89 @@ function ChannelBadge({
   );
 }
 
+function CheckSourceCell({
+  checkDate,
+  source,
+}: {
+  checkDate?: string;
+  source?: "app" | "whatsapp_flows" | "whatsapp_conversational" | "sms";
+}) {
+  if (!checkDate) {
+    return <span className="text-muted-foreground text-xs">None today</span>;
+  }
+  if (source && source !== "app") {
+    return <ChannelBadge channel={sourceToChannelBadgeKey(source)} />;
+  }
+  return <span className="text-muted-foreground text-xs">App</span>;
+}
+
+function NotRegisteredContent({
+  channelCounts,
+}: {
+  channelCounts?: { notRegistered: number };
+}) {
+  if (channelCounts === undefined) {
+    return <p className="text-muted-foreground text-sm">Loading…</p>;
+  }
+  if (channelCounts.notRegistered === 0) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <CheckCircle2 className="h-4 w-4 text-green-500" />
+        All active adult players are opted in for wellness check-ins.
+      </div>
+    );
+  }
+  return (
+    <p className="text-muted-foreground text-sm">
+      {channelCounts.notRegistered} player
+      {channelCounts.notRegistered !== 1 ? "s" : ""} registered but not opted
+      in. Use &quot;Send Nudge&quot; to send them an in-app reminder to set up
+      their wellness channel in{" "}
+      <span className="font-medium">Settings → Wellness Check-Ins</span>.
+    </p>
+  );
+}
+
+function PlayerStatusTableContent({
+  playerStatuses,
+}: {
+  playerStatuses?: PlayerStatus[];
+}) {
+  if (playerStatuses === undefined) {
+    return <p className="text-muted-foreground text-sm">Loading…</p>;
+  }
+  if (playerStatuses.length === 0) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        No players have registered a wellness channel yet.
+      </p>
+    );
+  }
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Player</TableHead>
+          <TableHead>Channel</TableHead>
+          <TableHead>Opt-in</TableHead>
+          <TableHead>Today&apos;s Check</TableHead>
+          <TableHead className="text-right">Score</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {playerStatuses.map((player) => (
+          <PlayerStatusRow key={player.playerIdentityId} player={player} />
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 export function WhatsappNotificationsTab({
   organizationId,
 }: WhatsappNotificationsTabProps) {
   const today = new Date().toISOString().split("T")[0];
+  const [isSendingNudges, setIsSendingNudges] = useState(false);
 
   const summary = useQuery(
     api.models.whatsappWellness.getTodayDispatchSummary,
@@ -95,6 +255,35 @@ export function WhatsappNotificationsTab({
     api.models.whatsappWellness.getDispatchErrors,
     { organizationId }
   );
+
+  const channelCounts = useQuery(api.models.whatsappWellness.getChannelCounts, {
+    organizationId,
+  });
+
+  const playerStatuses = useQuery(
+    api.models.whatsappWellness.getPlayerWellnessStatuses,
+    { organizationId }
+  );
+
+  const sendNudges = useMutation(
+    api.models.whatsappWellness.sendWellnessRegistrationNudges
+  );
+
+  async function handleSendNudges() {
+    setIsSendingNudges(true);
+    try {
+      const result = await sendNudges({ organizationId });
+      toast.success(
+        result.sent > 0
+          ? `Nudge sent to ${result.sent} player${result.sent !== 1 ? "s" : ""}`
+          : "No eligible players to nudge right now"
+      );
+    } catch {
+      toast.error("Failed to send nudges");
+    } finally {
+      setIsSendingNudges(false);
+    }
+  }
 
   if (
     summary === undefined ||
@@ -316,35 +505,54 @@ export function WhatsappNotificationsTab({
         </CardContent>
       </Card>
 
-      {/* Not-registered info */}
+      {/* Not-registered players with nudge */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="h-4 w-4" />
-            Not Registered
-          </CardTitle>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Users className="h-4 w-4" />
+                Not Registered
+                {channelCounts !== undefined &&
+                  channelCounts.notRegistered > 0 && (
+                    <Badge variant="secondary">
+                      {channelCounts.notRegistered}
+                    </Badge>
+                  )}
+              </CardTitle>
+              <CardDescription>
+                Active adult players who haven&apos;t opted in for wellness
+                check-ins
+              </CardDescription>
+            </div>
+            {channelCounts !== undefined && channelCounts.notRegistered > 0 && (
+              <Button
+                disabled={isSendingNudges}
+                onClick={handleSendNudges}
+                size="sm"
+                variant="outline"
+              >
+                <Bell className="mr-1.5 h-3.5 w-3.5" />
+                {isSendingNudges ? "Sending…" : "Send Nudge"}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <NotRegisteredContent channelCounts={channelCounts} />
+        </CardContent>
+      </Card>
+
+      {/* Per-player status table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Player Wellness Status</CardTitle>
           <CardDescription>
-            Players in target teams who haven&apos;t registered a phone for
-            wellness check-ins
+            Channel registration and today&apos;s check-in status per player
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-sm">
-            {summary.totalOptedIn > 0 ? (
-              <>
-                {summary.totalOptedIn} player
-                {summary.totalOptedIn !== 1 ? "s" : ""} currently opted in for
-                WhatsApp/SMS wellness check-ins. To invite more players, ask
-                them to register their phone in{" "}
-                <span className="font-medium">
-                  Settings → Wellness Check-Ins
-                </span>
-                .
-              </>
-            ) : (
-              "No players are currently opted in for WhatsApp/SMS wellness check-ins. Ask players to register their phone in Settings → Wellness Check-Ins."
-            )}
-          </p>
+          <PlayerStatusTableContent playerStatuses={playerStatuses} />
         </CardContent>
       </Card>
     </div>

@@ -33,6 +33,25 @@ export const sendVerificationPin = action({
   },
   returns: v.object({ sent: v.boolean() }),
   handler: async (ctx, args) => {
+    // Require authentication — prevent unauthenticated callers from sending
+    // SMS messages to arbitrary phone numbers
+    const authIdentity = await ctx.auth.getUserIdentity();
+    if (!authIdentity) {
+      throw new Error("Authentication required");
+    }
+
+    // Verify the player profile belongs to the authenticated user (if userId is set)
+    const playerInfo = await ctx.runQuery(
+      internal.models.whatsappWellness.getPlayerUserId,
+      { playerIdentityId: args.playerIdentityId }
+    );
+    if (
+      playerInfo?.userId !== undefined &&
+      playerInfo.userId !== authIdentity.subject
+    ) {
+      throw new Error("Not authorized to verify this player's phone");
+    }
+
     // Generate 6-digit PIN using cryptographically secure random
     const pinNum = crypto.randomInt(100_000, 1_000_000);
     const pin = String(pinNum);
@@ -134,6 +153,24 @@ export const verifyPinAndDetectChannel = action({
       }
     | { success: false; error: string }
   > => {
+    // Require authentication
+    const authIdentity = await ctx.auth.getUserIdentity();
+    if (!authIdentity) {
+      throw new Error("Authentication required");
+    }
+
+    // Verify the player profile belongs to the authenticated user (if userId is set)
+    const playerInfo = await ctx.runQuery(
+      internal.models.whatsappWellness.getPlayerUserId,
+      { playerIdentityId: args.playerIdentityId }
+    );
+    if (
+      playerInfo?.userId !== undefined &&
+      playerInfo.userId !== authIdentity.subject
+    ) {
+      throw new Error("Not authorized to verify this player's phone");
+    }
+
     // Step 1: Claim the PIN
     const pinResult: { valid: true } | { valid: false; error: string } =
       await ctx.runMutation(

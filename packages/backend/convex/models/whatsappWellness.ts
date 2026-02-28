@@ -56,18 +56,17 @@ export const getActiveWellnessSession = internalQuery({
     const today = new Date().toISOString().split("T")[0];
     const now = Date.now();
 
-    const session = await ctx.db
+    // Collect (at most a handful per phone+date) and filter in JS — no .filter() on DB
+    const sessions = await ctx.db
       .query("whatsappWellnessSessions")
       .withIndex("by_phone_and_date", (q) =>
         q.eq("phoneNumber", args.phoneNumber).eq("sessionDate", today)
       )
-      .filter((q) =>
-        q.or(
-          q.eq(q.field("status"), "pending"),
-          q.eq(q.field("status"), "in_progress")
-        )
-      )
-      .first();
+      .collect();
+
+    const session = sessions.find(
+      (s) => s.status === "pending" || s.status === "in_progress"
+    );
 
     if (!session) {
       return null;
@@ -79,6 +78,39 @@ export const getActiveWellnessSession = internalQuery({
     }
 
     return session;
+  },
+});
+
+/**
+ * Check if there's an expired wellness session for a phone number today.
+ * Used to send the "session expired" message instead of routing to coach processing.
+ */
+export const getExpiredWellnessSession = internalQuery({
+  args: {
+    phoneNumber: v.string(),
+  },
+  returns: v.union(
+    v.object({ _id: v.id("whatsappWellnessSessions") }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const today = new Date().toISOString().split("T")[0];
+    const now = Date.now();
+
+    const sessions = await ctx.db
+      .query("whatsappWellnessSessions")
+      .withIndex("by_phone_and_date", (q) =>
+        q.eq("phoneNumber", args.phoneNumber).eq("sessionDate", today)
+      )
+      .collect();
+
+    const expired = sessions.find(
+      (s) =>
+        (s.status === "pending" || s.status === "in_progress") &&
+        s.expiresAt < now
+    );
+
+    return expired ? { _id: expired._id } : null;
   },
 });
 
@@ -526,9 +558,10 @@ export const getChannelCounts = query({
   handler: async (ctx, args) => {
     await requireAuthAndOrg(ctx, args.organizationId);
 
+    // Use by_org index — no .filter()
     const allSettings = await ctx.db
       .query("playerWellnessSettings")
-      .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
       .collect();
 
     const optedIn = allSettings.filter((s) => s.whatsappOptIn === true);
@@ -544,12 +577,29 @@ export const getChannelCounts = query({
       }
     }
 
-    // For notRegistered we'd need the total enrolled players count
-    // Return 0 for now — caller can compute from enrollment data
+    // Compute notRegistered: active adult enrolled players not opted in to wellness
+    const activeEnrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    // Batch-fetch playerIdentities to filter by playerType === "adult"
+    const identities = await Promise.all(
+      activeEnrollments.map((e) => ctx.db.get(e.playerIdentityId))
+    );
+
+    const adultCount = identities.filter(
+      (identity) => identity?.playerType === "adult"
+    ).length;
+
+    const notRegistered = Math.max(0, adultCount - optedIn.length);
+
     return {
       whatsappFlows,
       smsConversational,
-      notRegistered: 0,
+      notRegistered,
     };
   },
 });
@@ -776,6 +826,214 @@ export const getOptedInPlayers = internalQuery({
         whatsappNumber: s.whatsappNumber,
         lastFlowSentDate: s.lastFlowSentDate,
       }));
+  },
+});
+
+/**
+ * Get per-player wellness status for the admin monitoring table.
+ * Returns all players with wellness settings for the org, including name,
+ * channel, opt-in status, and today's check-in score.
+ */
+export const getPlayerWellnessStatuses = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      playerIdentityId: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      wellnessChannel: v.optional(
+        v.union(v.literal("whatsapp_flows"), v.literal("sms_conversational"))
+      ),
+      whatsappOptIn: v.optional(v.boolean()),
+      lastCheckDate: v.optional(v.string()),
+      lastCheckScore: v.optional(v.number()),
+      lastCheckSource: v.optional(
+        v.union(
+          v.literal("app"),
+          v.literal("whatsapp_flows"),
+          v.literal("whatsapp_conversational"),
+          v.literal("sms")
+        )
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    const allSettings = await ctx.db
+      .query("playerWellnessSettings")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+
+    if (allSettings.length === 0) {
+      return [];
+    }
+
+    // Batch-fetch playerIdentities
+    const identities = await Promise.all(
+      allSettings.map((s) => ctx.db.get(s.playerIdentityId))
+    );
+
+    // Get today's health checks for the org in one query, build a map
+    const today = new Date().toISOString().split("T")[0];
+    const todayChecks = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_org_and_date", (q) =>
+        q.eq("organizationId", args.organizationId).eq("checkDate", today)
+      )
+      .collect();
+
+    const checkMap = new Map<string, (typeof todayChecks)[0]>();
+    for (const check of todayChecks) {
+      checkMap.set(check.playerIdentityId, check);
+    }
+
+    return allSettings.map((s, i) => {
+      const identity = identities[i];
+      const check = checkMap.get(s.playerIdentityId);
+
+      // Compute average score from today's check
+      let lastCheckScore: number | undefined;
+      if (check) {
+        const scores = check.enabledDimensions
+          .map(
+            (d) => (check as Record<string, unknown>)[d] as number | undefined
+          )
+          .filter((val): val is number => typeof val === "number");
+        if (scores.length > 0) {
+          lastCheckScore =
+            Math.round(
+              (scores.reduce((a, b) => a + b, 0) / scores.length) * 10
+            ) / 10;
+        }
+      }
+
+      return {
+        playerIdentityId: s.playerIdentityId,
+        firstName: identity?.firstName ?? "Unknown",
+        lastName: identity?.lastName ?? "",
+        wellnessChannel: s.wellnessChannel,
+        whatsappOptIn: s.whatsappOptIn,
+        lastCheckDate: check?.checkDate,
+        lastCheckScore,
+        lastCheckSource: check?.source,
+      };
+    });
+  },
+});
+
+/**
+ * Get the userId linked to a playerIdentity.
+ * Used by phoneVerification actions to verify the caller owns the player profile.
+ */
+export const getPlayerUserId = internalQuery({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.union(v.object({ userId: v.optional(v.string()) }), v.null()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.db.get(args.playerIdentityId);
+    if (!identity) {
+      return null;
+    }
+    return { userId: identity.userId };
+  },
+});
+
+/**
+ * Send in-app wellness registration nudge notifications to opted-out adult players.
+ * Finds active adult enrollments without wellness opt-in and notifies them
+ * (only if they have a linked userId / claimed account).
+ */
+export const sendWellnessRegistrationNudges = mutation({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.object({ sent: v.number() }),
+  handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    // Build set of opted-in playerIdentityIds
+    const optedInSettings = await ctx.db
+      .query("playerWellnessSettings")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+
+    const optedInIds = new Set(
+      optedInSettings
+        .filter((s) => s.whatsappOptIn === true)
+        .map((s) => s.playerIdentityId)
+    );
+
+    // Get active enrollments for the org
+    const activeEnrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    // Batch-fetch playerIdentities
+    const identities = await Promise.all(
+      activeEnrollments.map((e) => ctx.db.get(e.playerIdentityId))
+    );
+
+    // Find adult players who are not opted in and have a claimed account
+    const unregistered = identities.filter(
+      (identity) =>
+        identity !== null &&
+        identity.playerType === "adult" &&
+        identity.userId &&
+        !optedInIds.has(identity._id)
+    ) as NonNullable<(typeof identities)[0]>[];
+
+    const now = Date.now();
+    let sent = 0;
+
+    for (const identity of unregistered) {
+      if (!identity.userId) {
+        continue;
+      }
+
+      // Check if a recent nudge was already sent (avoid spamming)
+      const recentNotifications = await ctx.db
+        .query("notifications")
+        .withIndex("by_user_created", (q) =>
+          q
+            .eq("userId", identity.userId as string)
+            .gte("createdAt", now - 7 * 24 * 60 * 60 * 1000)
+        )
+        .collect();
+
+      const recentNudge = recentNotifications.find(
+        (n) =>
+          n.organizationId === args.organizationId &&
+          n.type === "wellness_reminder"
+      );
+
+      // Skip if a nudge was sent in the last 7 days
+      if (recentNudge) {
+        continue;
+      }
+
+      await ctx.db.insert("notifications", {
+        userId: identity.userId as string,
+        organizationId: args.organizationId,
+        type: "wellness_reminder",
+        title: "Set up Wellness Check-Ins",
+        message:
+          "Register your phone number to receive daily wellness check-ins via WhatsApp or SMS.",
+        link: `/orgs/${args.organizationId}/player/settings`,
+        targetRole: "player",
+        createdAt: now,
+      });
+
+      sent += 1;
+    }
+
+    return { sent };
   },
 });
 

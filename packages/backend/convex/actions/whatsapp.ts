@@ -224,7 +224,29 @@ export const processIncomingMessage = internalAction({
         return { success: true };
       }
 
-      // No active session — check wellness-specific commands
+      // No active session — check for an expired session today.
+      // If the player is replying to an expired session, tell them rather than
+      // routing their message to coach voice note processing.
+      if (
+        !(
+          WELLNESS_STOP_REGEX.test(trimmedBody) ||
+          WELLNESS_START_REGEX.test(trimmedBody)
+        )
+      ) {
+        const expiredSession = await ctx.runQuery(
+          internal.models.whatsappWellness.getExpiredWellnessSession,
+          { phoneNumber }
+        );
+        if (expiredSession) {
+          await sendWhatsAppMessage(
+            phoneNumber,
+            "This wellness session has expired. Next check tomorrow."
+          );
+          return { success: true };
+        }
+      }
+
+      // No active or expired session — check wellness-specific commands
       if (WELLNESS_STOP_REGEX.test(trimmedBody)) {
         const stopSettings = await ctx.runQuery(
           internal.models.whatsappWellness.getSettingsByWhatsappNumber,

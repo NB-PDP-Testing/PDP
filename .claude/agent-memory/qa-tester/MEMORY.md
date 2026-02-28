@@ -62,6 +62,23 @@ returns `_id`. Frontend pages throughout the project correctly use `session?.use
 - `use-child-access.ts` hook is the shared gating utility — check it's imported on every player portal page.
 - DOB under-13 block is enforced at backend `grantChildAccess` mutation level, NOT at child account setup page.
 
+## Ralph Recurring Pattern: Missing Aggregate Details in Admin Dashboards
+
+Ralph tends to implement "summary" views (aggregate counts, chart, error log) for admin monitoring dashboards but omits the per-record player tables that the PRD requires. Always check US-P*-009 type stories for:
+- Per-player status table (Name, Team, Channel, Status, Completion Time, Score)
+- "Not-registered" count (often hardcoded to 0)
+- Action buttons like "Send nudge" or "Invite"
+
+Also check: `getChannelCounts` type queries often hardcode `notRegistered: 0` instead of computing actual counts.
+
+## Ralph Recurring Pattern: Missing Session Expiry Response Messages
+
+When Ralph implements session expiry (e.g. wellness sessions, voice note sessions), he often makes the active-session query return `null` for expired sessions but forgets to send the player a message explaining why the session is expired. The PRD will specify an exact message like "This session has expired. Next check tomorrow." Always verify: does the code path send this message, or does it silently fall through?
+
+## Ralph Security Gap: Public Actions Without Auth Checks
+
+Public `action({...})` functions in Convex (as opposed to `internalAction`) do not require authentication by default. Ralph sometimes creates public actions (e.g. `sendVerificationPin`, `verifyPinAndDetectChannel`) that take a `playerIdentityId` arg but never verify the caller owns that playerIdentityId. Always check: do public actions that operate on player data call `getAuthUserId(ctx)` and verify ownership?
+
 ## Project-Specific Notes
 
 - Platform auth: `/platform/layout.tsx` enforces `isPlatformStaff` — individual pages don't need to check it

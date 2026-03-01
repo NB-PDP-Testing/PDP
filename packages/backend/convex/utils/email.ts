@@ -1428,6 +1428,132 @@ ${loginUrl}
 }
 
 // ============================================================
+// EMAIL VERIFICATION
+// ============================================================
+
+type VerificationEmailData = {
+  to: string;
+  name: string;
+  verificationUrl: string;
+};
+
+/**
+ * Send an email verification email via Resend
+ */
+export async function sendVerificationEmail(
+  data: VerificationEmailData
+): Promise<void> {
+  const { to, name, verificationUrl } = data;
+  const logoUrl = getLogoUrl();
+  const subject = "Verify your PlayerARC email";
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="display: none; max-height: 0px; overflow: hidden;">
+          Verify your email address to secure your PlayerARC account
+        </div>
+        <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
+            <tr>
+              <td style="text-align: center; padding-bottom: 4px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 12px;">
+                      <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto; display: block;" />
+                    </td>
+                    <td style="vertical-align: middle;">
+                      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; line-height: 1.2;">PlayerARC</h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center; padding-top: 0;">
+                <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic;">As many as possible, for as long as possible…</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
+          <h2 style="color: #1E3A5F; margin-top: 0;">Verify Your Email</h2>
+          <p>Hi ${name || "there"},</p>
+          <p>Please verify your email address to secure your PlayerARC account. Click the button below to confirm.</p>
+          <div style="text-align: center; margin: 25px 0;">
+            <a
+              href="${verificationUrl}"
+              style="background-color: #22c55e; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;"
+            >Verify Email Address</a>
+          </div>
+          <p style="color: #666; font-size: 14px;">This link will expire in <strong>1 hour</strong>.</p>
+          <p style="color: #666; font-size: 14px;">If you didn't create a PlayerARC account, you can safely ignore this email.</p>
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 25px 0;">
+          <p style="color: #999; font-size: 12px;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="${verificationUrl}" style="color: #1E3A5F; word-break: break-all;">${verificationUrl}</a>
+          </p>
+          <p style="color: #999; font-size: 12px; text-align: center;">
+            &copy; ${new Date().getFullYear()} PlayerARC. All rights reserved.
+          </p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const textBody = `Verify Your Email\n\nHi ${name || "there"},\n\nPlease verify your email address to secure your PlayerARC account.\n\nClick here to verify: ${verificationUrl}\n\nThis link will expire in 1 hour.\n\nIf you didn't create a PlayerARC account, you can safely ignore this email.`;
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Verification email will not be sent."
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send verification email:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Verification email sent successfully:", result.id);
+  } catch (error) {
+    console.error("❌ Error sending verification email:", error);
+  }
+}
+
+// ============================================================
 // PASSWORD RESET EMAIL
 // ============================================================
 

@@ -601,6 +601,11 @@ export const createDirectMessage = mutation({
       throw new Error("User must be authenticated to send messages");
     }
 
+    // 1b. Require verified email for sending messages
+    if (!authUser.emailVerified) {
+      throw new Error("Please verify your email before sending messages");
+    }
+
     // 2. Verify coach has assignment in this org
     const coachAssignment = await getCoachAssignmentForOrg(
       ctx,
@@ -719,6 +724,11 @@ export const sendMessage = mutation({
     const authUser = await authComponent.safeGetAuthUser(ctx);
     if (!authUser) {
       throw new Error("User must be authenticated to send messages");
+    }
+
+    // 1b. Require verified email for sending messages
+    if (!authUser.emailVerified) {
+      throw new Error("Please verify your email before sending messages");
     }
 
     // 2. Get the message

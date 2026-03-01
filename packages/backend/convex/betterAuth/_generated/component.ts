@@ -54,6 +54,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  phoneVerified?: boolean;
+                  phoneVerifiedAt?: number;
                   postcode?: string;
                   profileCompletedAt?: number;
                   profileCompletionStatus?: "pending" | "completed" | "skipped";
@@ -262,6 +264,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "phoneVerified"
+                    | "phoneVerifiedAt"
                     | "altEmail"
                     | "address"
                     | "address2"
@@ -706,6 +710,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "phoneVerified"
+                    | "phoneVerifiedAt"
                     | "altEmail"
                     | "address"
                     | "address2"
@@ -1250,6 +1256,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  phoneVerified?: boolean;
+                  phoneVerifiedAt?: number;
                   postcode?: string;
                   profileCompletedAt?: number;
                   profileCompletionStatus?: "pending" | "completed" | "skipped";
@@ -1275,6 +1283,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "phoneVerified"
+                    | "phoneVerifiedAt"
                     | "altEmail"
                     | "address"
                     | "address2"
@@ -1867,6 +1877,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  phoneVerified?: boolean;
+                  phoneVerifiedAt?: number;
                   postcode?: string;
                   profileCompletedAt?: number;
                   profileCompletionStatus?: "pending" | "completed" | "skipped";
@@ -1892,6 +1904,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "phoneVerified"
+                    | "phoneVerifiedAt"
                     | "altEmail"
                     | "address"
                     | "address2"

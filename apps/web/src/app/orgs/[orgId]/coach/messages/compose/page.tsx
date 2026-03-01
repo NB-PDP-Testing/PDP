@@ -146,6 +146,13 @@ export default function ComposeMessagePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!currentUser?.emailVerified) {
+      toast.error("Please verify your email first", {
+        description: "Check your inbox for a verification link.",
+      });
+      return;
+    }
+
     if (!selectedPlayerId) {
       toast.error("Please select a player");
       return;

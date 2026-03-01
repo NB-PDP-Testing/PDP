@@ -21,6 +21,8 @@ type CurrentUser = {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: number;
   // Address fields (Phase 0.7)
   address?: string;
   address2?: string;

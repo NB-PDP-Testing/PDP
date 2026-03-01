@@ -24,6 +24,10 @@ const customUserTable = defineTable({
   lastName: v.optional(v.string()),
   phone: v.optional(v.string()),
 
+  // Phone verification (custom — NOT using Better Auth phone plugin)
+  phoneVerified: v.optional(v.boolean()),
+  phoneVerifiedAt: v.optional(v.number()),
+
   // Profile completion fields (Phase 0: Onboarding Sync)
   altEmail: v.optional(v.string()), // Alternative email for guardian matching
   address: v.optional(v.string()),

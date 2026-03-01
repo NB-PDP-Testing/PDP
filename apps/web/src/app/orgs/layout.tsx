@@ -1,13 +1,16 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useMutation } from "convex/react";
 import type { Route } from "next";
 import { redirect, usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Header from "@/components/header";
 import Loader from "@/components/loader";
 import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingOrchestrator } from "@/components/onboarding/onboarding-orchestrator";
 import { OfflineIndicator } from "@/components/polish/offline-indicator";
+import { EmailVerificationBanner } from "@/components/verification-banner";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
 // todo generateMetadata
@@ -21,6 +24,20 @@ export default function OrgLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [isCheckingInvitation, setIsCheckingInvitation] = useState(true);
+
+  // OAuth auto-verify: if user signed in via OAuth but emailVerified is false,
+  // call mutation to set it true (handles future OAuth signups + migration gaps)
+  const autoVerifyOAuth = useMutation(api.models.users.autoVerifyOAuthUser);
+  const hasTriedAutoVerify = useRef(false);
+
+  useEffect(() => {
+    if (user && !user.emailVerified && !hasTriedAutoVerify.current) {
+      hasTriedAutoVerify.current = true;
+      autoVerifyOAuth().catch(() => {
+        // Silent failure — user will just see the banner
+      });
+    }
+  }, [user, autoVerifyOAuth]);
 
   // Check for pending invitation FIRST (before any other logic)
   // This ensures users are redirected to invitation page after OAuth
@@ -89,6 +106,7 @@ export default function OrgLayout({
     return (
       <>
         <OfflineIndicator position="top" />
+        {!user.emailVerified && <EmailVerificationBanner email={user.email} />}
         <Header />
         <OnboardingOrchestrator>
           <NotificationProvider>{children}</NotificationProvider>

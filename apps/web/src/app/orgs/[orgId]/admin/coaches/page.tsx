@@ -165,11 +165,11 @@ export default function ManageCoachesPage() {
     const fullName = `${user.name || ""}`.toLowerCase();
     const email = (user.email || "").toLowerCase();
     const coachData = getCoachData(coach.userId);
-    const teams = (coachData.teams || []).join(" ").toLowerCase();
+    const teamNames = (coachData.teams || []).join(" ").toLowerCase();
     return (
       fullName.includes(searchLower) ||
       email.includes(searchLower) ||
-      teams.includes(searchLower)
+      teamNames.includes(searchLower)
     );
   });
 
@@ -281,10 +281,13 @@ export default function ManageCoachesPage() {
         }
       >
         <CheckCircle className="mr-1 h-3 w-3" />
-        {roles.reduce(
-          (prev, curr, i) => (i === 0 ? [curr] : [...prev, " + ", curr]),
-          [] as React.ReactNode[]
-        )}
+        {roles.reduce((prev, curr, i) => {
+          if (i === 0) {
+            return [curr];
+          }
+          prev.push(" + ", curr);
+          return prev;
+        }, [] as React.ReactNode[])}
       </Badge>
     );
   };
@@ -664,6 +667,30 @@ export default function ManageCoachesPage() {
                                   ) : (
                                     <Badge
                                       className="border-red-500/20 bg-red-500/10 text-red-600"
+                                      variant="outline"
+                                    >
+                                      <XCircle className="mr-1 h-3 w-3" />
+                                      No
+                                    </Badge>
+                                  )}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs uppercase tracking-wider">
+                                  Phone Verified
+                                </p>
+                                <p className="mt-1 font-medium">
+                                  {user.phoneVerified ? (
+                                    <Badge
+                                      className="border-green-500/20 bg-green-500/10 text-green-600"
+                                      variant="outline"
+                                    >
+                                      <CheckCircle className="mr-1 h-3 w-3" />
+                                      Yes
+                                    </Badge>
+                                  ) : (
+                                    <Badge
+                                      className="border-amber-500/20 bg-amber-500/10 text-amber-600"
                                       variant="outline"
                                     >
                                       <XCircle className="mr-1 h-3 w-3" />

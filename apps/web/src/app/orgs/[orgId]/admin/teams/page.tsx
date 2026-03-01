@@ -649,6 +649,13 @@ export default function ManageTeamsPage() {
       e.preventDefault();
     }
 
+    if (!session?.user?.emailVerified) {
+      toast.error("Please verify your email first", {
+        description: "Check your inbox for a verification link.",
+      });
+      return;
+    }
+
     if (!(formData.name && formData.sport && formData.ageGroup)) {
       toast.error("Please fill in all required fields");
       return;

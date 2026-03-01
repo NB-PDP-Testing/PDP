@@ -311,7 +311,7 @@ function LegacyNavigation({
     if (href === `/orgs/${orgId}/admin`) {
       return pathname === href;
     }
-    return pathname.startsWith(href);
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (

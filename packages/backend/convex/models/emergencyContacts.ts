@@ -79,48 +79,103 @@ export const getForPlayers = query({
   },
 });
 
-// Get all emergency contacts for an organization (for coaches match day view)
+// Get all emergency contacts for an organization (for coaches match day view).
+// Adult players: contacts from playerEmergencyContacts.
+// Child players: contacts from their linked guardians (guardianPlayerLinks → guardianIdentities).
 export const getForOrganization = query({
   args: {
     organizationId: v.string(),
   },
   handler: async (ctx, args) => {
-    // Get all adult player enrollments for this org
+    // Batch-fetch all active enrollments for the org
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
       .withIndex("by_organizationId", (q) =>
         q.eq("organizationId", args.organizationId)
       )
-      .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
 
-    // Get player identities for these enrollments (only adults)
+    const activeEnrollments = enrollments.filter((e) => e.status === "active");
+
+    // Batch-fetch all player identities
+    const playerIds = activeEnrollments.map((e) => e.playerIdentityId);
+    const players = await Promise.all(playerIds.map((id) => ctx.db.get(id)));
+
     const result = [];
 
-    for (const enrollment of enrollments) {
-      const player = await ctx.db.get(enrollment.playerIdentityId);
-      if (!player || player.playerType !== "adult") {
+    for (let i = 0; i < activeEnrollments.length; i++) {
+      const enrollment = activeEnrollments[i];
+      const player = players[i];
+      if (!player) {
         continue;
       }
 
-      const contacts = await ctx.db
-        .query("playerEmergencyContacts")
-        .withIndex("by_player", (q) =>
-          q.eq("playerIdentityId", enrollment.playerIdentityId)
-        )
-        .collect();
+      if (player.playerType === "adult") {
+        // Adult: use self-managed emergency contacts
+        const contacts = await ctx.db
+          .query("playerEmergencyContacts")
+          .withIndex("by_player", (q) =>
+            q.eq("playerIdentityId", enrollment.playerIdentityId)
+          )
+          .collect();
 
-      result.push({
-        player: {
-          _id: player._id,
-          name: `${player.firstName} ${player.lastName}`,
-          firstName: player.firstName,
-          lastName: player.lastName,
-          ageGroup: enrollment.ageGroup,
-        },
-        contacts: contacts.sort((a, b) => a.priority - b.priority),
-        hasICE: contacts.some((c) => c.priority <= 2),
-      });
+        const sorted = contacts.sort((a, b) => a.priority - b.priority);
+        result.push({
+          player: {
+            _id: player._id,
+            name: `${player.firstName} ${player.lastName}`,
+            firstName: player.firstName,
+            lastName: player.lastName,
+            ageGroup: enrollment.ageGroup,
+            playerType: player.playerType,
+          },
+          contacts: sorted,
+          hasICE: sorted.some((c) => c.priority <= 2),
+        });
+      } else {
+        // Child: use linked guardians as emergency contacts
+        const links = await ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_player", (q) =>
+            q.eq("playerIdentityId", enrollment.playerIdentityId)
+          )
+          .collect();
+
+        // Only active (or legacy) links, primary guardian first
+        const activeLinks = links
+          .filter((l) => !l.status || l.status === "active")
+          .sort((a, b) => (a.isPrimary ? -1 : 1) - (b.isPrimary ? -1 : 1));
+
+        const guardianContacts = [];
+        for (const link of activeLinks) {
+          const guardian = await ctx.db.get(link.guardianIdentityId);
+          if (!guardian) {
+            continue;
+          }
+          guardianContacts.push({
+            _id: guardian._id,
+            priority: link.isPrimary ? 1 : 2,
+            firstName: guardian.firstName,
+            lastName: guardian.lastName,
+            phone: guardian.phone ?? "",
+            email: guardian.email,
+            relationship: link.relationship,
+          });
+        }
+
+        result.push({
+          player: {
+            _id: player._id,
+            name: `${player.firstName} ${player.lastName}`,
+            firstName: player.firstName,
+            lastName: player.lastName,
+            ageGroup: enrollment.ageGroup,
+            playerType: player.playerType,
+          },
+          contacts: guardianContacts,
+          hasICE: guardianContacts.some((c) => c.priority <= 2),
+        });
+      }
     }
 
     return result;

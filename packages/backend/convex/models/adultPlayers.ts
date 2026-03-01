@@ -474,6 +474,55 @@ export const updateMyProfile = mutation({
 });
 
 /**
+ * Sync the player's first and last name from their auth account (Google/Microsoft).
+ * For OAuth users, user.name is the source of truth and cannot be changed in-app.
+ * This is needed when the playerIdentity name was set from a different source
+ * (e.g., a linked child account) and has drifted from the auth account name.
+ */
+export const syncNameFromAuth = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    const player = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!player) {
+      throw new Error("Player profile not found");
+    }
+    if (player.playerType !== "adult") {
+      throw new Error("Only adult players can sync their name");
+    }
+
+    const authName = (user.name ?? "").trim();
+    if (!authName) {
+      throw new Error("No name available from your account");
+    }
+
+    // Split at the first space: "First Middle Last" → firstName="First", lastName="Middle Last"
+    const spaceIdx = authName.indexOf(" ");
+    const firstName =
+      spaceIdx !== -1 ? authName.substring(0, spaceIdx).trim() : authName;
+    const lastName =
+      spaceIdx !== -1 ? authName.substring(spaceIdx + 1).trim() : "";
+
+    await ctx.db.patch(player._id, {
+      firstName,
+      lastName,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
  * Link an existing youth player to their user account when they turn 18
  * This is used when a youth player creates an account
  */

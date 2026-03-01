@@ -3,6 +3,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  BarChart2,
   Heart,
   Home,
   Menu,
@@ -78,6 +79,11 @@ export function getPlayerNavItems(orgId: string): NavItem[] {
       href: `/orgs/${orgId}/player/health-check`,
       label: "Daily Wellness",
       icon: Heart,
+    },
+    {
+      href: `/orgs/${orgId}/player/wellness-history`,
+      label: "Wellness History",
+      icon: BarChart2,
     },
     {
       // Medical info — never shown for child accounts

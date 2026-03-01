@@ -4,7 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { CountryCode } from "libphonenumber-js";
 import { parsePhoneNumber } from "libphonenumber-js";
-import { Loader2, Lock, MapPin, User } from "lucide-react";
+import { Loader2, Lock, MapPin, RefreshCw, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -51,6 +51,9 @@ import { EmergencyContactsSection } from "../../players/[playerId]/components/em
 export default function PlayerProfilePage() {
   const profile = useQuery(api.models.adultPlayers.getMyPlayerProfile);
   const updateProfile = useMutation(api.models.adultPlayers.updateMyProfile);
+  const syncNameFromAuth = useMutation(
+    api.models.adultPlayers.syncNameFromAuth
+  );
 
   const currentUser = useCurrentUser();
   const authMethod = useQuery(
@@ -77,6 +80,7 @@ export default function PlayerProfilePage() {
   const [isCountyOther, setIsCountyOther] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [errors, setErrors] = useState<{
     firstName?: string;
     lastName?: string;
@@ -162,6 +166,20 @@ export default function PlayerProfilePage() {
     (c) => !TOP_COUNTRIES.some((tc) => tc.code === c.code)
   );
 
+  const handleSyncName = async () => {
+    setIsSyncing(true);
+    try {
+      await syncNameFromAuth({});
+      toast.success("Name synced from your account");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to sync name"
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!validate()) {
       toast.error("Please fix validation errors");
@@ -232,14 +250,29 @@ export default function PlayerProfilePage() {
       {/* OAuth info */}
       {isOAuthUser && oauthProvider && (
         <Alert>
-          <AlertDescription>
-            Your name is managed by{" "}
-            <strong>
-              {oauthProvider === "google" ? "Google" : "Microsoft"}
-            </strong>
-            . To update your name, please edit your{" "}
-            {oauthProvider === "google" ? "Google" : "Microsoft"} account
-            settings.
+          <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Your name is managed by{" "}
+              <strong>
+                {oauthProvider === "google" ? "Google" : "Microsoft"}
+              </strong>
+              . If your name below is out of date, use the sync button to pull
+              the latest name from your account.
+            </span>
+            <Button
+              className="shrink-0 gap-1.5"
+              disabled={isSyncing}
+              onClick={handleSyncName}
+              size="sm"
+              variant="outline"
+            >
+              {isSyncing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Sync from {oauthProvider === "google" ? "Google" : "Microsoft"}
+            </Button>
           </AlertDescription>
         </Alert>
       )}

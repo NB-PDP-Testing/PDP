@@ -241,7 +241,7 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
         </nav>
 
         {/* Grouped navigation */}
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="space-y-1 px-3">
           {navGroups.map((group) => {
             const isExpanded = expandedGroups.includes(group.label);
             const hasActiveItem = group.items.some((item) =>
@@ -450,7 +450,7 @@ export function ParentMobileNav({
           </nav>
 
           {/* Grouped navigation */}
-          <nav aria-label="Parent navigation" className="flex-1 space-y-1 px-3">
+          <nav aria-label="Parent navigation" className="space-y-1 px-3">
             {navGroups.map((group) => {
               const isExpanded = expandedGroups.includes(group.label);
               const hasActiveItem = group.items.some((item) =>

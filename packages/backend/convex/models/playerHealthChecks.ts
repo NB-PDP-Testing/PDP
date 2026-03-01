@@ -82,6 +82,9 @@ export const getTodayHealthCheck = query({
       submittedOffline: v.optional(v.boolean()),
       deviceSubmittedAt: v.optional(v.number()),
       source: sourceValidator,
+      retentionExpiresAt: v.optional(v.number()),
+      retentionExpired: v.optional(v.boolean()),
+      retentionExpiredAt: v.optional(v.number()),
     }),
     v.null()
   ),
@@ -918,6 +921,7 @@ export const getWellnessOrgConfig = query({
   returns: v.union(
     v.object({
       _id: v.id("wellnessOrgConfig"),
+      _creationTime: v.number(),
       organizationId: v.string(),
       remindersEnabled: v.boolean(),
       reminderFrequency: v.union(

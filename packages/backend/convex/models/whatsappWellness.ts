@@ -49,6 +49,9 @@ export const getActiveWellnessSession = internalQuery({
       expiresAt: v.number(),
       dailyHealthCheckId: v.optional(v.id("dailyPlayerHealthChecks")),
       invalidReplyCount: v.number(),
+      // Phase 9: GDPR soft-delete fields
+      retentionExpired: v.optional(v.boolean()),
+      retentionExpiredAt: v.optional(v.number()),
     }),
     v.null()
   ),

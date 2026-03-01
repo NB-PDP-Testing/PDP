@@ -97,6 +97,10 @@ const summaryValidator = v.object({
   // Phase 7 (View+Interact): child's text response to this feedback
   childResponse: v.optional(v.string()),
   childResponseAt: v.optional(v.number()),
+  // Phase 9: GDPR retention fields
+  retentionExpiresAt: v.optional(v.number()),
+  retentionExpired: v.optional(v.boolean()),
+  retentionExpiredAt: v.optional(v.number()),
 });
 
 const playerIdentityValidator = v.object({

@@ -6087,3 +6087,67 @@ apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OP
   - packages/backend/convex/models/notifications.ts
   **Action**: Verify user can send notifications to recipient
 
+
+## Auto Quality Check - 2026-03-01 14:13:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/wellnessInsights.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-01 14:13:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-01 14:14:07
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/parentChildAuthorizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-01 14:14:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/retentionConfig.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-01 14:16:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-01 14:16:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/jobs/retentionEnforcement.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-01 14:17:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/metaWhatsapp.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-01 14:32:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

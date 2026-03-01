@@ -21,13 +21,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { authClient } from "@/lib/auth-client";
 
 // Format date as "Mon Jan 22, 10:30 PM"
@@ -97,6 +90,12 @@ export default function TeamInsightsPage() {
     [coachTeams]
   );
 
+  // Get team player links to derive player counts per team
+  const teamPlayerLinks = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    orgId ? { organizationId: orgId, status: "active" } : "skip"
+  );
+
   // Name map from assignment data (used instead of observation data for team names)
   const teamNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -106,6 +105,18 @@ export default function TeamInsightsPage() {
     return map;
   }, [coachTeams]);
 
+  // Player count per team
+  const playerCountByTeam = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!teamPlayerLinks) {
+      return counts;
+    }
+    for (const link of teamPlayerLinks) {
+      counts.set(link.teamId, (counts.get(link.teamId) ?? 0) + 1);
+    }
+    return counts;
+  }, [teamPlayerLinks]);
+
   // When there's only one team, auto-select it; otherwise use user selection
   const effectiveSelectedTeam = useMemo(() => {
     if (coachTeamIds.length === 1) {
@@ -113,6 +124,21 @@ export default function TeamInsightsPage() {
     }
     return selectedTeam;
   }, [coachTeamIds, selectedTeam]);
+
+  // Observation count per team (all observations for coach's teams, unfiltered)
+  const observationCountByTeam = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!observations) {
+      return counts;
+    }
+    const coachTeamSet = new Set(coachTeamIds);
+    for (const obs of observations) {
+      if (coachTeamSet.has(obs.teamId)) {
+        counts.set(obs.teamId, (counts.get(obs.teamId) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [observations, coachTeamIds]);
 
   // Filter observations by selected team
   const filteredObservations = useMemo(() => {
@@ -160,39 +186,109 @@ export default function TeamInsightsPage() {
   return (
     <div className="container mx-auto space-y-6 py-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 font-bold text-2xl tracking-tight sm:text-3xl">
-            <Users className="h-7 w-7" />
-            Team Insights
-          </h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Team-level observations and culture notes from voice notes
-          </p>
-        </div>
-
-        {/* Team filter - always show so coach knows which team(s) they have */}
-        {coachTeamIds.length > 0 && (
-          <Select onValueChange={setSelectedTeam} value={effectiveSelectedTeam}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Select team" />
-            </SelectTrigger>
-            <SelectContent>
-              {coachTeamIds.length > 1 && (
-                <SelectItem value="all">All teams</SelectItem>
-              )}
-              {coachTeamIds.map((teamId) => {
-                const teamName = teamNameMap.get(teamId) || teamId;
-                return (
-                  <SelectItem key={teamId} value={teamId}>
-                    {teamName}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        )}
+      <div>
+        <h1 className="flex items-center gap-2 font-bold text-2xl tracking-tight sm:text-3xl">
+          <Users className="h-7 w-7" />
+          Team Insights
+        </h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Team-level observations and culture notes from voice notes
+        </p>
       </div>
+
+      {/* Team selector — clickable cards, one per team */}
+      {coachTeams.length > 0 && (
+        <div
+          className={`grid gap-4 ${
+            coachTeams.length === 1
+              ? "max-w-sm grid-cols-1"
+              : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+          }`}
+        >
+          {/* "All teams" card — only shown when there are multiple teams */}
+          {coachTeams.length > 1 && (
+            <Card
+              className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                effectiveSelectedTeam === "all"
+                  ? "border-2 border-green-500 bg-green-50"
+                  : ""
+              }`}
+              onClick={() => setSelectedTeam("all")}
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-lg md:text-xl">
+                      All Teams
+                    </CardTitle>
+                    <p className="text-gray-600 text-xs md:text-sm">
+                      {coachTeams.length} teams
+                    </p>
+                  </div>
+                  <div className="ml-3 flex-shrink-0 text-right">
+                    <div className="font-bold text-2xl text-green-600 md:text-3xl">
+                      {Array.from(observationCountByTeam.values()).reduce(
+                        (s, n) => s + n,
+                        0
+                      )}
+                    </div>
+                    <div className="whitespace-nowrap text-gray-500 text-xs">
+                      Insights
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+          )}
+
+          {coachTeams.map((team) => {
+            const isSelected = effectiveSelectedTeam === team.teamId;
+            const playerCount = playerCountByTeam.get(team.teamId) ?? 0;
+            const insightCount = observationCountByTeam.get(team.teamId) ?? 0;
+            const meta = [team.ageGroup, team.gender, team.sportCode]
+              .filter(Boolean)
+              .join(" • ");
+            return (
+              <Card
+                className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                  isSelected ? "border-2 border-green-500 bg-green-50" : ""
+                }`}
+                key={team.teamId}
+                onClick={() => setSelectedTeam(team.teamId)}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle
+                        className="truncate text-lg md:text-xl"
+                        title={team.teamName}
+                      >
+                        {team.teamName}
+                      </CardTitle>
+                      <p className="text-gray-600 text-xs md:text-sm">
+                        {playerCount} Players
+                      </p>
+                    </div>
+                    <div className="ml-3 flex-shrink-0 text-right">
+                      <div className="font-bold text-2xl text-green-600 md:text-3xl">
+                        {insightCount}
+                      </div>
+                      <div className="whitespace-nowrap text-gray-500 text-xs">
+                        Insights
+                      </div>
+                      {meta && (
+                        <p className="mt-0.5 whitespace-nowrap text-gray-500 text-xs">
+                          {meta}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -253,7 +349,7 @@ export default function TeamInsightsPage() {
             </Empty>
           </CardContent>
         </Card>
-      ) : selectedTeam === "all" ? (
+      ) : effectiveSelectedTeam === "all" ? (
         // Show grouped by team
         <div className="space-y-6">
           {Array.from(observationsByTeam.entries()).map(([teamId, teamObs]) => (

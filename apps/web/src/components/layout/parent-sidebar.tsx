@@ -50,12 +50,13 @@ type NavGroup = {
 type ParentNav = {
   rootItem: NavItem;
   groups: NavGroup[];
+  trailingItem: NavItem;
 };
 
 /**
  * Generate parent navigation structure for an organization.
  * Overview sits at the root (above all groups).
- * Settings lives under Updates.
+ * Settings sits at the root below all groups.
  * The Account section has been removed.
  */
 export function getParentNav(
@@ -136,14 +137,14 @@ export function getParentNav(
             label: "Announcements",
             icon: Bell,
           },
-          {
-            href: `/orgs/${orgId}/parents/settings`,
-            label: "Settings",
-            icon: Settings,
-          },
         ],
       },
     ],
+    trailingItem: {
+      href: `/orgs/${orgId}/parents/settings`,
+      label: "Settings",
+      icon: Settings,
+    },
   };
 }
 
@@ -180,11 +181,11 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
     { organizationId: orgId }
   );
 
-  const { rootItem, groups: navGroups } = getParentNav(
-    orgId,
-    unreadCount ?? 0,
-    unreadCoachFeedbackCount ?? 0
-  );
+  const {
+    rootItem,
+    groups: navGroups,
+    trailingItem,
+  } = getParentNav(orgId, unreadCount ?? 0, unreadCoachFeedbackCount ?? 0);
 
   // Track which groups are expanded - auto-expand group containing current page
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
@@ -313,6 +314,30 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
             );
           })}
         </nav>
+
+        {/* Trailing root item — Settings */}
+        <nav className="px-3 pt-1">
+          <Link href={trailingItem.href as Route}>
+            <Button
+              className="w-full justify-start gap-2"
+              size="sm"
+              style={
+                isActive(trailingItem.href) && primaryColor
+                  ? {
+                      backgroundColor: `${primaryColor}15`,
+                      color: primaryColor,
+                      borderColor: primaryColor,
+                      borderWidth: "1px",
+                    }
+                  : undefined
+              }
+              variant={isActive(trailingItem.href) ? "secondary" : "ghost"}
+            >
+              <trailingItem.icon className="h-4 w-4" />
+              {trailingItem.label}
+            </Button>
+          </Link>
+        </nav>
       </div>
     </aside>
   );
@@ -345,11 +370,11 @@ export function ParentMobileNav({
     { organizationId: orgId }
   );
 
-  const { rootItem, groups: navGroups } = getParentNav(
-    orgId,
-    unreadCount ?? 0,
-    unreadCoachFeedbackCount ?? 0
-  );
+  const {
+    rootItem,
+    groups: navGroups,
+    trailingItem,
+  } = getParentNav(orgId, unreadCount ?? 0, unreadCoachFeedbackCount ?? 0);
   const [open, setOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {
@@ -498,6 +523,30 @@ export function ParentMobileNav({
                 </div>
               );
             })}
+          </nav>
+
+          {/* Trailing root item — Settings */}
+          <nav className="px-3 pt-1">
+            <Link
+              href={trailingItem.href as Route}
+              onClick={() => setOpen(false)}
+            >
+              <Button
+                className="h-11 w-full justify-start gap-2"
+                style={
+                  isActive(trailingItem.href) && primaryColor
+                    ? {
+                        backgroundColor: `${primaryColor}15`,
+                        color: primaryColor,
+                      }
+                    : undefined
+                }
+                variant={isActive(trailingItem.href) ? "secondary" : "ghost"}
+              >
+                <trailingItem.icon className="h-4 w-4" />
+                {trailingItem.label}
+              </Button>
+            </Link>
           </nav>
         </div>
       </SheetContent>

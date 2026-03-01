@@ -172,54 +172,42 @@ export default function TeamHubPage() {
               .join(" • ");
             return (
               <Card
-                className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                  isSelected
-                    ? "border-2 border-green-500 bg-green-50"
-                    : "hover:border-green-300"
+                className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                  isSelected ? "border-2 border-green-500 bg-green-50" : ""
                 }`}
                 key={team._id}
                 onClick={() => setSelectedTeamId(team._id)}
               >
-                <CardHeader className="pb-2">
+                <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
-                      <CardTitle className="truncate text-lg" title={team.name}>
+                      <CardTitle
+                        className="truncate text-lg md:text-xl"
+                        title={team.name}
+                      >
                         {team.name}
                       </CardTitle>
+                      <p className="text-gray-600 text-xs md:text-sm">
+                        {playerCount} Players
+                      </p>
+                    </div>
+                    <div className="ml-3 flex-shrink-0 text-right">
                       {meta && (
-                        <p className="mt-0.5 text-muted-foreground text-xs">
+                        <p className="whitespace-nowrap text-gray-500 text-xs">
                           {meta}
                         </p>
                       )}
-                    </div>
-                    <div className="ml-3 flex-shrink-0 text-right">
-                      <div
-                        className={`font-bold text-2xl ${isSelected ? "text-green-600" : "text-muted-foreground"}`}
-                      >
-                        {playerCount}
-                      </div>
-                      <div className="text-muted-foreground text-xs">
-                        Players
-                      </div>
+                      {isSelected && displayTeamId && (
+                        <div className="mt-1">
+                          <PresenceIndicators
+                            organizationId={orgId}
+                            teamId={displayTeamId}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                      <Users className="h-3.5 w-3.5" />
-                      <span>
-                        {isSelected ? "Viewing this team" : "Click to view"}
-                      </span>
-                    </div>
-                    {isSelected && displayTeamId && (
-                      <PresenceIndicators
-                        organizationId={orgId}
-                        teamId={displayTeamId}
-                      />
-                    )}
-                  </div>
-                </CardContent>
               </Card>
             );
           })}

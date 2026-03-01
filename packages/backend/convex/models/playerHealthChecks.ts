@@ -1017,7 +1017,7 @@ export const getWhatsappDispatchStatus = query({
     await requireAuthAndOrg(ctx, args.organizationId);
     const metaFlowsId = process.env.META_FLOWS_WELLNESS_ID;
     const twilioFrom =
-      process.env.TWILIO_WHATSAPP_FROM ?? process.env.TWILIO_WHATSAPP_NUMBER;
+      process.env.TWILIO_SMS_FROM ?? process.env.TWILIO_WHATSAPP_NUMBER;
     return {
       metaFlowsConfigured: Boolean(metaFlowsId),
       twilioConfigured: Boolean(twilioFrom),

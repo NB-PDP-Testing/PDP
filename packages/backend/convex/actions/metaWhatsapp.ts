@@ -15,7 +15,7 @@
  *                               Required only for the /whatsapp/flows/exchange endpoint.
  *
  * NEVER mix with Twilio env vars:
- *   Twilio: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM
+ *   Twilio: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER
  */
 
 import crypto from "node:crypto";

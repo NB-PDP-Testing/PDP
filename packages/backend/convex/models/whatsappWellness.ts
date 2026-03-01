@@ -620,16 +620,16 @@ export const storeVerificationPin = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Remove any existing unused PIN for this player
+    // Remove ALL existing PINs for this player (handles any race-condition duplicates)
     const existing = await ctx.db
       .query("verificationPins")
       .withIndex("by_player", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
-      .first();
+      .collect();
 
-    if (existing) {
-      await ctx.db.delete(existing._id);
+    for (const pin of existing) {
+      await ctx.db.delete(pin._id);
     }
 
     await ctx.db.insert("verificationPins", {

@@ -154,29 +154,46 @@ export default function TeamHubPage() {
         </div>
       </div>
 
-      {/* Team Selector - only show if coach has multiple teams */}
-      {coachTeams.length > 1 ? (
+      {/* Team Selector - always show when coach has at least one team */}
+      {coachTeams.length >= 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Select Team</CardTitle>
-            <CardDescription>
-              View activity feed and presence for your teams
-            </CardDescription>
+            <CardTitle>
+              {coachTeams.length > 1 ? "Select Team" : coachTeams[0].name}
+            </CardTitle>
+            {coachTeams.length > 1 && (
+              <CardDescription>
+                View activity feed and presence for your teams
+              </CardDescription>
+            )}
+            {coachTeams.length === 1 &&
+              (coachTeams[0].ageGroup || coachTeams[0].gender) && (
+                <CardDescription>
+                  {[coachTeams[0].ageGroup, coachTeams[0].gender]
+                    .filter(Boolean)
+                    .join(" • ")}
+                </CardDescription>
+              )}
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
-              <Select onValueChange={setSelectedTeamId} value={selectedTeamId}>
-                <SelectTrigger className="w-[300px]">
-                  <SelectValue placeholder="Select a team" />
-                </SelectTrigger>
-                <SelectContent>
-                  {coachTeams.map((team) => (
-                    <SelectItem key={team._id} value={team._id}>
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {coachTeams.length > 1 ? (
+                <Select
+                  onValueChange={setSelectedTeamId}
+                  value={selectedTeamId}
+                >
+                  <SelectTrigger className="w-[300px]">
+                    <SelectValue placeholder="Select a team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {coachTeams.map((team) => (
+                      <SelectItem key={team._id} value={team._id}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
 
               {displayTeamId && (
                 <PresenceIndicators
@@ -187,24 +204,7 @@ export default function TeamHubPage() {
             </div>
           </CardContent>
         </Card>
-      ) : coachTeams.length === 1 ? (
-        <Card>
-          <CardContent className="flex items-center justify-between pt-6">
-            <div>
-              <h2 className="font-semibold text-xl">{coachTeams[0].name}</h2>
-              <p className="text-muted-foreground text-sm">
-                {coachTeams[0].ageGroup} • {coachTeams[0].gender}
-              </p>
-            </div>
-            {displayTeamId && (
-              <PresenceIndicators
-                organizationId={orgId}
-                teamId={displayTeamId}
-              />
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
+      )}
 
       {/* Tab Navigation and Content */}
       {displayTeamId && orgId && userId ? (

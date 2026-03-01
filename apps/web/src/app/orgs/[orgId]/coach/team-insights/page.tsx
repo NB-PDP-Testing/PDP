@@ -67,33 +67,52 @@ export default function TeamInsightsPage() {
     orgId ? { organizationId: orgId } : "skip"
   );
 
-  // Get coach's team IDs (Pattern B - already resolved server-side)
+  // Get coach's teams with names (Pattern B - already resolved server-side)
   // Filter out corrupted team IDs (e.g., player IDs) and deduplicate
-  const coachTeamIds = useMemo(() => {
+  const coachTeams = useMemo(() => {
     if (!coachAssignment?.teams) {
       return [];
     }
     const seen = new Set<string>();
-    return coachAssignment.teams
-      .filter((team) => {
-        if (!team.teamId) {
-          return false;
-        }
-        if (team.teamId.includes("players")) {
-          console.warn(
-            `[Team Insights] Skipping corrupted teamId: ${team.teamId}`
-          );
-          return false;
-        }
-        // Deduplicate - only include first occurrence
-        if (seen.has(team.teamId)) {
-          return false;
-        }
-        seen.add(team.teamId);
-        return true;
-      })
-      .map((team) => team.teamId);
+    return coachAssignment.teams.filter((team) => {
+      if (!team.teamId) {
+        return false;
+      }
+      if (team.teamId.includes("players")) {
+        console.warn(
+          `[Team Insights] Skipping corrupted teamId: ${team.teamId}`
+        );
+        return false;
+      }
+      if (seen.has(team.teamId)) {
+        return false;
+      }
+      seen.add(team.teamId);
+      return true;
+    });
   }, [coachAssignment?.teams]);
+
+  const coachTeamIds = useMemo(
+    () => coachTeams.map((t) => t.teamId),
+    [coachTeams]
+  );
+
+  // Name map from assignment data (used instead of observation data for team names)
+  const teamNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const team of coachTeams) {
+      map.set(team.teamId, team.teamName);
+    }
+    return map;
+  }, [coachTeams]);
+
+  // When there's only one team, auto-select it; otherwise use user selection
+  const effectiveSelectedTeam = useMemo(() => {
+    if (coachTeamIds.length === 1) {
+      return coachTeamIds[0];
+    }
+    return selectedTeam;
+  }, [coachTeamIds, selectedTeam]);
 
   // Filter observations by selected team
   const filteredObservations = useMemo(() => {
@@ -106,12 +125,12 @@ export default function TeamInsightsPage() {
     let filtered = observations.filter((obs) => coachTeamSet.has(obs.teamId));
 
     // Apply team filter
-    if (selectedTeam !== "all") {
-      filtered = filtered.filter((obs) => obs.teamId === selectedTeam);
+    if (effectiveSelectedTeam !== "all") {
+      filtered = filtered.filter((obs) => obs.teamId === effectiveSelectedTeam);
     }
 
     return filtered;
-  }, [observations, selectedTeam, coachTeamIds]);
+  }, [observations, effectiveSelectedTeam, coachTeamIds]);
 
   // Group observations by team
   const observationsByTeam = useMemo(() => {
@@ -152,17 +171,18 @@ export default function TeamInsightsPage() {
           </p>
         </div>
 
-        {/* Team filter */}
-        {coachTeamIds.length > 1 && (
-          <Select onValueChange={setSelectedTeam} value={selectedTeam}>
+        {/* Team filter - always show so coach knows which team(s) they have */}
+        {coachTeamIds.length > 0 && (
+          <Select onValueChange={setSelectedTeam} value={effectiveSelectedTeam}>
             <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="All teams" />
+              <SelectValue placeholder="Select team" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All teams</SelectItem>
+              {coachTeamIds.length > 1 && (
+                <SelectItem value="all">All teams</SelectItem>
+              )}
               {coachTeamIds.map((teamId) => {
-                const teamObs = observationsByTeam.get(teamId);
-                const teamName = teamObs?.[0]?.teamName || teamId;
+                const teamName = teamNameMap.get(teamId) || teamId;
                 return (
                   <SelectItem key={teamId} value={teamId}>
                     {teamName}
@@ -241,7 +261,7 @@ export default function TeamInsightsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  {teamObs[0]?.teamName || teamId}
+                  {teamNameMap.get(teamId) || teamObs[0]?.teamName || teamId}
                 </CardTitle>
                 <CardDescription>
                   {teamObs.length} observation{teamObs.length !== 1 ? "s" : ""}
@@ -296,7 +316,13 @@ export default function TeamInsightsPage() {
         // Show single team
         <Card>
           <CardHeader>
-            <CardTitle>{filteredObservations[0]?.teamName || "Team"}</CardTitle>
+            <CardTitle>
+              {effectiveSelectedTeam !== "all"
+                ? (teamNameMap.get(effectiveSelectedTeam) ??
+                  filteredObservations[0]?.teamName ??
+                  "Team")
+                : (filteredObservations[0]?.teamName ?? "Team")}
+            </CardTitle>
             <CardDescription>
               {filteredObservations.length} observation
               {filteredObservations.length !== 1 ? "s" : ""}

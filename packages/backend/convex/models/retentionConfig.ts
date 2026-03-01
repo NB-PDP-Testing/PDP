@@ -273,6 +273,42 @@ export const softDeleteAllWellnessForPlayer = internalMutation({
 });
 
 /**
+ * Soft-delete all skillAssessments for a player in an org.
+ * Used by the erasure execution action for ASSESSMENT_HISTORY category.
+ */
+export const softDeleteAllAssessmentsForPlayer = internalMutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const assessments = await ctx.db
+      .query("skillAssessments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    const now = Date.now();
+    let count = 0;
+    for (const assessment of assessments) {
+      if (assessment.organizationId !== args.organizationId) {
+        continue;
+      }
+      if (!assessment.retentionExpired) {
+        await ctx.db.patch(assessment._id, {
+          retentionExpired: true,
+          retentionExpiredAt: now,
+        });
+        count += 1;
+      }
+    }
+    return count;
+  },
+});
+
+/**
  * Soft-delete all whatsappWellnessSessions for a player in an org.
  * Used by the erasure execution action for COMMUNICATION_DATA category.
  */

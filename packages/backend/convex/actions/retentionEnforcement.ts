@@ -119,9 +119,13 @@ export const executeApprovedErasureCategories = action({
           { requestId: args.requestId, category, erasedAt: now }
         );
       } else if (category === "ASSESSMENT_HISTORY") {
-        // Assessment data is within orgPlayerEnrollments — covered by PROFILE_DATA anonymisation
-        console.warn(
-          "[ERASURE] ASSESSMENT_HISTORY: covered by PROFILE_DATA anonymisation."
+        // Soft-delete all skillAssessments for this player in this org
+        await ctx.runMutation(
+          internal.models.retentionConfig.softDeleteAllAssessmentsForPlayer,
+          {
+            playerIdentityId: args.playerIdentityId,
+            organizationId: args.organizationId,
+          }
         );
         await ctx.runMutation(
           internal.models.erasureRequests.markCategoryErased,

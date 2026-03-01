@@ -127,6 +127,9 @@ export const getWellnessHistory = query({
       submittedOffline: v.optional(v.boolean()),
       deviceSubmittedAt: v.optional(v.number()),
       source: sourceValidator,
+      retentionExpiresAt: v.optional(v.number()),
+      retentionExpired: v.optional(v.boolean()),
+      retentionExpiredAt: v.optional(v.number()),
     })
   ),
   handler: async (ctx, args) => {
@@ -142,9 +145,9 @@ export const getWellnessHistory = query({
       )
       .collect();
 
-    // Filter to last N days in-memory, sorted newest first
+    // Filter to last N days, exclude soft-deleted records, sorted newest first
     return records
-      .filter((r) => r.checkDate >= cutoffStr)
+      .filter((r) => r.checkDate >= cutoffStr && !r.retentionExpired)
       .sort((a, b) => b.checkDate.localeCompare(a.checkDate));
   },
 });

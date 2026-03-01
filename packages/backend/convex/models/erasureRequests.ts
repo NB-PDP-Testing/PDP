@@ -104,8 +104,8 @@ export const listErasureRequestsForOrg = query({
   },
   returns: v.array(erasureRequestValidator),
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       return [];
     }
 

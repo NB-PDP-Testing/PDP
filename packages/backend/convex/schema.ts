@@ -739,6 +739,11 @@ export default defineSchema({
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
     ),
     createdAt: v.number(),
+
+    // Data retention fields (Phase 9)
+    retentionExpiresAt: v.optional(v.number()),
+    retentionExpired: v.optional(v.boolean()),
+    retentionExpiredAt: v.optional(v.number()),
   })
     .index("by_passportId", ["passportId"])
     .index("by_playerIdentityId", ["playerIdentityId"])
@@ -749,7 +754,8 @@ export default defineSchema({
     .index("by_assessor", ["assessedBy", "assessmentDate"])
     .index("by_organizationId", ["organizationId", "assessmentDate"])
     .index("by_type", ["passportId", "assessmentType"])
-    .index("by_importSessionId", ["importSessionId"]),
+    .index("by_importSessionId", ["importSessionId"])
+    .index("by_retention_expired", ["retentionExpired", "retentionExpiredAt"]),
 
   // Passport Goals - Development goals linked to sport passports
   passportGoals: defineTable({
@@ -2480,6 +2486,11 @@ export default defineSchema({
         otherReason: v.optional(v.string()), // Free-text other reason
       })
     ),
+
+    // Data retention fields (Phase 9)
+    retentionExpiresAt: v.optional(v.number()),
+    retentionExpired: v.optional(v.boolean()),
+    retentionExpiredAt: v.optional(v.number()),
   })
     .index("by_voiceNote", ["voiceNoteId"])
     .index("by_player", ["playerIdentityId"])
@@ -2502,7 +2513,8 @@ export default defineSchema({
       "status",
       "createdAt",
     ]) // Added for N+1 query optimization
-    .index("by_status_scheduledDeliveryAt", ["status", "scheduledDeliveryAt"]), // Added for scheduled delivery processing
+    .index("by_status_scheduledDeliveryAt", ["status", "scheduledDeliveryAt"]) // Added for scheduled delivery processing
+    .index("by_retention_expired", ["retentionExpired", "retentionExpiredAt"]),
 
   // AI usage tracking for cost visibility and analytics (Phase 5.3)
   // Logs every AI API call with token counts and costs
@@ -3966,6 +3978,8 @@ export default defineSchema({
       // Wellness notifications (Phase 4)
       v.literal("wellness_access_request"), // Player notified a coach requested access
       v.literal("wellness_reminder"), // Daily wellness check-in reminder (US-P4-009)
+      // Retention notifications (Phase 9)
+      v.literal("retention_weekly_digest"), // Weekly data retention summary for org admins
       // Player role notifications (Phase 6)
       v.literal("player_role_approved") // Player self-registration approved by admin
     ),
@@ -4277,6 +4291,11 @@ export default defineSchema({
     // Timestamps
     receivedAt: v.number(),
     processedAt: v.optional(v.number()),
+
+    // Data retention fields (Phase 9 — GDPR Article 5)
+    retentionExpiresAt: v.optional(v.number()),
+    retentionExpired: v.optional(v.boolean()),
+    retentionExpiredAt: v.optional(v.number()),
   })
     .index("by_messageSid", ["messageSid"])
     .index("by_fromNumber", ["fromNumber"])
@@ -4285,7 +4304,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_receivedAt", ["receivedAt"])
     .index("by_fromNumber_and_receivedAt", ["fromNumber", "receivedAt"])
-    .index("by_duplicateOfMessageId", ["duplicateOfMessageId"]),
+    .index("by_duplicateOfMessageId", ["duplicateOfMessageId"])
+    .index("by_retention_expired", ["retentionExpired", "retentionExpiredAt"]),
 
   // WhatsApp session memory for multi-org coaches
   // Remembers which org a coach was recently messaging about (2-hour timeout)
@@ -5884,6 +5904,20 @@ export default defineSchema({
   // PHASE 9: GDPR COMPLIANCE — BREACH REGISTER
   // GDPR Articles 33/34 — Data breach notification obligations
   // ============================================================
+
+  // ============================================================
+  // GDPR EXPORT RATE LIMITING
+  // Server-side enforcement of the 24-hour cooldown on data exports
+  // GDPR Article 20 — Right to Data Portability
+  // ============================================================
+
+  gdprExportLog: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    requestedAt: v.number(),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_player_and_org", ["playerIdentityId", "organizationId"]),
 
   breachRegister: defineTable({
     organizationId: v.string(),

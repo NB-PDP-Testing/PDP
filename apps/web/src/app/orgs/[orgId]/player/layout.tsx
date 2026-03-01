@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
 import { Heart, Home, Loader2, Menu, MessageSquare, User } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -18,6 +20,7 @@ import { RoleContextBadge } from "@/components/layout/role-context-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useChildAccess } from "@/hooks/use-child-access";
+import { useChildIdleTimeout } from "@/hooks/use-child-idle-timeout";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 
@@ -29,6 +32,18 @@ export default function PlayerLayout({
   const params = useParams();
   const orgId = params.orgId as string;
   const router = useRouter();
+
+  // Gate: check if user has an adult player dashboard
+  const hasPlayerDashboard = useQuery(
+    api.models.adultPlayers.hasPlayerDashboard
+  );
+
+  // Redirect to org home if user does not have a player dashboard
+  useEffect(() => {
+    if (hasPlayerDashboard === false) {
+      router.replace(`/orgs/${orgId}` as Route);
+    }
+  }, [hasPlayerDashboard, orgId, router]);
 
   // Apply organization theme colors
   const { theme } = useOrgTheme();
@@ -50,6 +65,18 @@ export default function PlayerLayout({
       router.replace(`/orgs/${orgId}/player/access-revoked` as Route);
     }
   }, [childAccessLoading, isChildAccount, accessLevel, orgId, router]);
+
+  // UK Children's Code compliance: idle timeout for child accounts
+  useChildIdleTimeout(isChildAccount);
+
+  // Show loading while hasPlayerDashboard is still being determined
+  if (hasPlayerDashboard === undefined) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   // Show loading while checking child access
   if (childAccessLoading) {

@@ -17,6 +17,7 @@
  */
 
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { internalMutation, internalQuery } from "../_generated/server";
 
 const BATCH_SIZE = 200;
@@ -37,18 +38,14 @@ export const softDeleteExpiredWellnessRecords = internalMutation({
     const now = Date.now();
     let softDeletedCount = 0;
 
-    // Find records where retentionExpiresAt has passed but not yet soft-deleted.
-    // We collect all records and filter in memory — Convex does not support
-    // querying for undefined-valued index fields without a type cast, so a full
-    // collect + filter is the cleanest approach. For large tables a dedicated
-    // by_org_and_retentionExpiresAt index would be a future optimisation.
-    const candidates = await ctx.db.query("dailyPlayerHealthChecks").collect();
+    // Use index to efficiently find records not yet soft-deleted
+    const notYetExpired = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_retention_expired", (q) => q.eq("retentionExpired", false))
+      .collect();
 
-    const expired = candidates.filter(
-      (r) =>
-        r.retentionExpiresAt !== undefined &&
-        r.retentionExpiresAt < now &&
-        !r.retentionExpired
+    const expired = notYetExpired.filter(
+      (r) => r.retentionExpiresAt !== undefined && r.retentionExpiresAt < now
     );
 
     const batch = expired.slice(0, BATCH_SIZE);
@@ -316,42 +313,138 @@ export const getWeeklyRetentionSummary = internalQuery({
 
 /**
  * Weekly retention digest (every Monday at 08:00 UTC).
- * Summarises the past 7 days of enforcement activity to the console.
- * In-app notification delivery requires org-level admin lookup and
- * is marked as a future enhancement — see PRODUCT-GAPS.md.
+ * Sends in-app notifications to org admins summarising retention activity.
  */
 export const sendWeeklyRetentionDigest = internalMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
 
-    const logs = await ctx.db
-      .query("retentionCronLogs")
-      .withIndex("by_runAt", (q) => q.gte("runAt", sevenDaysAgo))
+    // Find orgs with retention activity this week using by_retention_expired index
+    const recentlySoftDeleted = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_retention_expired", (q) => q.eq("retentionExpired", true))
       .collect();
 
-    const totalSoftDeleted = logs.reduce(
-      (sum, l) => sum + l.softDeletedCount,
-      0
+    const recentlyDeletedThisWeek = recentlySoftDeleted.filter(
+      (r) =>
+        r.retentionExpiredAt !== undefined && r.retentionExpiredAt >= oneWeekAgo
     );
-    const totalHardDeleted = logs.reduce(
-      (sum, l) => sum + l.hardDeletedCount,
-      0
-    );
-    const errorCount = logs.filter(
-      (l) => l.errors && l.errors.length > 0
-    ).length;
 
-    if (totalSoftDeleted === 0 && totalHardDeleted === 0) {
-      console.log("[RetentionDigest] No records processed in the last 7 days.");
+    if (recentlyDeletedThisWeek.length === 0) {
+      console.log(
+        "[RetentionDigest] No retention activity this week — skipping."
+      );
       return null;
     }
 
-    console.log(
-      `[RetentionDigest] Weekly summary: soft-deleted=${totalSoftDeleted}, hard-deleted=${totalHardDeleted}, runs=${logs.length}, error_runs=${errorCount}`
-    );
+    // Tally counts per org
+    const orgCounts = new Map<string, number>();
+    for (const record of recentlyDeletedThisWeek) {
+      orgCounts.set(
+        record.organizationId,
+        (orgCounts.get(record.organizationId) ?? 0) + 1
+      );
+    }
+
+    // For each org, send in-app notification to admin/owner members
+    for (const [organizationId, count] of orgCounts) {
+      const membersResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "member",
+          paginationOpts: { cursor: null, numItems: 500 },
+          where: [
+            { field: "organizationId", value: organizationId, operator: "eq" },
+          ],
+        }
+      );
+
+      const adminMembers = (
+        membersResult.page as Array<{ userId: string; role: string }>
+      ).filter((m) => m.role === "admin" || m.role === "owner");
+
+      const message = `Data retention: ${count} record${count !== 1 ? "s" : ""} soft-deleted this week.`;
+
+      for (const member of adminMembers) {
+        await ctx.db.insert("notifications", {
+          userId: member.userId,
+          organizationId,
+          type: "retention_weekly_digest",
+          title: "Weekly Data Retention Summary",
+          message,
+          createdAt: now,
+        });
+      }
+
+      console.log(
+        `[RetentionDigest] Sent digest for org ${organizationId}: ${count} records, ${adminMembers.length} admins notified`
+      );
+    }
 
     return null;
+  },
+});
+
+/**
+ * Soft-delete expired WhatsApp messages (nightly).
+ * Fix 20: WhatsApp message data retention.
+ */
+export const softDeleteExpiredWhatsappMessages = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    const notYetExpired = await ctx.db
+      .query("whatsappMessages")
+      .withIndex("by_retention_expired", (q) => q.eq("retentionExpired", false))
+      .collect();
+
+    const expired = notYetExpired.filter(
+      (r) => r.retentionExpiresAt !== undefined && r.retentionExpiresAt < now
+    );
+
+    const batch = expired.slice(0, 200);
+    for (const record of batch) {
+      await ctx.db.patch(record._id, {
+        retentionExpired: true,
+        retentionExpiredAt: now,
+      });
+    }
+
+    console.log(
+      `[softDeleteExpiredWhatsappMessages] softDeleted=${batch.length}`
+    );
+    return batch.length;
+  },
+});
+
+/**
+ * Hard-delete WhatsApp messages soft-deleted > 30 days ago.
+ */
+export const hardDeleteExpiredWhatsappMessages = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const graceCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    const candidates = await ctx.db
+      .query("whatsappMessages")
+      .withIndex("by_retention_expired", (q) =>
+        q.eq("retentionExpired", true).lt("retentionExpiredAt", graceCutoff)
+      )
+      .take(200);
+
+    for (const record of candidates) {
+      await ctx.db.delete(record._id);
+    }
+
+    console.log(
+      `[hardDeleteExpiredWhatsappMessages] hardDeleted=${candidates.length}`
+    );
+    return candidates.length;
   },
 });

@@ -185,6 +185,9 @@ type ExportablePlayer =
 
 function useGdprExport(playerIdentity: ExportablePlayer, orgId: string) {
   const [triggered, setTriggered] = useState<"json" | "csv" | false>(false);
+  const logExport = useMutation(
+    api.models.playerDataExport.logGdprExportRequest
+  );
 
   const data = useQuery(
     api.models.playerDataExport.assemblePlayerDataExport,
@@ -215,9 +218,18 @@ function useGdprExport(playerIdentity: ExportablePlayer, orgId: string) {
       `gdpr_export_${playerIdentity?._id ?? ""}`,
       Date.now().toString()
     );
+    // Record the export server-side to enforce the 24-hour rate limit
+    if (playerIdentity?._id) {
+      logExport({
+        playerIdentityId: playerIdentity._id,
+        organizationId: orgId,
+      }).catch(() => {
+        // Non-critical — client-side localStorage check is the UX guard
+      });
+    }
     setTriggered(false);
     toast.success("Data export downloaded successfully");
-  }, [triggered, data, playerIdentity]);
+  }, [triggered, data, playerIdentity, logExport, orgId]);
 
   const downloadJson = () => {
     if (!playerIdentity?._id) {

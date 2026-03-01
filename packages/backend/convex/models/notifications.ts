@@ -34,6 +34,8 @@ const notificationTypeValidator = v.union(
   // Wellness access notifications (Phase 4)
   v.literal("wellness_access_request"), // Player notified a coach requested access
   v.literal("wellness_reminder"), // Daily wellness check-in reminder (US-P4-009)
+  // Retention notifications (Phase 9)
+  v.literal("retention_weekly_digest"), // Weekly data retention summary for org admins
   // Player role notifications (Phase 6)
   v.literal("player_role_approved") // Player self-registration approved by admin
 );

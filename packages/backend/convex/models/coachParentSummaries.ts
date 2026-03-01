@@ -316,6 +316,16 @@ export const createParentSummary = internalMutation({
       scheduledDeliveryAt,
     });
 
+    // Stamp retention expiry using org's coachFeedbackDays config (Fix 5)
+    const retentionConfigRecord = await ctx.db
+      .query("orgRetentionConfig")
+      .withIndex("by_org", (q) => q.eq("organizationId", voiceNote.orgId))
+      .first();
+    const coachFeedbackDays = retentionConfigRecord?.coachFeedbackDays ?? 1825; // 5 years default
+    await ctx.db.patch(summaryId, {
+      retentionExpiresAt: Date.now() + coachFeedbackDays * 86_400_000,
+    });
+
     return summaryId;
   },
 });

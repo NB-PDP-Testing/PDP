@@ -659,10 +659,10 @@ function GoalCard({
                 </Badge>
               ) : (
                 <Badge
-                  className="border-teal-300 bg-teal-100 text-teal-800"
+                  className="border-blue-300 bg-blue-100 text-blue-800"
                   variant="outline"
                 >
-                  Personal Goal
+                  Player Goal
                 </Badge>
               )}
             </div>
@@ -814,10 +814,10 @@ function GoalDetailDialog({
               </Badge>
             ) : (
               <Badge
-                className="border-teal-300 bg-teal-100 text-teal-800"
+                className="border-blue-300 bg-blue-100 text-blue-800"
                 variant="outline"
               >
-                Personal Goal
+                Player Goal
               </Badge>
             )}
           </div>

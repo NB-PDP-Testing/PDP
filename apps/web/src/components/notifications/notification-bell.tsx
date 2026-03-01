@@ -54,6 +54,7 @@ type NotificationType =
   | "child_data_erasure"
   | "wellness_access_request"
   | "wellness_reminder"
+  | "retention_weekly_digest"
   | "player_role_approved";
 
 // Get icon for notification type

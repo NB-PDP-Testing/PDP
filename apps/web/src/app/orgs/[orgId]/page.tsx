@@ -93,9 +93,13 @@ export default function Home() {
       return;
     }
 
-    // Determine which dashboard to show based on active functional role
+    // Determine which dashboard to show.
+    // Prefer primaryFunctionalRole (persisted post-login default) when set,
+    // then fall back to activeFunctionalRole and finally the first assigned role.
     const activeFunctionalRole =
-      member.activeFunctionalRole || member.functionalRoles?.[0];
+      member.primaryFunctionalRole ||
+      member.activeFunctionalRole ||
+      member.functionalRoles?.[0];
 
     console.log("[OrgDashboard] Active functional role:", activeFunctionalRole);
     console.log("[OrgDashboard] All functional roles:", member.functionalRoles);

@@ -834,7 +834,9 @@ export default function PlayerHealthCheckPage() {
                       <span aria-hidden="true" className="text-xl leading-none">
                         {scale.emoji}
                       </span>
-                      <span className="sr-only">{scale.label}</span>
+                      <span className="sr-only">
+                        {scale.label} — {scale.value} out of 5
+                      </span>
                       <span
                         aria-hidden="true"
                         className="hidden text-muted-foreground text-xs sm:block"

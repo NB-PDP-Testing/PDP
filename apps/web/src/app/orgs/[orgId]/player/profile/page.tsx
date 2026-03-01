@@ -4,7 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { CountryCode } from "libphonenumber-js";
 import { parsePhoneNumber } from "libphonenumber-js";
-import { Loader2, MapPin, User } from "lucide-react";
+import { Loader2, Lock, MapPin, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -32,6 +32,12 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   ALL_COUNTRIES,
@@ -339,28 +345,52 @@ export default function PlayerProfilePage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-muted-foreground">Date of Birth</Label>
-              <Input
-                className="cursor-not-allowed bg-muted"
-                disabled
-                value={
-                  player.dateOfBirth
-                    ? new Date(player.dateOfBirth).toLocaleDateString("en-GB")
-                    : ""
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  className="cursor-not-allowed bg-muted"
+                  disabled
+                  value={
+                    player.dateOfBirth
+                      ? new Date(player.dateOfBirth).toLocaleDateString("en-GB")
+                      : ""
+                  }
+                />
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Contact your admin to change
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </div>
             <div className="space-y-2">
               <Label className="text-muted-foreground">Gender</Label>
-              <Input
-                className="cursor-not-allowed bg-muted"
-                disabled
-                value={
-                  player.gender
-                    ? player.gender.charAt(0).toUpperCase() +
-                      player.gender.slice(1)
-                    : ""
-                }
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  className="cursor-not-allowed bg-muted"
+                  disabled
+                  value={
+                    player.gender
+                      ? player.gender.charAt(0).toUpperCase() +
+                        player.gender.slice(1)
+                      : ""
+                  }
+                />
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Contact your admin to change
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </div>
           </div>
 

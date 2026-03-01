@@ -304,4 +304,20 @@ crons.weekly(
   {}
 );
 
+// Nightly soft-delete of expired WhatsApp messages — 01:05 UTC (Fix 20)
+crons.daily(
+  "soft-delete-expired-whatsapp-messages",
+  { hourUTC: 1, minuteUTC: 5 },
+  internal.jobs.retentionEnforcement.softDeleteExpiredWhatsappMessages,
+  {}
+);
+
+// Nightly hard-delete of WhatsApp messages past 30-day grace — 02:05 UTC (Fix 20)
+crons.daily(
+  "hard-delete-expired-whatsapp-messages",
+  { hourUTC: 2, minuteUTC: 5 },
+  internal.jobs.retentionEnforcement.hardDeleteExpiredWhatsappMessages,
+  {}
+);
+
 export default crons;

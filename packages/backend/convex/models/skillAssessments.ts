@@ -666,7 +666,7 @@ export const recordAssessment = mutation({
 
     const now = Date.now();
 
-    return await ctx.db.insert("skillAssessments", {
+    const assessmentId = await ctx.db.insert("skillAssessments", {
       passportId: args.passportId,
       playerIdentityId: passport.playerIdentityId,
       sportCode: passport.sportCode,
@@ -690,6 +690,20 @@ export const recordAssessment = mutation({
       confidence: args.confidence,
       createdAt: now,
     });
+
+    // Stamp retention expiry using org's assessmentDays config (Fix 5)
+    const retentionConfigRecord = await ctx.db
+      .query("orgRetentionConfig")
+      .withIndex("by_org", (q) =>
+        q.eq("organizationId", passport.organizationId)
+      )
+      .first();
+    const assessmentDays = retentionConfigRecord?.assessmentDays ?? 1825; // 5 years default
+    await ctx.db.patch(assessmentId, {
+      retentionExpiresAt: now + assessmentDays * 86_400_000,
+    });
+
+    return assessmentId;
   },
 });
 

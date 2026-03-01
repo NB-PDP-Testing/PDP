@@ -19,49 +19,6 @@ function getRoleLabel(role: FunctionalRole): string {
   }
 }
 
-/**
- * Returns role-specific colors for the badge.
- * Uses Tailwind static class strings so Tailwind can detect them at build time.
- */
-function getRoleColors(role: FunctionalRole): {
-  bg: string;
-  text: string;
-  border: string;
-} {
-  switch (role) {
-    case "coach":
-      return {
-        bg: "bg-green-100",
-        text: "text-green-700",
-        border: "border-green-300",
-      };
-    case "parent":
-      return {
-        bg: "bg-blue-100",
-        text: "text-blue-700",
-        border: "border-blue-300",
-      };
-    case "admin":
-      return {
-        bg: "bg-purple-100",
-        text: "text-purple-700",
-        border: "border-purple-300",
-      };
-    case "player":
-      return {
-        bg: "bg-orange-100",
-        text: "text-orange-700",
-        border: "border-orange-300",
-      };
-    default:
-      return {
-        bg: "bg-gray-100",
-        text: "text-gray-700",
-        border: "border-gray-300",
-      };
-  }
-}
-
 type RoleContextBadgeProps = {
   orgId: string;
 };
@@ -71,6 +28,9 @@ type RoleContextBadgeProps = {
  *
  * Visible only when the user holds MORE than one functional role in the org.
  * Single-role users see no badge — no change to their experience.
+ *
+ * Uses org theme CSS custom properties (--org-primary, --org-primary-contrast)
+ * for colours so the badge matches the org brand.
  *
  * Desktop: "Acting as: [Role Name]"
  * Mobile (≤ sm): abbreviated role initial in a coloured circle
@@ -91,13 +51,19 @@ export function RoleContextBadge({ orgId }: RoleContextBadgeProps) {
 
   const roleLabel = getRoleLabel(activeRole);
   const initial = roleLabel[0];
-  const { bg, text, border } = getRoleColors(activeRole);
+
+  const badgeStyle: React.CSSProperties = {
+    backgroundColor: "var(--org-primary)",
+    color: "var(--org-primary-contrast, white)",
+    borderColor: "var(--org-primary)",
+  };
 
   return (
     <>
       {/* Desktop: full "Acting as: [Role]" badge */}
       <div
-        className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-medium text-xs sm:flex ${bg} ${text} ${border}`}
+        className="hidden items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-medium text-xs sm:flex"
+        style={badgeStyle}
         title={`Acting as: ${roleLabel}`}
       >
         <span className="text-[10px] opacity-70">Acting as:</span>
@@ -106,7 +72,8 @@ export function RoleContextBadge({ orgId }: RoleContextBadgeProps) {
 
       {/* Mobile: coloured circle with role initial */}
       <div
-        className={`flex h-7 w-7 items-center justify-center rounded-full border font-bold text-xs sm:hidden ${bg} ${text} ${border}`}
+        className="flex h-7 w-7 items-center justify-center rounded-full border font-bold text-xs sm:hidden"
+        style={badgeStyle}
         title={`Acting as: ${roleLabel}`}
       >
         {initial}

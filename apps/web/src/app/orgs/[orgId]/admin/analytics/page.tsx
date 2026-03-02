@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import {
   Activity,
   BarChart3,
+  Bell,
   Calendar,
   Filter,
   Heart,
@@ -53,6 +54,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WellnessAnalyticsTab } from "./wellness-analytics-tab";
+import { WhatsappNotificationsTab } from "./whatsapp-notifications-tab";
 
 // Colors for charts
 const COLORS = {
@@ -320,6 +322,13 @@ export default function AnalyticsDashboard() {
             <Heart className="h-4 w-4" />
             Wellness
           </TabsTrigger>
+          <TabsTrigger
+            className="flex items-center gap-2"
+            value="notifications"
+          >
+            <Bell className="h-4 w-4" />
+            Notifications
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent className="mt-6" value="wellness">
@@ -327,6 +336,10 @@ export default function AnalyticsDashboard() {
             organizationId={orgId}
             userRole={userRole?.role}
           />
+        </TabsContent>
+
+        <TabsContent className="mt-6" value="notifications">
+          <WhatsappNotificationsTab organizationId={orgId} />
         </TabsContent>
 
         <TabsContent className="mt-6 space-y-6" value="skills">

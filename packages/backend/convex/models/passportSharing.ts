@@ -3872,6 +3872,41 @@ export const revokeMyPassportSharing = mutation({
 /**
  * Respond to a passport access request as an adult player
  */
+/**
+ * Transfer passport sharing consent ownership from a guardian to the player.
+ * Called when a youth player claims their adult account via claimPlayerAccount.
+ * Any consents originally granted by a guardian are re-attributed to the
+ * newly-registered player (grantedBy switches to their userId, grantedByType to "self").
+ */
+export const transferPassportSharingOwnership = internalMutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    newUserId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const consents = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    await Promise.all(
+      consents
+        .filter((c) => c.grantedByType === "guardian")
+        .map((c) =>
+          ctx.db.patch(c._id, {
+            grantedBy: args.newUserId,
+            grantedByType: "self",
+          })
+        )
+    );
+
+    return null;
+  },
+});
+
 export const respondToAccessRequestAsPlayer = mutation({
   args: {
     requestId: v.id("passportShareRequests"),

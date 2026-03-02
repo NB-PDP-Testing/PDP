@@ -92,6 +92,15 @@ const summaryValidator = v.object({
       otherReason: v.optional(v.string()),
     })
   ),
+  // Phase 7: if true, this summary is hidden from the child's player portal
+  restrictChildView: v.optional(v.boolean()),
+  // Phase 7 (View+Interact): child's text response to this feedback
+  childResponse: v.optional(v.string()),
+  childResponseAt: v.optional(v.number()),
+  // Phase 9: GDPR retention fields
+  retentionExpiresAt: v.optional(v.number()),
+  retentionExpired: v.optional(v.boolean()),
+  retentionExpiredAt: v.optional(v.number()),
 });
 
 const playerIdentityValidator = v.object({
@@ -311,6 +320,16 @@ export const createParentSummary = internalMutation({
       scheduledDeliveryAt,
     });
 
+    // Stamp retention expiry using org's coachFeedbackDays config (Fix 5)
+    const retentionConfigRecord = await ctx.db
+      .query("orgRetentionConfig")
+      .withIndex("by_org", (q) => q.eq("organizationId", voiceNote.orgId))
+      .first();
+    const coachFeedbackDays = retentionConfigRecord?.coachFeedbackDays ?? 1825; // 5 years default
+    await ctx.db.patch(summaryId, {
+      retentionExpiresAt: Date.now() + coachFeedbackDays * 86_400_000,
+    });
+
     return summaryId;
   },
 });
@@ -379,6 +398,7 @@ async function patchPreviewModeStats(
 export const approveSummary = mutation({
   args: {
     summaryId: v.id("coachParentSummaries"),
+    restrictChildView: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -407,11 +427,14 @@ export const approveSummary = mutation({
       );
     }
 
-    // Update the summary status
+    // Update the summary status (with optional child view restriction)
     await ctx.db.patch(args.summaryId, {
       status: "approved",
       approvedAt: Date.now(),
       approvedBy: userId,
+      ...(args.restrictChildView !== undefined
+        ? { restrictChildView: args.restrictChildView }
+        : {}),
     });
 
     // Track preview mode statistics (Phase 5)
@@ -443,6 +466,7 @@ export const approveInjurySummary = mutation({
       severityAccurate: v.boolean(),
       noMedicalAdvice: v.boolean(),
     }),
+    restrictChildView: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -494,11 +518,14 @@ export const approveInjurySummary = mutation({
       completedAt: Date.now(),
     });
 
-    // Update the summary status
+    // Update the summary status (with optional child view restriction)
     await ctx.db.patch(args.summaryId, {
       status: "approved",
       approvedAt: Date.now(),
       approvedBy: userId,
+      ...(args.restrictChildView !== undefined
+        ? { restrictChildView: args.restrictChildView }
+        : {}),
     });
 
     // Update coach trust metrics (platform-wide)
@@ -867,6 +894,9 @@ async function enrichAutoApprovedSummary(
     viewedByName,
     approvalMethod,
     privateInsight: summary.privateInsight,
+    childResponse: summary.childResponse,
+    childResponseAt: summary.childResponseAt,
+    restrictChildView: summary.restrictChildView,
   };
 }
 
@@ -917,6 +947,9 @@ export const getAutoApprovedSummaries = query({
           v.literal("concern")
         ),
       }),
+      childResponse: v.optional(v.string()),
+      childResponseAt: v.optional(v.number()),
+      restrictChildView: v.optional(v.boolean()),
     })
   ),
   handler: async (ctx, args) => {
@@ -2020,6 +2053,146 @@ export const getCoachFeedbackForPlayer = query({
       approvedAt: s.approvedAt,
       acknowledgedAt: s.acknowledgedAt,
     }));
+  },
+});
+
+/**
+ * Get approved coach feedback for a child player (View Only or View+Interact).
+ * Filters out items where restrictChildView: true.
+ * Returns childResponse field so child can see their own responses.
+ */
+export const getCoachFeedbackForChildPlayer = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("coachParentSummaries"),
+      coachId: v.string(),
+      coachName: v.optional(v.string()),
+      sensitivityCategory: v.union(
+        v.literal("normal"),
+        v.literal("injury"),
+        v.literal("behavior")
+      ),
+      status: v.union(
+        v.literal("approved"),
+        v.literal("auto_approved"),
+        v.literal("delivered"),
+        v.literal("viewed")
+      ),
+      publicSummaryText: v.string(),
+      createdAt: v.number(),
+      approvedAt: v.optional(v.number()),
+      acknowledgedAt: v.optional(v.number()),
+      childResponse: v.optional(v.string()),
+      childResponseAt: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const playerIdentity = await ctx.db.get(args.playerIdentityId);
+    if (!playerIdentity) {
+      throw new Error("Player identity not found");
+    }
+
+    if (playerIdentity.userId !== identity.subject) {
+      throw new Error("Not authorized to view feedback for this player");
+    }
+
+    const summaries = await ctx.db
+      .query("coachParentSummaries")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .order("desc")
+      .collect();
+
+    const visibleStatuses = new Set([
+      "approved",
+      "auto_approved",
+      "delivered",
+      "viewed",
+    ]);
+
+    // Filter: only approved statuses AND not restricted from child view
+    const visibleSummaries = summaries.filter(
+      (s) => visibleStatuses.has(s.status) && !s.restrictChildView
+    );
+
+    const coachIds = [...new Set(visibleSummaries.map((s) => s.coachId))];
+    const coachNames = new Map<string, string>();
+    await Promise.all(
+      coachIds.map(async (coachId) => {
+        try {
+          const userResult = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "user",
+              where: [{ field: "_id", value: coachId, operator: "eq" }],
+            }
+          );
+          if (userResult && "name" in userResult) {
+            coachNames.set(coachId, String(userResult.name));
+          }
+        } catch {
+          // Ignore errors fetching coach name
+        }
+      })
+    );
+
+    return visibleSummaries.map((s) => ({
+      _id: s._id,
+      coachId: s.coachId,
+      coachName: coachNames.get(s.coachId),
+      sensitivityCategory: s.sensitivityCategory,
+      status: s.status as "approved" | "auto_approved" | "delivered" | "viewed",
+      publicSummaryText: s.publicSummary.content,
+      createdAt: s.createdAt,
+      approvedAt: s.approvedAt,
+      acknowledgedAt: s.acknowledgedAt,
+      childResponse: s.childResponse,
+      childResponseAt: s.childResponseAt,
+    }));
+  },
+});
+
+/**
+ * Set a child player's text response on a coach feedback item.
+ * Only callable by the player whose feedback it is.
+ */
+export const setChildFeedbackResponse = mutation({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+    response: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    const playerIdentity = await ctx.db.get(summary.playerIdentityId);
+    if (!playerIdentity || playerIdentity.userId !== identity.subject) {
+      throw new Error("Not authorized to respond to this feedback");
+    }
+
+    await ctx.db.patch(args.summaryId, {
+      childResponse: args.response.trim(),
+      childResponseAt: Date.now(),
+    });
+
+    return null;
   },
 });
 

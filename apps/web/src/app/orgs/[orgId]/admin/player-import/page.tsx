@@ -531,9 +531,9 @@ export default function PlayerImportPage() {
   };
 
   const downloadTemplate = () => {
-    const template = `FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth,Address,Town,Postcode,Country
-John,Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,mother,2013-05-15,123 Main St,Dublin,D01 X123,Ireland
-Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,mother,2015-08-22,456 Park Ave,Cork,T12 Y456,Ireland`;
+    const template = `FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth,FAINumber,IRFUNumber,GAANumber
+John,Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,mother,2013-05-15,,,
+Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,mother,2015-08-22,,,`;
 
     const blob = new Blob([template], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);

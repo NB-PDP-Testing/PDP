@@ -229,6 +229,7 @@ export default function CoachNotesPage() {
       await updateEnrollment({
         enrollmentId,
         coachNotes: editingNotes || undefined,
+        confirmed: true,
       });
       toast.success("Notes saved successfully");
       setEditingId(null);
@@ -255,6 +256,7 @@ export default function CoachNotesPage() {
       await updateEnrollment({
         enrollmentId,
         coachNotes: "",
+        confirmed: true,
       });
       toast.success("Notes cleared");
     } catch (_error) {

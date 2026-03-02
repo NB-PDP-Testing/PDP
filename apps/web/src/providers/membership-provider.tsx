@@ -20,6 +20,7 @@ type Membership = {
   organizationLogo: string | null;
   functionalRoles: FunctionalRole[];
   activeFunctionalRole: FunctionalRole | null;
+  primaryFunctionalRole: FunctionalRole | null;
   pendingRoleRequests: Array<{
     role: FunctionalRole;
     requestedAt: string;

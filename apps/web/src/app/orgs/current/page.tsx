@@ -40,26 +40,52 @@ export default function CurrentOrgPage() {
  * Note: Coach is prioritized over admin because coaches typically use the coach
  * dashboard more frequently than the admin dashboard, even when they have both roles.
  */
-function getRedirectRoute(
-  orgId: string,
-  memberRole: OrgMemberRole | undefined,
-  functionalRoles: string[],
-  activeFunctionalRole?: string | null
-): Route {
-  // NEW: If user has an active functional role set, use it directly
+type RedirectRouteOptions = {
+  orgId: string;
+  memberRole: OrgMemberRole | undefined;
+  functionalRoles: string[];
+  activeFunctionalRole?: string | null;
+  primaryFunctionalRole?: string | null;
+};
+
+function getRoleRoute(orgId: string, role: string): Route | null {
+  switch (role) {
+    case "coach":
+      return `/orgs/${orgId}/coach` as Route;
+    case "admin":
+      return `/orgs/${orgId}/admin` as Route;
+    case "parent":
+      return `/orgs/${orgId}/parents` as Route;
+    case "player":
+      return `/orgs/${orgId}/player` as Route;
+    default:
+      return null;
+  }
+}
+
+function getRedirectRoute({
+  orgId,
+  memberRole,
+  functionalRoles,
+  activeFunctionalRole,
+  primaryFunctionalRole,
+}: RedirectRouteOptions): Route {
+  // PRIMARY ROLE: If user has set a primary functional role, use it first (post-login default)
+  if (
+    primaryFunctionalRole &&
+    functionalRoles.includes(primaryFunctionalRole)
+  ) {
+    const route = getRoleRoute(orgId, primaryFunctionalRole);
+    if (route) {
+      return route;
+    }
+  }
+
+  // ACTIVE ROLE: If user has an active functional role set, use it
   if (activeFunctionalRole && functionalRoles.includes(activeFunctionalRole)) {
-    switch (activeFunctionalRole) {
-      case "coach":
-        return `/orgs/${orgId}/coach` as Route;
-      case "admin":
-        return `/orgs/${orgId}/admin` as Route;
-      case "parent":
-        return `/orgs/${orgId}/parents` as Route;
-      case "player":
-        return `/orgs/${orgId}/player` as Route;
-      default:
-        // Fall through to priority logic below
-        break;
+    const route = getRoleRoute(orgId, activeFunctionalRole);
+    if (route) {
+      return route;
     }
   }
 
@@ -216,22 +242,25 @@ function RedirectToActiveOrg() {
         // Use Convex data to determine route
         const functionalRoles = convexMember.functionalRoles || [];
         const activeFunctionalRole = convexMember.activeFunctionalRole;
+        const primaryFunctionalRole = convexMember.primaryFunctionalRole;
         const memberRole = convexMember.betterAuthRole as
           | OrgMemberRole
           | undefined;
 
-        const redirectRoute = getRedirectRoute(
-          activeOrganization.id,
+        const redirectRoute = getRedirectRoute({
+          orgId: activeOrganization.id,
           memberRole,
           functionalRoles,
-          activeFunctionalRole
-        );
+          activeFunctionalRole,
+          primaryFunctionalRole,
+        });
 
         console.log("[orgs/current] Redirect decision (from Convex):", {
           orgId: activeOrganization.id,
           memberRole,
           functionalRoles,
           activeFunctionalRole,
+          primaryFunctionalRole,
           redirectRoute,
         });
 
@@ -247,21 +276,27 @@ function RedirectToActiveOrg() {
     const functionalRoles =
       ((member as any)?.functionalRoles as string[] | undefined) || [];
 
-    // Get active functional role (NEW: respects user's role preference)
+    // Get active functional role (respects user's role preference)
     const activeFunctionalRole = (member as any)?.activeFunctionalRole as
+      | string
+      | undefined;
+
+    // Get primary functional role (post-login default set by user)
+    const primaryFunctionalRole = (member as any)?.primaryFunctionalRole as
       | string
       | undefined;
 
     // Get Better Auth org role
     const memberRole = member?.role as OrgMemberRole | undefined;
 
-    // Determine redirect route based on roles (now respects activeFunctionalRole)
-    const redirectRoute = getRedirectRoute(
-      activeOrganization.id,
+    // Determine redirect route: primaryFunctionalRole > activeFunctionalRole > priority logic
+    const redirectRoute = getRedirectRoute({
+      orgId: activeOrganization.id,
       memberRole,
       functionalRoles,
-      activeFunctionalRole
-    );
+      activeFunctionalRole,
+      primaryFunctionalRole,
+    });
 
     // Development logging for debugging
     if (process.env.NODE_ENV === "development") {
@@ -269,6 +304,7 @@ function RedirectToActiveOrg() {
         orgId: activeOrganization.id,
         memberRole,
         functionalRoles,
+        primaryFunctionalRole,
         activeFunctionalRole,
         redirectRoute,
       });

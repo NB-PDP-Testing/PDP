@@ -15,6 +15,16 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { GraduationSection } from "./components/graduation-section";
 import { GuardiansSection } from "./components/guardians-section";
@@ -61,8 +72,10 @@ export default function EditPlayerPage() {
   const orgId = params.orgId as string;
   const playerId = params.playerId as string;
 
+  const currentUser = useCurrentUser();
   const { data: session } = authClient.useSession();
   const [isSaving, setIsSaving] = useState(false);
+  const [showSelfEditConfirm, setShowSelfEditConfirm] = useState(false);
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const teamsInitializedRef = useRef(false);
   const formInitializedRef = useRef(false);
@@ -154,7 +167,20 @@ export default function EditPlayerPage() {
     }
   }, [eligibleTeams]);
 
-  const handleSave = async () => {
+  // Detect if the admin is editing their own player record
+  const isSelfEdit = !!(
+    currentUser?._id &&
+    playerIdentity?.userId &&
+    currentUser._id === playerIdentity.userId
+  );
+
+  const handleSave = async (confirmed = false) => {
+    // If editing own record, require confirmation dialog first
+    if (isSelfEdit && !confirmed) {
+      setShowSelfEditConfirm(true);
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Update player identity
@@ -188,6 +214,7 @@ export default function EditPlayerPage() {
           ageGroup: formData.ageGroup || undefined,
           coachNotes: formData.coachNotes || undefined,
           adminNotes: formData.adminNotes || undefined,
+          confirmed: true,
         });
       }
 
@@ -262,7 +289,7 @@ export default function EditPlayerPage() {
             Update player information and enrollment details
           </p>
         </div>
-        <Button disabled={isSaving} onClick={handleSave}>
+        <Button disabled={isSaving} onClick={() => handleSave()}>
           {isSaving ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -580,8 +607,9 @@ export default function EditPlayerPage() {
         />
       )}
 
-      {/* Graduation Section - for any player aged 18+ */}
-      {playerIdentity.dateOfBirth &&
+      {/* Graduation Section - for youth players aged 18+ only */}
+      {playerIdentity.playerType === "youth" &&
+        playerIdentity.dateOfBirth &&
         Date.now() - new Date(playerIdentity.dateOfBirth).getTime() >=
           18 * 365.25 * 24 * 60 * 60 * 1000 && (
           <GraduationSection
@@ -895,6 +923,33 @@ export default function EditPlayerPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Self-edit confirmation dialog */}
+      <AlertDialog
+        onOpenChange={(open) => setShowSelfEditConfirm(open)}
+        open={showSelfEditConfirm}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Editing Your Own Player Record</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to make admin changes to your own player record.
+              Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowSelfEditConfirm(false);
+                handleSave(true);
+              }}
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

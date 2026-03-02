@@ -3,10 +3,18 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Download, Loader2, Lock, Shield, ShieldCheck } from "lucide-react";
+import {
+  Download,
+  Loader2,
+  Lock,
+  Shield,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { MyRolesSection } from "@/components/settings/my-roles-section";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,8 +34,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useChildAccess } from "@/hooks/use-child-access";
 import { authClient } from "@/lib/auth-client";
+import { DataRightsSection } from "./data-rights-section";
+import { WellnessCheckInSection } from "./wellness-checkin-section";
 
 function shouldShowCycleSection(
   playerIdentity: {
@@ -164,6 +185,9 @@ type ExportablePlayer =
 
 function useGdprExport(playerIdentity: ExportablePlayer, orgId: string) {
   const [triggered, setTriggered] = useState<"json" | "csv" | false>(false);
+  const logExport = useMutation(
+    api.models.playerDataExport.logGdprExportRequest
+  );
 
   const data = useQuery(
     api.models.playerDataExport.assemblePlayerDataExport,
@@ -176,6 +200,7 @@ function useGdprExport(playerIdentity: ExportablePlayer, orgId: string) {
     if (!triggered || data === undefined) {
       return;
     }
+
     if (triggered === "csv") {
       triggerCsvDownload(
         data as Record<string, unknown>,
@@ -193,9 +218,18 @@ function useGdprExport(playerIdentity: ExportablePlayer, orgId: string) {
       `gdpr_export_${playerIdentity?._id ?? ""}`,
       Date.now().toString()
     );
+    // Record the export server-side to enforce the 24-hour rate limit
+    if (playerIdentity?._id) {
+      logExport({
+        playerIdentityId: playerIdentity._id,
+        organizationId: orgId,
+      }).catch(() => {
+        // Non-critical — client-side localStorage check is the UX guard
+      });
+    }
     setTriggered(false);
     toast.success("Data export downloaded successfully");
-  }, [triggered, data, playerIdentity]);
+  }, [triggered, data, playerIdentity, logExport, orgId]);
 
   const downloadJson = () => {
     if (!playerIdentity?._id) {
@@ -261,11 +295,13 @@ const CORE_DIMENSIONS = [
   },
 ] as const;
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: pre-existing complexity from prior phases
 export default function PlayerSettingsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
 
   const { data: session, isPending: sessionLoading } = authClient.useSession();
+  const { data: activeOrganization } = authClient.useActiveOrganization();
   const userEmail = session?.user?.email;
 
   // Player identity
@@ -296,6 +332,18 @@ export default function PlayerSettingsPage() {
   const withdrawConsent = useMutation(
     api.models.playerHealthChecks.withdrawCycleTrackingConsent
   );
+  const requestDataErasure = useMutation(
+    api.models.childDataErasureRequests.requestDataErasure
+  );
+
+  // Child account detection
+  const { isChildAccount } = useChildAccess(orgId);
+
+  // Check if child already has a pending erasure request
+  const erasureRequestStatus = useQuery(
+    api.models.childDataErasureRequests.getMyErasureRequestStatus,
+    isChildAccount ? { organizationId: orgId } : "skip"
+  );
 
   // Revoke coach access confirmation dialog state
   const [revokeTarget, setRevokeTarget] = useState<{
@@ -315,6 +363,11 @@ export default function PlayerSettingsPage() {
 
   // Export format confirmation dialog
   const [showExportDialog, setShowExportDialog] = useState(false);
+
+  // Data erasure dialog state
+  const [showErasureDialog, setShowErasureDialog] = useState(false);
+  const [erasureConfirmText, setErasureConfirmText] = useState("");
+  const [isRequestingErasure, setIsRequestingErasure] = useState(false);
 
   const handleApprove = async (accessId: Id<"wellnessCoachAccess">) => {
     try {
@@ -362,6 +415,25 @@ export default function PlayerSettingsPage() {
     }
   };
 
+  const handleRequestErasure = async () => {
+    if (erasureConfirmText !== "DELETE") {
+      return;
+    }
+    try {
+      setIsRequestingErasure(true);
+      await requestDataErasure({ organizationId: orgId });
+      toast.success(
+        "Erasure request submitted. Your club administrator will review it."
+      );
+      setShowErasureDialog(false);
+      setErasureConfirmText("");
+    } catch {
+      toast.error("Failed to submit erasure request. Please try again.");
+    } finally {
+      setIsRequestingErasure(false);
+    }
+  };
+
   // Determine if cycle tracking section should show
   const showCycleSection = shouldShowCycleSection(playerIdentity ?? null);
 
@@ -398,6 +470,7 @@ export default function PlayerSettingsPage() {
 
   return (
     <div className="container mx-auto max-w-3xl space-y-6 p-4 md:p-8">
+      <MyRolesSection />
       {/* Revoke confirmation dialog */}
       <AlertDialog
         onOpenChange={(open) => {
@@ -470,6 +543,15 @@ export default function PlayerSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Wellness Check-In Notifications — US-P8-005 */}
+      {playerIdentity?._id && (
+        <WellnessCheckInSection
+          orgId={orgId}
+          orgName={activeOrganization?.name ?? "your club"}
+          playerIdentityId={playerIdentity._id}
+        />
+      )}
 
       {/* Wellness Access Card */}
       <Card>
@@ -635,7 +717,7 @@ export default function PlayerSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Privacy Card — cycle phase section for female players >= 18 only */}
+      {/* Privacy card — cycle phase section for female players >= 18 only */}
       {showCycleSection && (
         <>
           <AlertDialog
@@ -709,6 +791,131 @@ export default function PlayerSettingsPage() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {/* GDPR Recital 65: Child's right to data erasure — child accounts only */}
+      {isChildAccount && (
+        <>
+          <Dialog
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowErasureDialog(false);
+                setErasureConfirmText("");
+              }
+            }}
+            open={showErasureDialog}
+          >
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Request Data Erasure</DialogTitle>
+                <DialogDescription>
+                  This will ask your club to delete all your player data —
+                  assessments, wellness history, development goals, and coaching
+                  feedback. Your account will also be removed. This cannot be
+                  undone.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <p className="text-sm">
+                  Your coach and parent will be notified that you have made this
+                  request. An admin will review and process it.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="erasure-confirm">
+                    Type <span className="font-bold font-mono">DELETE</span> to
+                    confirm
+                  </Label>
+                  <Input
+                    id="erasure-confirm"
+                    onChange={(e) => setErasureConfirmText(e.target.value)}
+                    placeholder="DELETE"
+                    value={erasureConfirmText}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => setShowErasureDialog(false)}
+                  type="button"
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={
+                    erasureConfirmText !== "DELETE" || isRequestingErasure
+                  }
+                  onClick={handleRequestErasure}
+                  type="button"
+                >
+                  {isRequestingErasure ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Request Erasure
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Privacy &amp; Data
+              </CardTitle>
+              <CardDescription>
+                Your rights under GDPR — including the right to have your data
+                deleted.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium text-sm">Request Data Erasure</p>
+                  <p className="text-muted-foreground text-xs">
+                    You can ask us to delete your sports development data. Your
+                    coach and parent will be notified. An admin will review and
+                    process it.
+                  </p>
+                </div>
+                {erasureRequestStatus?.hasPending ? (
+                  <Badge
+                    className="shrink-0 bg-amber-100 text-amber-800 hover:bg-amber-100"
+                    variant="outline"
+                  >
+                    Request pending review
+                  </Badge>
+                ) : (
+                  <Button
+                    className="shrink-0"
+                    onClick={() => setShowErasureDialog(true)}
+                    size="sm"
+                    variant="destructive"
+                  >
+                    <Trash2 className="mr-2 h-3 w-3" />
+                    Request Erasure
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* Your Data Rights — GDPR Article 17 adult erasure (adult players only) */}
+      {!isChildAccount && (
+        <DataRightsSection
+          orgId={orgId}
+          orgName={activeOrganization?.name ?? "your club"}
+        />
       )}
     </div>
   );

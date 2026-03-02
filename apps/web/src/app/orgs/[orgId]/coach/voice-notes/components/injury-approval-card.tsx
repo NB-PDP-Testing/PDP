@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   Edit2,
+  EyeOff,
   X,
   XCircle,
 } from "lucide-react";
@@ -61,6 +62,9 @@ export function InjuryApprovalCard({
   const [personallyObserved, setPersonallyObserved] = useState(false);
   const [severityAccurate, setSeverityAccurate] = useState(false);
   const [noMedicalAdvice, setNoMedicalAdvice] = useState(false);
+
+  // Phase 7: Restrict from child view toggle (default OFF — non-breaking)
+  const [restrictChildView, setRestrictChildView] = useState(false);
 
   // Edit state
   const [isEditing, setIsEditing] = useState(false);
@@ -126,6 +130,7 @@ export function InjuryApprovalCard({
           severityAccurate,
           noMedicalAdvice,
         },
+        restrictChildView,
       });
       toast.success("Injury summary approved");
       onApprove();
@@ -334,6 +339,24 @@ export function InjuryApprovalCard({
               </label>
             </div>
           </div>
+        </div>
+
+        {/* Phase 7: Restrict from child view toggle */}
+        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+          <Checkbox
+            checked={restrictChildView}
+            id="restrict-child-view-injury"
+            onCheckedChange={(checked) =>
+              setRestrictChildView(checked === true)
+            }
+          />
+          <label
+            className="flex cursor-pointer items-center gap-1.5 text-amber-900 text-xs sm:text-sm"
+            htmlFor="restrict-child-view-injury"
+          >
+            <EyeOff className="h-3.5 w-3.5 shrink-0" />
+            Restrict from child view — Parent and coach only
+          </label>
         </div>
 
         {/* Action Buttons */}

@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { LogoUpload } from "@/components/logo-upload";
 import { OrgThemedButton } from "@/components/org-themed-button";
 import { DensityToggle } from "@/components/polish/density-toggle";
+import { MyRolesSection } from "@/components/settings/my-roles-section";
 import { NotificationPreferences } from "@/components/settings/notification-preferences";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
 import { getContrastColor, getWCAGCompliance } from "@/lib/color-utils";
 import { StatCard } from "../stat-card";
+import { WellnessDispatchSection } from "./wellness-dispatch-section";
 
 // Default colors for preview when no color is set
 const DEFAULT_COLORS = {
@@ -630,6 +632,8 @@ export default function OrgSettingsPage() {
           Manage your organization's details, branding, and theme
         </p>
       </div>
+
+      <MyRolesSection />
 
       {/* General Settings */}
       <Card>
@@ -1924,6 +1928,12 @@ export default function OrgSettingsPage() {
                 {savingWellnessConfig ? "Saving..." : "Save Wellness Settings"}
               </Button>
             </div>
+
+            {/* WhatsApp/SMS push notification dispatch (US-P8-006) */}
+            <WellnessDispatchSection
+              organizationId={orgId}
+              userId={session?.user?.id ?? ""}
+            />
           </CardContent>
         </Card>
       )}

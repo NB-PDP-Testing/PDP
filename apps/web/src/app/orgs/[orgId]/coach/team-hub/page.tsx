@@ -15,13 +15,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Empty,
   EmptyContent,
@@ -29,13 +23,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
 import { ActivityTab } from "./components/activity-tab";
@@ -115,6 +102,24 @@ export default function TeamHubPage() {
       }));
   }, [coachAssignments?.teams]);
 
+  // Get team player links to derive player counts per team
+  const teamPlayerLinks = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    orgId ? { organizationId: orgId, status: "active" } : "skip"
+  );
+
+  // Player count per team
+  const playerCountByTeam = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!teamPlayerLinks) {
+      return counts;
+    }
+    for (const link of teamPlayerLinks) {
+      counts.set(link.teamId, (counts.get(link.teamId) ?? 0) + 1);
+    }
+    return counts;
+  }, [teamPlayerLinks]);
+
   // Auto-select first team when coachTeams loads (only if not already set)
   useEffect(() => {
     if (coachTeams.length > 0 && !selectedTeamId) {
@@ -154,57 +159,60 @@ export default function TeamHubPage() {
         </div>
       </div>
 
-      {/* Team Selector - only show if coach has multiple teams */}
-      {coachTeams.length > 1 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Select Team</CardTitle>
-            <CardDescription>
-              View activity feed and presence for your teams
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              <Select onValueChange={setSelectedTeamId} value={selectedTeamId}>
-                <SelectTrigger className="w-[300px]">
-                  <SelectValue placeholder="Select a team" />
-                </SelectTrigger>
-                <SelectContent>
-                  {coachTeams.map((team) => (
-                    <SelectItem key={team._id} value={team._id}>
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {displayTeamId && (
-                <PresenceIndicators
-                  organizationId={orgId}
-                  teamId={displayTeamId}
-                />
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ) : coachTeams.length === 1 ? (
-        <Card>
-          <CardContent className="flex items-center justify-between pt-6">
-            <div>
-              <h2 className="font-semibold text-xl">{coachTeams[0].name}</h2>
-              <p className="text-muted-foreground text-sm">
-                {coachTeams[0].ageGroup} • {coachTeams[0].gender}
-              </p>
-            </div>
-            {displayTeamId && (
-              <PresenceIndicators
-                organizationId={orgId}
-                teamId={displayTeamId}
-              />
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
+      {/* Team selector — clickable cards, one per team */}
+      {coachTeams.length > 0 && (
+        <div
+          className={`grid gap-4 ${coachTeams.length === 1 ? "max-w-sm grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}
+        >
+          {coachTeams.map((team) => {
+            const isSelected = displayTeamId === team._id;
+            const playerCount = playerCountByTeam.get(team._id) ?? 0;
+            const meta = [team.ageGroup, team.gender, team.sportCode]
+              .filter(Boolean)
+              .join(" • ");
+            return (
+              <Card
+                className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                  isSelected ? "border-2 border-green-500 bg-green-50" : ""
+                }`}
+                key={team._id}
+                onClick={() => setSelectedTeamId(team._id)}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle
+                        className="truncate text-lg md:text-xl"
+                        title={team.name}
+                      >
+                        {team.name}
+                      </CardTitle>
+                      <p className="text-gray-600 text-xs md:text-sm">
+                        {playerCount} Players
+                      </p>
+                    </div>
+                    <div className="ml-3 flex-shrink-0 text-right">
+                      {meta && (
+                        <p className="whitespace-nowrap text-gray-500 text-xs">
+                          {meta}
+                        </p>
+                      )}
+                      {isSelected && displayTeamId && (
+                        <div className="mt-1">
+                          <PresenceIndicators
+                            organizationId={orgId}
+                            teamId={displayTeamId}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Tab Navigation and Content */}
       {displayTeamId && orgId && userId ? (

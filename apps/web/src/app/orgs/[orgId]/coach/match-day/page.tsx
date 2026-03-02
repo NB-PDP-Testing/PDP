@@ -135,7 +135,7 @@ export default function MatchDayPage() {
               Match Day - Emergency Contacts
             </h1>
             <p className="text-muted-foreground text-sm">
-              Quick access to ICE contacts for adult players
+              Quick access to ICE contacts for all players
             </p>
           </div>
         </div>
@@ -163,8 +163,8 @@ export default function MatchDayPage() {
                 without emergency contacts
               </p>
               <p className="text-amber-700 text-sm">
-                These players have not set up any ICE contacts. Remind them to
-                add emergency contacts.
+                These players have no ICE contacts on record. Adult players can
+                add their own; child players need a linked guardian.
               </p>
             </div>
           </CardContent>
@@ -180,7 +180,7 @@ export default function MatchDayPage() {
                 <Users className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-muted-foreground text-sm">Adult Players</p>
+                <p className="text-muted-foreground text-sm">Players</p>
                 <p className="font-bold text-2xl">{emergencyData.length}</p>
               </div>
             </div>
@@ -371,11 +371,11 @@ export default function MatchDayPage() {
           <Card className="col-span-full">
             <CardContent className="py-8 text-center">
               <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-              <p className="mt-4 font-medium">No adult players found</p>
+              <p className="mt-4 font-medium">No players found</p>
               <p className="text-muted-foreground text-sm">
                 {searchQuery || teamFilter !== "all"
                   ? "Try adjusting your filters"
-                  : "No adult players are enrolled in this organization"}
+                  : "No players are enrolled in this organization"}
               </p>
             </CardContent>
           </Card>

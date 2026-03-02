@@ -664,21 +664,12 @@ export const claimPlayerAccount = mutation({
     // Transfer passport sharing ownership from guardian to the newly-claimed player.
     // Any sharing consents that were set up by a guardian are now controlled by the
     // player themselves (grantedByType switches from "guardian" to "self").
-    const existingConsents = await ctx.db
-      .query("passportShareConsents")
-      .withIndex("by_player", (q) =>
-        q.eq("playerIdentityId", claimToken.playerIdentityId)
-      )
-      .collect();
-    await Promise.all(
-      existingConsents
-        .filter((c) => c.grantedByType === "guardian")
-        .map((c) =>
-          ctx.db.patch(c._id, {
-            grantedBy: args.userId,
-            grantedByType: "self",
-          })
-        )
+    await ctx.runMutation(
+      internal.models.passportSharing.transferPassportSharingOwnership,
+      {
+        playerIdentityId: claimToken.playerIdentityId,
+        newUserId: args.userId,
+      }
     );
 
     // TODO: Phase 7 — revoke parent's wellness view access on graduation to adult account.
@@ -821,6 +812,7 @@ export const claimPlayerAccount = mutation({
               title: `${player.firstName} ${player.lastName} Claimed Their Account`,
               message: `${player.firstName} ${player.lastName} has successfully claimed their PlayerARC account and is now an adult player.`,
               relatedPlayerId: claimToken.playerIdentityId,
+              targetRole: "admin",
             }
           );
         }

@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, ChevronDown, Loader2, WifiOff } from "lucide-react";
+import { CheckCircle2, Loader2, WifiOff } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -17,11 +17,6 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -29,8 +24,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useChildAccess } from "@/hooks/use-child-access";
 import { authClient } from "@/lib/auth-client";
-import { WellnessTrendCharts } from "./wellness-trend-charts";
 
 // ============================================================
 // Constants
@@ -247,6 +242,9 @@ export default function PlayerHealthCheckPage() {
   const { data: session, isPending: sessionLoading } = authClient.useSession();
   const userEmail = session?.user?.email;
 
+  // Child access check for wellness gating (Phase 7)
+  const { isChildAccount, toggles } = useChildAccess(orgId);
+
   // Player identity lookup
   const playerIdentity = useQuery(
     api.models.playerIdentities.findPlayerByEmail,
@@ -284,17 +282,6 @@ export default function PlayerHealthCheckPage() {
     playerIdentity?._id ? { playerIdentityId: playerIdentity._id } : "skip"
   );
 
-  // AI wellness insight (US-P4-010)
-  const latestInsight = useQuery(
-    api.models.playerHealthChecks.getLatestWellnessInsight,
-    playerIdentity?._id ? { playerIdentityId: playerIdentity._id } : "skip"
-  );
-
-  const checkInCount = useQuery(
-    api.models.playerHealthChecks.getWellnessCheckInCount,
-    playerIdentity?._id ? { playerIdentityId: playerIdentity._id } : "skip"
-  );
-
   // Mutations
   const submitCheck = useMutation(
     api.models.playerHealthChecks.submitDailyHealthCheck
@@ -315,7 +302,6 @@ export default function PlayerHealthCheckPage() {
   const [isOffline, setIsOffline] = useState(false);
   const [showGdprModal, setShowGdprModal] = useState(false);
   const [cycleDeclined, setCycleDeclined] = useState(false);
-  const [insightOpen, setInsightOpen] = useState(true);
   const pendingSyncKey = useRef<string | null>(null);
 
   // Determine if cycle phase section should show
@@ -572,11 +558,32 @@ export default function PlayerHealthCheckPage() {
     );
   }
 
-  // Under-18 gate
-  // TODO: Phase 7 — check parentChildAuthorizations.includeWellnessAccess.
-  // Safe default: deny access when dateOfBirth is missing (cannot verify age)
-  // or when the player is under 18 (parent must grant wellness access first).
-  if (!playerIdentity.dateOfBirth) {
+  // Child account gate: check includeWellnessAccess toggle (Phase 7)
+  if (isChildAccount && !toggles?.includeWellnessAccess) {
+    return (
+      <div className="container mx-auto max-w-3xl p-4 md:p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Wellness Access Required</CardTitle>
+            <CardDescription>
+              Your parent hasn&apos;t enabled wellness check-ins for your
+              account yet.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-sm">
+              Ask your parent or guardian to enable wellness access from their
+              Parent Portal settings. Once they&apos;ve done so, you&apos;ll be
+              able to submit your daily wellness check-in here.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Legacy under-18 gate (for youth players without a parentChildAuthorizations record)
+  if (!(playerIdentity.dateOfBirth || isChildAccount)) {
     return (
       <div className="container mx-auto max-w-3xl p-4 md:p-8">
         <Card>
@@ -590,19 +597,21 @@ export default function PlayerHealthCheckPage() {
           <CardContent>
             <p className="text-muted-foreground text-sm">
               Ask your parent or guardian to enable wellness access from their
-              Parent Portal settings. Once they've done so, you'll be able to
-              submit your daily wellness check-in here.
+              Parent Portal settings. Once they&apos;ve done so, you&apos;ll be
+              able to submit your daily wellness check-in here.
             </p>
           </CardContent>
         </Card>
       </div>
     );
   }
-  const dob = new Date(playerIdentity.dateOfBirth);
-  const ageDiff = Date.now() - dob.getTime();
+  const dob = playerIdentity.dateOfBirth
+    ? new Date(playerIdentity.dateOfBirth)
+    : null;
+  const ageDiff = dob ? Date.now() - dob.getTime() : 0;
   const ageDate = new Date(ageDiff);
   const age = Math.abs(ageDate.getUTCFullYear() - 1970);
-  if (age < 18) {
+  if (!isChildAccount && dob && age < 18) {
     return (
       <div className="container mx-auto max-w-3xl p-4 md:p-8">
         <Card>
@@ -673,12 +682,50 @@ export default function PlayerHealthCheckPage() {
             <Card key={dim.key}>
               <CardContent className="pt-5">
                 <div className="mb-3">
-                  <p className="font-medium text-sm">{dim.question}</p>
+                  <p
+                    className="font-medium text-sm"
+                    id={`dim-label-${dim.key}`}
+                  >
+                    {dim.question}
+                  </p>
                 </div>
-                <div className="flex justify-between gap-1">
+                {/* WCAG 2.1 AA — radiogroup pattern (ARIA APG radio group) */}
+                <div
+                  aria-labelledby={`dim-label-${dim.key}`}
+                  className="flex justify-between gap-1"
+                  onKeyDown={(e) => {
+                    const idx = EMOJI_SCALE.findIndex(
+                      (s) => s.value === (selected ?? 0)
+                    );
+                    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                      const next =
+                        EMOJI_SCALE[Math.min(idx + 1, EMOJI_SCALE.length - 1)];
+                      if (next) {
+                        setDimensionValues((prev) => ({
+                          ...prev,
+                          [dim.key]: next.value,
+                        }));
+                      }
+                    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+                      e.preventDefault();
+                      const prev = EMOJI_SCALE[Math.max(idx - 1, 0)];
+                      if (prev) {
+                        setDimensionValues((pv) => ({
+                          ...pv,
+                          [dim.key]: prev.value,
+                        }));
+                      }
+                    }
+                  }}
+                  role="radiogroup"
+                >
                   {EMOJI_SCALE.map((scale) => (
+                    // biome-ignore lint/a11y/useSemanticElements: custom radio widget per WAI-ARIA APG radio group pattern
                     <button
-                      className="flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border-2 transition-all"
+                      aria-checked={selected === scale.value}
+                      aria-label={`${scale.label} — ${scale.value} out of 5`}
+                      className="flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                       key={scale.value}
                       onClick={() =>
                         setDimensionValues((prev) => ({
@@ -686,6 +733,7 @@ export default function PlayerHealthCheckPage() {
                           [dim.key]: scale.value,
                         }))
                       }
+                      role="radio"
                       style={{
                         borderColor:
                           selected === scale.value
@@ -700,12 +748,24 @@ export default function PlayerHealthCheckPage() {
                             ? 0.4
                             : 1,
                       }}
+                      tabIndex={
+                        selected === scale.value ||
+                        (selected === undefined && scale.value === 1)
+                          ? 0
+                          : -1
+                      }
                       type="button"
                     >
-                      <span className="text-xl leading-none">
+                      <span aria-hidden="true" className="text-xl leading-none">
                         {scale.emoji}
                       </span>
-                      <span className="hidden text-muted-foreground text-xs sm:block">
+                      <span className="sr-only">
+                        {scale.label} — {scale.value} out of 5
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="hidden text-muted-foreground text-xs sm:block"
+                      >
                         {scale.value}
                       </span>
                     </button>
@@ -781,55 +841,6 @@ export default function PlayerHealthCheckPage() {
           Answer all dimensions above to submit.
         </p>
       )}
-
-      {/* AI Wellness Insight (US-P4-010) — collapsible panel above trend charts */}
-      {(checkInCount !== undefined || latestInsight) && (
-        <Collapsible onOpenChange={setInsightOpen} open={insightOpen}>
-          <CollapsibleTrigger asChild>
-            <button
-              className="flex w-full items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-left text-blue-900 text-sm transition-colors hover:bg-blue-100"
-              type="button"
-            >
-              <span className="font-medium">💡 Latest Insight</span>
-              <ChevronDown
-                className="h-4 w-4 shrink-0 transition-transform"
-                style={{ transform: insightOpen ? "rotate(180deg)" : "none" }}
-              />
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="rounded-b-lg border border-blue-200 border-t-0 bg-blue-50 px-4 pb-3">
-              {checkInCount !== undefined && checkInCount < 7 ? (
-                <p className="pt-2 text-blue-900 text-sm">
-                  Check in for {7 - checkInCount} more day
-                  {7 - checkInCount !== 1 ? "s" : ""} to unlock personalised
-                  insights.
-                </p>
-              ) : latestInsight ? (
-                <div className="pt-2">
-                  <p className="text-emerald-900 text-sm">
-                    {latestInsight.insight}
-                  </p>
-                  <p className="mt-1 text-emerald-700 text-xs">
-                    Generated by AI · Based on your last{" "}
-                    {latestInsight.basedOnDays} check-ins
-                  </p>
-                </div>
-              ) : (
-                <p className="pt-2 text-blue-900 text-sm">
-                  No insight available yet.
-                </p>
-              )}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-
-      {/* Trend Charts */}
-      <WellnessTrendCharts
-        enabledDimensions={enabledDimensions}
-        playerIdentityId={playerIdentity._id}
-      />
     </div>
   );
 }

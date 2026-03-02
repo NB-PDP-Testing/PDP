@@ -24,6 +24,7 @@ import {
   type BottomNavItem,
   BottomNavSpacer,
 } from "@/components/layout/bottom-nav";
+import { RoleContextBadge } from "@/components/layout/role-context-badge";
 import Loader from "@/components/loader";
 import { ResizableSidebar } from "@/components/polish/resizable-sidebar";
 import { Button } from "@/components/ui/button";
@@ -180,6 +181,7 @@ export default function OrgAdminLayout({
               </div>
 
               <div className="flex items-center gap-2">
+                <RoleContextBadge orgId={orgId} />
                 {/* Command menu search trigger */}
                 <CommandMenu orgId={orgId} />
               </div>
@@ -299,6 +301,7 @@ function LegacyNavigation({
     { href: `/orgs/${orgId}/admin/announcements`, label: "Announcements" },
     { href: `/orgs/${orgId}/admin/messaging`, label: "Messaging" },
     { href: `/orgs/${orgId}/admin/player-access`, label: "Player Access" },
+    { href: `/orgs/${orgId}/admin/player-requests`, label: "Player Requests" },
     { href: `/orgs/${orgId}/admin/settings`, label: "Settings" },
     { href: `/orgs/${orgId}/admin/settings/onboarding`, label: "Onboarding" },
     { href: `/orgs/${orgId}/admin/dev-tools`, label: "Dev Tools" },
@@ -308,7 +311,7 @@ function LegacyNavigation({
     if (href === `/orgs/${orgId}/admin`) {
       return pathname === href;
     }
-    return pathname.startsWith(href);
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (

@@ -174,6 +174,7 @@ export default function EditPlayerPassportPage() {
           enrollmentId: enrollment._id,
           ageGroup: formData.ageGroup || undefined,
           coachNotes: formData.coachNotes || undefined,
+          confirmed: true,
         });
       }
 

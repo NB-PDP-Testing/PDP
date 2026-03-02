@@ -50,6 +50,8 @@ type ParentSummaryCardProps = {
     viewedAt?: number;
     acknowledgedAt?: number;
     coachName?: string;
+    childResponse?: string;
+    childResponseAt?: number;
   };
   isUnread: boolean;
   onView: (summaryId: Id<"coachParentSummaries">) => void;
@@ -171,6 +173,24 @@ export function ParentSummaryCard({
                 {summary.publicSummary.content}
               </p>
             </div>
+
+            {/* Child response (Phase 7 - View+Interact) */}
+            {summary.childResponse && (
+              <div className="rounded-md border border-teal-200 bg-teal-50 p-3">
+                <p className="mb-1 font-medium text-teal-800 text-xs">
+                  Player response
+                </p>
+                <p className="text-sm">{summary.childResponse}</p>
+                {summary.childResponseAt && (
+                  <p className="mt-1 text-muted-foreground text-xs">
+                    {new Date(summary.childResponseAt).toLocaleDateString(
+                      "en-GB",
+                      { day: "numeric", month: "short", year: "numeric" }
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Timestamp and actions - stacked on mobile, row on desktop */}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

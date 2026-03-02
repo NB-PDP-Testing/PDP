@@ -85,6 +85,8 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
+  const reason = searchParams.get("reason");
+  const sessionTimedOut = reason === "session_timeout";
   const [checkedInvitation, setCheckedInvitation] = useState(false);
   const processPendingInvitation = useMutation(
     api.models.platformStaffInvitations.processPendingInvitation
@@ -124,6 +126,15 @@ function LoginContent() {
         <CenteredSkeleton />
       </Authenticated>
       <Unauthenticated>
+        {sessionTimedOut && (
+          <div
+            aria-live="polite"
+            className="mx-auto mb-4 max-w-md rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900 text-sm"
+            role="alert"
+          >
+            You were signed out due to inactivity. Please sign in again.
+          </div>
+        )}
         <SignInForm />
       </Unauthenticated>
       <AuthLoading>

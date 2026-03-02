@@ -62,11 +62,15 @@ export function ParentsTab({ orgId, onSuccess, onError }: ParentsTabProps) {
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
   const [suppressingIds, setSuppressingIds] = useState<Set<string>>(new Set());
 
-  const handleApproveSummary = async (summaryId: string) => {
+  const handleApproveSummary = async (
+    summaryId: string,
+    restrictChildView?: boolean
+  ) => {
     setApprovingIds((prev) => new Set(prev).add(summaryId));
     try {
       await approveSummary({
         summaryId: summaryId as Id<"coachParentSummaries">,
+        restrictChildView,
       });
       onSuccess("Summary approved and shared with parent");
     } catch (error) {
@@ -178,7 +182,8 @@ export function ParentsTab({ orgId, onSuccess, onError }: ParentsTabProps) {
         {sortedSummaries.map((item) => {
           // Common props for all card types (key handled separately per React)
           const commonProps = {
-            onApprove: () => handleApproveSummary(item._id),
+            onApprove: (restrictChildView?: boolean) =>
+              handleApproveSummary(item._id, restrictChildView),
             onSuppress: (feedback?: {
               wasInaccurate: boolean;
               wasTooSensitive: boolean;

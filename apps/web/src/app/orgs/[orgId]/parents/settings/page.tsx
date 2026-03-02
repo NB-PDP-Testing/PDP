@@ -1,5 +1,6 @@
 import { Settings } from "lucide-react";
 import type { Metadata } from "next";
+import { MyRolesSection } from "@/components/settings/my-roles-section";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 export default function ParentSettingsPage() {
   return (
     <div className="space-y-6">
+      <MyRolesSection />
       <div>
         <h1 className="font-bold text-2xl text-gray-900">Settings</h1>
         <p className="text-gray-600 text-sm">

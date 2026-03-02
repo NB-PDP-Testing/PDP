@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Clipboard,
   ClipboardList,
+  Clock,
   FileSpreadsheet,
   FileUp,
   Flag,
@@ -26,6 +27,7 @@ import {
   Share2,
   Shield,
   ShieldAlert,
+  Trash2,
   UserCheck,
   UserPlus,
   Users,
@@ -130,6 +132,11 @@ export function getAdminNavGroups(
           label: "Player Access",
           icon: Key,
         },
+        {
+          href: `/orgs/${orgId}/admin/player-requests`,
+          label: "Player Requests",
+          icon: Trash2,
+        },
       ],
     },
     {
@@ -196,6 +203,27 @@ export function getAdminNavGroups(
           href: `/orgs/${orgId}/import/history`,
           label: "Import History",
           icon: HistoryIcon,
+        },
+      ],
+    },
+    {
+      label: "Compliance",
+      icon: Shield,
+      items: [
+        {
+          href: `/orgs/${orgId}/admin/data-rights`,
+          label: "Data Rights Requests",
+          icon: Trash2,
+        },
+        {
+          href: `/orgs/${orgId}/admin/data-retention`,
+          label: "Data Retention",
+          icon: Clock,
+        },
+        {
+          href: `/orgs/${orgId}/admin/breach-register`,
+          label: "Breach Register",
+          icon: ShieldAlert,
         },
       ],
     },

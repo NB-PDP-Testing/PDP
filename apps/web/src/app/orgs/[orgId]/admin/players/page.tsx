@@ -259,6 +259,9 @@ export default function ManagePlayersPage() {
   const updatePlayerIdentityMutation = useMutation(
     api.models.playerIdentities.updatePlayerIdentity
   );
+  const approvePlayerRegistration = useMutation(
+    api.models.orgPlayerEnrollments.approvePlayerSelfRegistration
+  );
 
   // Derive whether player is youth (under 18) from DOB
   const isYouthPlayer = (() => {
@@ -342,6 +345,13 @@ export default function ManagePlayersPage() {
       status: "active",
     }
   );
+
+  // Pending self-registration requests from members (US-P6-003)
+  const pendingSelfRegistrations = useQuery(
+    api.models.orgPlayerEnrollments.getPendingSelfRegistrations,
+    { organizationId: orgId }
+  );
+
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
@@ -393,6 +403,12 @@ export default function ManagePlayersPage() {
   const [genderFilter, setGenderFilter] = useState<string>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
+  const [approvingRegistrationId, setApprovingRegistrationId] = useState<
+    string | null
+  >(null);
+  const [decliningRegistrationId, setDecliningRegistrationId] = useState<
+    string | null
+  >(null);
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(
     new Set()
   );
@@ -986,6 +1002,43 @@ export default function ManagePlayersPage() {
     duplicateGroups: duplicateGroups?.totalGroups ?? 0,
   };
 
+  // Handle pending self-registration approval
+  const handleApproveRegistration = async (enrollmentId: string) => {
+    setApprovingRegistrationId(enrollmentId);
+    try {
+      await approvePlayerRegistration({
+        enrollmentId: enrollmentId as any,
+        organizationId: orgId,
+      });
+      toast.success("Player registration approved", {
+        description: "The member has been granted the Player role.",
+      });
+    } catch (error) {
+      toast.error("Failed to approve registration", {
+        description:
+          error instanceof Error ? error.message : "Please try again",
+      });
+    } finally {
+      setApprovingRegistrationId(null);
+    }
+  };
+
+  // Handle pending self-registration decline
+  const handleDeclineRegistration = async (enrollmentId: string) => {
+    setDecliningRegistrationId(enrollmentId);
+    try {
+      await unenrollPlayer({ enrollmentId: enrollmentId as any });
+      toast.success("Registration declined");
+    } catch (error) {
+      toast.error("Failed to decline registration", {
+        description:
+          error instanceof Error ? error.message : "Please try again",
+      });
+    } finally {
+      setDecliningRegistrationId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1019,6 +1072,79 @@ export default function ManagePlayersPage() {
           </Button>
         </div>
       </div>
+
+      {/* Pending Player Registrations (US-P6-003) */}
+      {pendingSelfRegistrations && pendingSelfRegistrations.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-amber-800">
+              <UserPlus className="h-5 w-5" />
+              Pending Player Registrations ({pendingSelfRegistrations.length})
+            </CardTitle>
+            <p className="text-amber-700 text-sm">
+              These members have requested to join as players and are awaiting
+              your review.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingSelfRegistrations.map((reg) => (
+              <div
+                className="flex flex-col gap-3 rounded-lg border bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+                key={reg.enrollmentId}
+              >
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{reg.name}</span>
+                    {reg.matchFound && (
+                      <Badge className="text-xs" variant="outline">
+                        <AlertTriangle className="mr-1 h-3 w-3 text-amber-500" />
+                        Possible existing record
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    DOB: {reg.dateOfBirth}
+                    {reg.email ? ` · ${reg.email}` : ""}
+                  </p>
+                  {reg.matchFound && reg.matchedPlayerName && (
+                    <p className="text-amber-700 text-xs">
+                      May match existing record: {reg.matchedPlayerName}
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2 sm:shrink-0">
+                  <Button
+                    disabled={
+                      approvingRegistrationId === reg.enrollmentId ||
+                      decliningRegistrationId === reg.enrollmentId
+                    }
+                    onClick={() => handleApproveRegistration(reg.enrollmentId)}
+                    size="sm"
+                    variant="default"
+                  >
+                    {approvingRegistrationId === reg.enrollmentId
+                      ? "Approving..."
+                      : "Approve"}
+                  </Button>
+                  <Button
+                    disabled={
+                      approvingRegistrationId === reg.enrollmentId ||
+                      decliningRegistrationId === reg.enrollmentId
+                    }
+                    onClick={() => handleDeclineRegistration(reg.enrollmentId)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {decliningRegistrationId === reg.enrollmentId
+                      ? "Declining..."
+                      : "Decline"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -1211,6 +1337,7 @@ export default function ManagePlayersPage() {
         <div className="relative flex-1">
           <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
           <Input
+            aria-label="Search players by name"
             className="pl-10"
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search players by name..."

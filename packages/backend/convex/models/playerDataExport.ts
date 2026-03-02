@@ -1,6 +1,6 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { components } from "../_generated/api";
-import { query } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 
 // ============================================================
 // GDPR Article 20 - Right to Data Portability
@@ -32,6 +32,25 @@ export const assemblePlayerDataExport = query({
     }
     if (playerIdentity.userId !== identity.subject) {
       throw new Error("Not authorized to export data for this player");
+    }
+
+    // Server-side rate limit: one export per player per 24 hours
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const recentExport = await ctx.db
+      .query("gdprExportLog")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .order("desc")
+      .first();
+    if (recentExport && recentExport.requestedAt > twentyFourHoursAgo) {
+      const hoursRemaining = Math.ceil(
+        (recentExport.requestedAt + 24 * 60 * 60 * 1000 - Date.now()) /
+          (1000 * 60 * 60)
+      );
+      throw new ConvexError(
+        `Rate limit: you can only export your data once every 24 hours. Try again in ${hoursRemaining} hour${hoursRemaining === 1 ? "" : "s"}.`
+      );
     }
 
     // Check cycle tracking consent
@@ -281,5 +300,38 @@ export const assemblePlayerDataExport = query({
       consentRecords: consentsExport,
       wellnessCoachAccess,
     };
+  },
+});
+
+/**
+ * Record a completed GDPR data export.
+ * Called by the client after successfully downloading the export file.
+ * This record is used by assemblePlayerDataExport to enforce the 24-hour rate limit.
+ */
+export const logGdprExportRequest = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    // Verify this player belongs to the authenticated user
+    const playerIdentity = await ctx.db.get(args.playerIdentityId);
+    if (!playerIdentity || playerIdentity.userId !== identity.subject) {
+      throw new Error("Not authorized");
+    }
+
+    await ctx.db.insert("gdprExportLog", {
+      playerIdentityId: args.playerIdentityId,
+      organizationId: args.organizationId,
+      requestedAt: Date.now(),
+    });
+
+    return null;
   },
 });

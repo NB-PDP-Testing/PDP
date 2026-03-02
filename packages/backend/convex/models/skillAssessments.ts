@@ -71,6 +71,9 @@ const assessmentValidator = v.object({
   source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
   voiceNoteId: v.optional(v.id("voiceNotes")),
   createdAt: v.number(),
+  retentionExpiresAt: v.optional(v.number()),
+  retentionExpired: v.optional(v.boolean()),
+  retentionExpiredAt: v.optional(v.number()),
 });
 
 // ============================================================
@@ -98,20 +101,22 @@ export const getAssessmentsForPassport = query({
   handler: async (ctx, args) => {
     if (args.skillCode) {
       const skillCode = args.skillCode;
-      return await ctx.db
+      const results = await ctx.db
         .query("skillAssessments")
         .withIndex("by_skill", (q) =>
           q.eq("passportId", args.passportId).eq("skillCode", skillCode)
         )
         .order("desc")
         .collect();
+      return results.filter((r) => !r.retentionExpired);
     }
 
-    return await ctx.db
+    const results = await ctx.db
       .query("skillAssessments")
       .withIndex("by_passportId", (q) => q.eq("passportId", args.passportId))
       .order("desc")
       .collect();
+    return results.filter((r) => !r.retentionExpired);
   },
 });
 
@@ -128,9 +133,12 @@ export const getLatestAssessmentsForPassport = query({
       .order("desc")
       .collect();
 
-    // Get latest for each skill
+    // Get latest non-erased assessment for each skill
     const latestBySkill = new Map<string, (typeof allAssessments)[number]>();
     for (const assessment of allAssessments) {
+      if (assessment.retentionExpired) {
+        continue;
+      }
       if (!latestBySkill.has(assessment.skillCode)) {
         latestBySkill.set(assessment.skillCode, assessment);
       }
@@ -151,18 +159,16 @@ export const getSkillHistory = query({
   },
   returns: v.array(assessmentValidator),
   handler: async (ctx, args) => {
-    const dbQuery = ctx.db
+    const results = await ctx.db
       .query("skillAssessments")
       .withIndex("by_skill", (q) =>
         q.eq("passportId", args.passportId).eq("skillCode", args.skillCode)
       )
-      .order("desc");
+      .order("desc")
+      .collect();
 
-    if (args.limit) {
-      return await dbQuery.take(args.limit);
-    }
-
-    return await dbQuery.collect();
+    const active = results.filter((r) => !r.retentionExpired);
+    return args.limit ? active.slice(0, args.limit) : active;
   },
 });
 
@@ -178,7 +184,7 @@ export const getAssessmentsForPlayer = query({
   handler: async (ctx, args) => {
     if (args.sportCode) {
       const sportCode = args.sportCode;
-      return await ctx.db
+      const results = await ctx.db
         .query("skillAssessments")
         .withIndex("by_player_and_sport", (q) =>
           q
@@ -187,15 +193,17 @@ export const getAssessmentsForPlayer = query({
         )
         .order("desc")
         .collect();
+      return results.filter((r) => !r.retentionExpired);
     }
 
-    return await ctx.db
+    const results = await ctx.db
       .query("skillAssessments")
       .withIndex("by_playerIdentityId", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
       .order("desc")
       .collect();
+    return results.filter((r) => !r.retentionExpired);
   },
 });
 
@@ -242,7 +250,7 @@ export const getAssessmentHistory = query({
     })
   ),
   handler: async (ctx, args) => {
-    const assessments = await ctx.db
+    const rawAssessments = await ctx.db
       .query("skillAssessments")
       .withIndex("by_player_and_sport", (q) =>
         q
@@ -251,7 +259,10 @@ export const getAssessmentHistory = query({
       )
       .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
       .order("desc")
-      .take(args.limit ?? 100);
+      .collect();
+    const assessments = rawAssessments
+      .filter((r) => !r.retentionExpired)
+      .slice(0, args.limit ?? 100);
 
     const skillDefinitions = await ctx.db
       .query("skillDefinitions")
@@ -305,14 +316,17 @@ export const getAssessmentHistoryAllSports = query({
   ),
   handler: async (ctx, args) => {
     // Get all assessments for this player across all sports
-    const assessments = await ctx.db
+    const rawAssessments = await ctx.db
       .query("skillAssessments")
       .withIndex("by_playerIdentityId", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
       .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
       .order("desc")
-      .take(args.limit ?? 100);
+      .collect();
+    const assessments = rawAssessments
+      .filter((r) => !r.retentionExpired)
+      .slice(0, args.limit ?? 100);
 
     // Get all skill definitions to map codes to names
     const skillDefinitions = await ctx.db.query("skillDefinitions").collect();
@@ -616,6 +630,19 @@ export const recordAssessment = mutation({
       throw new Error("Rating must be between 1 and 5");
     }
 
+    // Self-assessment guard: coaches cannot submit assessments for their own player record
+    if (args.assessmentType !== "self") {
+      const identity = await ctx.auth.getUserIdentity();
+      if (identity?.subject) {
+        const playerIdentity = await ctx.db.get(passport.playerIdentityId);
+        if (playerIdentity?.userId === identity.subject) {
+          throw new Error(
+            "A coach cannot submit an assessment for their own player record"
+          );
+        }
+      }
+    }
+
     // Get previous rating for this skill
     const previousAssessment = await ctx.db
       .query("skillAssessments")
@@ -653,7 +680,7 @@ export const recordAssessment = mutation({
 
     const now = Date.now();
 
-    return await ctx.db.insert("skillAssessments", {
+    const assessmentId = await ctx.db.insert("skillAssessments", {
       passportId: args.passportId,
       playerIdentityId: passport.playerIdentityId,
       sportCode: passport.sportCode,
@@ -677,6 +704,20 @@ export const recordAssessment = mutation({
       confidence: args.confidence,
       createdAt: now,
     });
+
+    // Stamp retention expiry using org's assessmentDays config (Fix 5)
+    const retentionConfigRecord = await ctx.db
+      .query("orgRetentionConfig")
+      .withIndex("by_org", (q) =>
+        q.eq("organizationId", passport.organizationId)
+      )
+      .first();
+    const assessmentDays = retentionConfigRecord?.assessmentDays ?? 1825; // 5 years default
+    await ctx.db.patch(assessmentId, {
+      retentionExpiresAt: now + assessmentDays * 86_400_000,
+    });
+
+    return assessmentId;
   },
 });
 
@@ -708,6 +749,19 @@ export const recordBatchAssessments = mutation({
     const passport = await ctx.db.get(args.passportId);
     if (!passport) {
       throw new Error("Sport passport not found");
+    }
+
+    // Self-assessment guard: coaches cannot submit assessments for their own player record
+    if (args.assessmentType !== "self") {
+      const identity = await ctx.auth.getUserIdentity();
+      if (identity?.subject) {
+        const playerIdentity = await ctx.db.get(passport.playerIdentityId);
+        if (playerIdentity?.userId === identity.subject) {
+          throw new Error(
+            "A coach cannot submit an assessment for their own player record"
+          );
+        }
+      }
     }
 
     const now = Date.now();
@@ -871,6 +925,16 @@ export const recordAssessmentWithBenchmark = mutation({
     const playerIdentity = await ctx.db.get(passport.playerIdentityId);
     if (!playerIdentity) {
       throw new Error("Player identity not found");
+    }
+
+    // Self-assessment guard: coaches cannot submit assessments for their own player record
+    if (args.assessmentType !== "self") {
+      const identity = await ctx.auth.getUserIdentity();
+      if (identity?.subject && playerIdentity.userId === identity.subject) {
+        throw new Error(
+          "A coach cannot submit an assessment for their own player record"
+        );
+      }
     }
 
     // Calculate age group from DOB

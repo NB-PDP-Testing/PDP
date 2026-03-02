@@ -1,67 +1,160 @@
 # Ralph Progress Log
-Started: Wed 25 Feb 2026 22:06:51 GMT
+Started: Sat 28 Feb 2026 17:53:24 GMT
 ---
 
-## Phase 5 Complete — Adult Player Portal Remaining Sections
+## Codebase Patterns
+**Last Updated**: 2026-02-28 - Iteration 1
 
-All 7 stories + UAT committed to branch: ralph/adult-player-phase5-portal-sections
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Two table systems: Better Auth tables use adapter; Application tables use ctx.db
+- User ID is `user._id`, NOT `user.id`
 
-### Stories Implemented
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Biome linter requires block statements for all if: `if (!x) { return; }` NOT `if (!x) return;`
+- internalMutation/internalQuery imports from `../_generated/server` (same as mutation/query)
 
-**US-P5-001: My Progress — Player View of Sport Passports**
-- Read-only skill ratings (technical/tactical/physical/mental) with trend arrows (↑↓=)
-- Multi-sport tab/pill switcher when multiple passports exist
-- Assessment history timeline with date + score per session
-- Player notes textarea (self-editable via existing mutation)
-- Empty state when no passports exist
-- Key pattern: `getPassportsForPlayer` query, player cannot edit coach ratings
+### Quality Checks
+- Run: `npx -w packages/backend convex codegen` → `npm run check-types`
+- 248 pre-existing lint errors — new files must pass biome with zero errors
+- Pre-commit hook runs `npx biome check --diagnostic-level=error` on staged files only
 
-**US-P5-006: Radar Chart Visual Progress Profile** (added to progress page)
-- Recharts RadarChart with 5 dimensions displayed as spider chart
-- Toggle between chart and list view, persisted in localStorage
-- Ghost/comparison radar overlay showing previous assessment scores
-- Assessment history card below the ratings section
+### File Locations
+- Player data: `orgPlayerEnrollments` + `playerIdentities` tables
+- Admin pages: `apps/web/src/app/orgs/[orgId]/admin/`
+- Convex models: `packages/backend/convex/models/`
+- Convex lib (shared constants): `packages/backend/convex/lib/`
+- Schema: `packages/backend/convex/schema.ts` (~5900 lines after P9 additions)
 
-**US-P5-002: My Passport Sharing Management**
-- New backend mutations: `getMyPassportSharingData`, `revokeMyPassportSharing`, `respondToAccessRequestAsPlayer`
-- Player can approve/decline pending requests and revoke active shares
-- Pending coach acceptance state shown separately
-- Info card explaining passport sharing
+---
 
-**US-P5-003: My Injuries**
-- Full injury history grouped by active/past
-- Report New Injury dialog with body part, type, severity, date fields
-- Player-reported injuries get `reportedByRole: "player"` (visible to coaches with badge)
-- Status badges (active/recovering/cleared)
+## 2026-02-28 - US-P9-001 - Backend Erasure Request Schema, Category Map & Core Mutations
+**Iteration**: 1
+**Commit**: 92d2442624d006f4c6a46aa6bb241cdd0efa7900
+**Status**: Complete
 
-**US-P5-004: My Coach Feedback & AI Summaries**
-- New backend queries: `getCoachFeedbackForPlayer`, `acknowledgeCoachFeedbackAsPlayer`
-- CRITICAL: Only returns `publicSummary.content` — NEVER `privateInsight`
-- Unacknowledged feedback shown prominently with "New" badge
-- Acknowledge button marks feedback as read
-- All 3 sensitivity categories (normal/injury/behavior) shown to player
+### What was implemented
+- Created `packages/backend/convex/lib/erasureCategoryMap.ts` — DATA_CATEGORY_CONFIG with 8 GDPR categories
+- Added to schema.ts: erasureRequests, orgRetentionConfig, retentionCronLogs, breachRegister tables
+- Added to dailyPlayerHealthChecks: retentionExpiresAt, retentionExpired, retentionExpiredAt + by_retention_expired index
+- Added to orgPlayerEnrollments: isDeleted, deletedAt
+- Created `packages/backend/convex/models/erasureRequests.ts` with all required mutations/queries
+- Created `packages/backend/convex/models/retentionConfig.ts` with config queries, upsert, soft-delete helpers
 
-**US-P5-005: Player Data Export (GDPR Article 20)**
-- Backend: `assemblePlayerDataExport` query with 9 domains
-- CRITICAL: cyclePhase only if consent active, NEVER privateInsight
-- Frontend: "Privacy & Data" card in settings page with Download button
-- Rate limiting: 24h cooldown stored in localStorage
-- State-driven export: `useGdprExport` hook with `exportTriggered` toggle + useEffect
+### Files changed
+- packages/backend/convex/lib/erasureCategoryMap.ts (new)
+- packages/backend/convex/models/erasureRequests.ts (new)
+- packages/backend/convex/models/retentionConfig.ts (new)
+- packages/backend/convex/schema.ts (+~100 lines)
 
-**US-P5-UAT: Phase 5 E2E Tests**
-- 24 test cases in `apps/web/uat/tests/player-portal-phase5.spec.ts`
-- Covers all pages: progress, sharing, injuries, feedback, settings
-- Critical: PP5-019 verifies privateInsight NEVER appears in page source
-- Critical: PP5-024 verifies exported JSON contains Article 20 basis and no privateInsight
+### Quality checks
+- ✅ Codegen: passed
+- ✅ Type check: passed
+- ✅ Linting: passed
+- ✅ Browser verification: N/A (backend-only)
 
-### Key Patterns Learned
+### Learnings
+- Biome `useBlockStatements` requires braces on ALL if bodies (even single-line throws)
+- Schema file is huge — grep for table names, then offset/limit to read
+- Don't import `components` unless actually used — linter removes it and causes errors
 
-**Imperative Convex query triggering**: Use state-driven approach — boolean state → query with "skip" → useEffect watches for data. Convex queries cannot be triggered imperatively.
+---
 
-**Cognitive complexity limits (biome max 15)**: When async map callbacks contain multiple conditionals and DB lookups, extract them into module-level helper functions (e.g., `enrichAutoApprovedSummary`, `fetchSummariesForLink`, `groupSummariesBySport`, `lookupCoachName`).
+## 2026-02-28 - US-P9-002 - GDPR Erasure Request UI (Player Settings)
+**Status**: Complete
+- Created `data-rights-section.tsx` in player settings with Your Data Rights section
+- Three rights cards: access, portability, erasure/deletion
+- ErasureRequestForm: textarea, checkbox confirmation, submit button (disabled until confirmed)
+- StatusCard: shows Pending/In Review/Completed/Rejected status + admin response note
+- Calls `api.models.erasureRequests.submitErasureRequest`
 
-**View toggle persistence**: `localStorage.getItem("playerProgressView")` with SSR guard. Pass as initializer function to `useState(() => getInitialViewMode())`.
+---
 
-**ReactMutation type**: `useMutation` returns `ReactMutation<T>` which returns `Promise<unknown>`, not `Promise<void>`. Use `Promise<unknown>` for custom hook parameters.
+## 2026-02-28 - US-P9-003 - Admin Erasure Request Processing
+**Status**: Complete
+- Created `packages/backend/convex/actions/erasureExecution.ts` — executes soft-delete per category
+- Category handlers: WELLNESS_DATA, COMMUNICATION_DATA, PLAYER_PROFILE (soft-delete enrollment)
+- AUDIT_LOGS + CHILD_AUTH_LOGS always retained (legal obligation)
+- Calls `retentionConfig.softDeleteAllWellnessForPlayer` and `softDeleteAllWellnessSessionsForPlayer`
 
-**aria-label on div**: Requires `role="img"` to pass accessibility lint.
+---
+
+## 2026-02-28 - US-P9-004 - Admin Erasure Request Review Dashboard
+**Status**: Complete
+- Created `/admin/data-rights/page.tsx` with pending/completed request tables
+- Per-category decision table with locked rows (AUDIT_LOGS, CHILD_AUTH_LOGS)
+- Process Request flow with confirm dialog
+- Fixed `session.user._id` → `session.user.id` (Better Auth uses `.id`)
+- Fixed `noNonNullAssertion` Biome error with explicit object spread
+
+---
+
+## 2026-02-28 - US-P9-005 - Data Retention Configuration UI
+**Status**: Complete
+- Added `getUpcomingExpiryCountsForOrg` query to `retentionConfig.ts`
+- Stamped `retentionExpiresAt` on wellness records in `playerHealthChecks.ts`
+- Created `/admin/data-retention/page.tsx` with 6-category config table + preview
+- Legal minimums: injuryDays ≥ 2555 (locked), auditLogDays ≥ 1095 (locked)
+- Added Clock icon + Data Retention link to admin sidebar Compliance group
+
+---
+
+## 2026-02-28 - US-P9-006 - Retention Enforcement Cron
+**Status**: Complete
+- Created `packages/backend/convex/jobs/retentionEnforcement.ts`
+  - `enforceRetentionPolicy`: daily 02:00 UTC — phase 1 soft-delete, phase 2 hard-delete (30-day grace)
+  - `sendWeeklyRetentionDigest`: Monday 08:00 UTC — 7-day summary log
+- Registered in `crons.ts`: crons.daily + crons.weekly
+
+---
+
+## 2026-02-28 - US-P9-007 - axe-playwright Accessibility Setup
+**Status**: Complete
+- Installed `@axe-core/playwright ^4.11.1` in apps/web
+- Created `apps/web/uat/tests/accessibility.spec.ts` with AxeBuilder audits on 5 pages
+- Critical/serious violations fail test; moderate/minor are console.warn
+
+---
+
+## 2026-02-28 - US-P9-008 - WCAG AA: Emoji Scale, Focus, Contrast
+**Status**: Complete
+- Applied WAI-ARIA APG radio group pattern to health check emoji scale
+- `role="radiogroup"`, `aria-labelledby`, ArrowKey keyboard navigation
+- Each button: `role="radio"`, `aria-checked`, `aria-label` with plain text
+- Emoji `aria-hidden="true"`, `sr-only` label spans inside buttons
+- Roving `tabIndex` pattern; `focus-visible:ring-2` focus indicator
+- Added `prefers-reduced-motion` block to `index.css`
+
+---
+
+## 2026-02-28 - US-P9-009 - Form Labels, Keyboard Nav, Skip Links
+**Status**: Complete
+- Added `aria-label="Search players by name"` to admin players search input
+- Verified skip link (SkipLink component) exists in root layout
+- Verified shadcn/Radix dialog keyboard handling (Escape to close)
+- Verified touch targets already have min-h/min-w from Phase 4
+
+---
+
+## 2026-02-28 - US-P9-010 - Data Breach Notification & Breach Register
+**Status**: Complete
+- Created `packages/backend/convex/models/breachRegister.ts`
+  - listBreaches, getBreachById, logBreach, updateBreachStatus
+- Created `/admin/breach-register/page.tsx`
+  - 72-hour overdue warning banner, LogBreachDialog, UpdateBreachDialog
+  - Severity color codes (low/medium/high/critical), status tracking table
+- Created `docs/breach-notification-procedure.md` — Irish DPC 6-step procedure
+
+---
+
+## 2026-02-28 - US-P9-UAT - Phase 9 Compliance E2E Tests
+**Status**: Complete
+- Created `apps/web/uat/tests/compliance-phase9.spec.ts`
+  - 26 automated UI tests across erasure player/admin flows, retention config, breach register, WCAG
+  - Manual test protocol: keyboard nav, VoiceOver, high-contrast, retention cron, breach workflow
+- All previous stories US-P9-001 through US-P9-010 complete and passing
+
+---

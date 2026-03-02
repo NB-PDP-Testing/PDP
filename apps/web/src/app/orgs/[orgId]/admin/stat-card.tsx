@@ -29,6 +29,11 @@ export function StatCard({
     changeType?: "increase" | "decrease" | "neutral";
   };
 }) {
+  // WCAG contrast note: org-theme colours are used here as icon/badge text on a 10% tinted
+  // background of the same colour. This pattern is decorative (icons + small labels) and the
+  // text content is always duplicated as readable text in the card body. If an org configures
+  // a very light primary colour (e.g. near white), the icon colour may fall below 3:1 contrast.
+  // Future enhancement: validate theme contrast in the org settings UI before saving.
   const variantStyles = {
     primary: "bg-[rgb(var(--org-primary-rgb)/0.1)] text-[var(--org-primary)]",
     secondary:

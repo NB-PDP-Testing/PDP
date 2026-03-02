@@ -220,6 +220,17 @@ const customMemberTable = defineTable({
     )
   ),
 
+  // Primary functional role - persisted default for post-login redirect
+  // Does NOT change when switching roles mid-session (unlike activeFunctionalRole)
+  primaryFunctionalRole: v.optional(
+    v.union(
+      v.literal("coach"),
+      v.literal("parent"),
+      v.literal("admin"),
+      v.literal("player")
+    )
+  ),
+
   // Pending role requests awaiting admin approval
   pendingFunctionalRoleRequests: v.optional(
     v.array(

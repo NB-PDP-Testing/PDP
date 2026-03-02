@@ -474,6 +474,55 @@ export const updateMyProfile = mutation({
 });
 
 /**
+ * Sync the player's first and last name from their auth account (Google/Microsoft).
+ * For OAuth users, user.name is the source of truth and cannot be changed in-app.
+ * This is needed when the playerIdentity name was set from a different source
+ * (e.g., a linked child account) and has drifted from the auth account name.
+ */
+export const syncNameFromAuth = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    const player = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!player) {
+      throw new Error("Player profile not found");
+    }
+    if (player.playerType !== "adult") {
+      throw new Error("Only adult players can sync their name");
+    }
+
+    const authName = (user.name ?? "").trim();
+    if (!authName) {
+      throw new Error("No name available from your account");
+    }
+
+    // Split at the first space: "First Middle Last" → firstName="First", lastName="Middle Last"
+    const spaceIdx = authName.indexOf(" ");
+    const firstName =
+      spaceIdx !== -1 ? authName.substring(0, spaceIdx).trim() : authName;
+    const lastName =
+      spaceIdx !== -1 ? authName.substring(spaceIdx + 1).trim() : "";
+
+    await ctx.db.patch(player._id, {
+      firstName,
+      lastName,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
  * Link an existing youth player to their user account when they turn 18
  * This is used when a youth player creates an account
  */
@@ -701,6 +750,76 @@ export const getTodayPriorityData = query({
       activeInjuryCount: allActive.length,
       activeInjuryBodyPart: allActive[0]?.bodyPart ?? null,
     };
+  },
+});
+
+// ============================================================
+// PHASE 9: GDPR ARTICLE 17 — ANONYMISATION
+// ============================================================
+
+/**
+ * Anonymise a player's profile data as part of an approved GDPR erasure request.
+ *
+ * This does NOT delete the orgPlayerEnrollments record (referential integrity must
+ * be preserved for historical assessments, injuries, etc.). Instead:
+ * - Marks the enrollment as deleted (isDeleted, deletedAt)
+ * - Anonymises the playerIdentities record (replaces PII with placeholder values)
+ * - Deletes associated emergency contacts
+ *
+ * The record ID is preserved so historical records remain internally consistent.
+ */
+export const anonymisePlayerProfile = internalMutation({
+  args: {
+    playerId: v.id("orgPlayerEnrollments"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const enrollment = await ctx.db.get(args.playerId);
+    if (!enrollment) {
+      return null;
+    }
+
+    const now = Date.now();
+
+    // Mark enrollment as deleted (soft delete)
+    await ctx.db.patch(args.playerId, {
+      isDeleted: true,
+      deletedAt: now,
+    });
+
+    // Anonymise the playerIdentities record — replace PII with placeholder values
+    const playerIdentity = await ctx.db.get(enrollment.playerIdentityId);
+    if (playerIdentity) {
+      await ctx.db.patch(enrollment.playerIdentityId, {
+        firstName: "Deleted",
+        lastName: "Player",
+        dateOfBirth: "1900-01-01",
+        email: undefined,
+        phone: undefined,
+        address: undefined,
+        address2: undefined,
+        town: undefined,
+        county: undefined,
+        postcode: undefined,
+        country: undefined,
+        userId: undefined, // Unlink the Better Auth user account
+        updatedAt: now,
+      });
+    }
+
+    // Delete associated emergency contacts (these are PII and have no referential value)
+    const emergencyContacts = await ctx.db
+      .query("playerEmergencyContacts")
+      .withIndex("by_priority", (q) =>
+        q.eq("playerIdentityId", enrollment.playerIdentityId)
+      )
+      .collect();
+
+    for (const contact of emergencyContacts) {
+      await ctx.db.delete(contact._id);
+    }
+
+    return null;
   },
 });
 

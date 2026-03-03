@@ -1,0 +1,129 @@
+{
+  "version": "3.1",
+  "data_api_version": "3.0",
+  "routing_model": {},
+  "screens": [
+    {
+      "id": "WELLNESS_SCREEN",
+      "title": "Daily Wellness Check",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "RadioButtonsGroup",
+            "name": "sleepQuality",
+            "label": "😴 Sleep Quality",
+            "required": false,
+            "data-source": [
+              { "id": "1", "title": "😢 Very Poor" },
+              { "id": "2", "title": "😕 Poor" },
+              { "id": "3", "title": "😐 Neutral" },
+              { "id": "4", "title": "🙂 Good" },
+              { "id": "5", "title": "😁 Great" }
+            ]
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "energyLevel",
+            "label": "⚡ Energy Level",
+            "required": false,
+            "data-source": [
+              { "id": "1", "title": "😢 Very Poor" },
+              { "id": "2", "title": "😕 Poor" },
+              { "id": "3", "title": "😐 Neutral" },
+              { "id": "4", "title": "🙂 Good" },
+              { "id": "5", "title": "😁 Great" }
+            ]
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "foodIntake",
+            "label": "🥗 Food Intake",
+            "required": false,
+            "data-source": [
+              { "id": "1", "title": "😢 Very Poor" },
+              { "id": "2", "title": "😕 Poor" },
+              { "id": "3", "title": "😐 Neutral" },
+              { "id": "4", "title": "🙂 Good" },
+              { "id": "5", "title": "😁 Great" }
+            ]
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "waterIntake",
+            "label": "💧 Water Intake",
+            "required": false,
+            "data-source": [
+              { "id": "1", "title": "😢 Very Poor" },
+              { "id": "2", "title": "😕 Poor" },
+              { "id": "3", "title": "😐 Neutral" },
+              { "id": "4", "title": "🙂 Good" },
+              { "id": "5", "title": "😁 Great" }
+            ]
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "mood",
+            "label": "😊 Mood",
+            "required": false,
+            "data-source": [
+              { "id": "1", "title": "😢 Very Poor" },
+              { "id": "2", "title": "😕 Poor" },
+              { "id": "3", "title": "😐 Neutral" },
+              { "id": "4", "title": "🙂 Good" },
+              { "id": "5", "title": "😁 Great" }
+            ]
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "motivation",
+            "label": "🔥 Motivation",
+            "required": false,
+            "data-source": [
+              { "id": "1", "title": "😢 Very Poor" },
+              { "id": "2", "title": "😕 Poor" },
+              { "id": "3", "title": "😐 Neutral" },
+              { "id": "4", "title": "🙂 Good" },
+              { "id": "5", "title": "😁 Great" }
+            ]
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "physicalFeeling",
+            "label": "💪 Physical Feeling",
+            "required": false,
+            "data-source": [
+              { "id": "1", "title": "😢 Very Poor" },
+              { "id": "2", "title": "😕 Poor" },
+              { "id": "3", "title": "😐 Neutral" },
+              { "id": "4", "title": "🙂 Good" },
+              { "id": "5", "title": "😁 Great" }
+            ]
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "muscleRecovery",
+            "label": "🏋️ Muscle Recovery",
+            "required": false,
+            "data-source": [
+              { "id": "1", "title": "😢 Very Poor" },
+              { "id": "2", "title": "😕 Poor" },
+              { "id": "3", "title": "😐 Neutral" },
+              { "id": "4", "title": "🙂 Good" },
+              { "id": "5", "title": "😁 Great" }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Submit my check-in",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {}
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -5,6 +5,9 @@
  * Currently supports basic email sending - can be extended with Resend, SendGrid, etc.
  */
 
+// Regex defined at module level for performance
+const WHITESPACE_REGEX = /\s+/;
+
 type TeamInfo = {
   id: string;
   name: string;
@@ -1428,6 +1431,412 @@ ${loginUrl}
 }
 
 // ============================================================
+// GRADUATION INVITATION EMAIL
+// ============================================================
+
+type GraduationInvitationEmailData = {
+  email: string;
+  playerFirstName: string;
+  organizationName: string;
+  claimLink: string; // Full URL: /claim-account?token=xxx
+};
+
+/**
+ * Send a graduation invitation email to a player turning 18
+ *
+ * Called by the sendGraduationInvitation Convex action when a guardian
+ * initiates the account handover process.
+ */
+export async function sendGraduationInvitationEmail(
+  data: GraduationInvitationEmailData
+): Promise<void> {
+  const { email, playerFirstName, organizationName, claimLink } = data;
+
+  const subject = `Claim Your PlayerARC Account — ${organizationName}`;
+
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:40px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:40px 40px 32px;text-align:center;">
+      <h1 style="color:#ffffff;font-size:28px;font-weight:700;margin:0 0 8px;">
+        🎓 PlayerARC
+      </h1>
+      <p style="color:#bfdbfe;font-size:16px;margin:0;">Your sports journey, your account</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:40px;">
+      <h2 style="color:#111827;font-size:22px;font-weight:600;margin:0 0 16px;">
+        Hi ${playerFirstName},
+      </h2>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">
+        You've reached a milestone — your guardian has invited you to take ownership of
+        your PlayerARC sports profile at <strong>${organizationName}</strong>.
+      </p>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 32px;">
+        Claiming your account means you'll have direct access to your development history,
+        goals, assessments, and team activity — all under your own login.
+      </p>
+
+      <!-- CTA Button -->
+      <div style="text-align:center;margin:0 0 32px;">
+        <a href="${claimLink}"
+           style="display:inline-block;background:#2563eb;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:8px;">
+          Claim Your Account
+        </a>
+      </div>
+
+      <!-- Expiry notice -->
+      <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:16px;margin:0 0 24px;">
+        <p style="color:#92400e;font-size:14px;margin:0;">
+          ⏰ <strong>This link expires in 30 days.</strong> If it expires, ask your guardian to send a new invite from their parent dashboard.
+        </p>
+      </div>
+
+      <!-- Help text -->
+      <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 8px;">
+        If you have trouble with the button above, copy and paste this URL into your browser:
+      </p>
+      <p style="color:#2563eb;font-size:13px;word-break:break-all;margin:0 0 24px;">
+        ${claimLink}
+      </p>
+
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;">
+
+      <p style="color:#9ca3af;font-size:13px;margin:0;">
+        If you weren't expecting this email, you can safely ignore it. No action will be taken without your confirmation.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#f9fafb;padding:24px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="color:#9ca3af;font-size:13px;margin:0;">
+        © ${new Date().getFullYear()} PlayerARC. All rights reserved.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const textBody = `
+Hi ${playerFirstName},
+
+You've reached a milestone — your guardian has invited you to take ownership of your PlayerARC sports profile at ${organizationName}.
+
+Claim your account by clicking the link below:
+
+${claimLink}
+
+This link expires in 30 days. If it expires, ask your guardian to send a new invite from their parent dashboard.
+
+If you weren't expecting this email, you can safely ignore it.
+
+© ${new Date().getFullYear()} PlayerARC. All rights reserved.
+  `.trim();
+
+  // Send email via Resend API
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Graduation invitation email will not be sent. Set RESEND_API_KEY in Convex dashboard."
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error(
+        "❌ Failed to send graduation invitation email via Resend:",
+        {
+          status: response.status,
+          error: errorData,
+        }
+      );
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log(
+      "✅ Graduation invitation email sent successfully via Resend:",
+      result.id
+    );
+  } catch (error) {
+    console.error("❌ Error sending graduation invitation email:", error);
+    // Don't throw — invitation record is already created in the DB
+  }
+}
+
+// ============================================================
+// VERIFICATION PIN EMAIL
+// ============================================================
+
+type VerificationPinEmailData = {
+  email: string;
+  playerFirstName: string;
+  pin: string;
+};
+
+/**
+ * Send a verification PIN email to a player claiming their account
+ * Used as fallback when no mobile number is on record
+ */
+export async function sendVerificationPinEmail(
+  data: VerificationPinEmailData
+): Promise<void> {
+  const { email, playerFirstName, pin } = data;
+
+  const subject = "Your PlayerARC Verification Code";
+
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:32px 40px 24px;text-align:center;">
+      <h1 style="color:#ffffff;font-size:24px;font-weight:700;margin:0;">🔒 PlayerARC</h1>
+      <p style="color:#bfdbfe;font-size:14px;margin:8px 0 0;">Identity Verification</p>
+    </div>
+    <div style="padding:40px;text-align:center;">
+      <p style="color:#374151;font-size:16px;margin:0 0 24px;">Hi ${playerFirstName},</p>
+      <p style="color:#374151;font-size:15px;margin:0 0 24px;">
+        Your PlayerARC account claim verification code is:
+      </p>
+      <div style="background:#f3f4f6;border-radius:12px;padding:24px;margin:0 0 24px;display:inline-block;width:100%;box-sizing:border-box;">
+        <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#111827;font-family:monospace;">${pin}</span>
+      </div>
+      <p style="color:#6b7280;font-size:14px;margin:0 0 8px;">
+        ⏰ This code expires in <strong>10 minutes</strong>.
+      </p>
+      <p style="color:#9ca3af;font-size:13px;margin:0;">
+        If you did not request this code, you can safely ignore this email.
+      </p>
+    </div>
+    <div style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="color:#9ca3af;font-size:12px;margin:0;">© ${new Date().getFullYear()} PlayerARC. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const textBody = `Hi ${playerFirstName},\n\nYour PlayerARC account claim verification code is: ${pin}\n\nThis code expires in 10 minutes.\n\nIf you did not request this code, you can safely ignore this email.\n\n© ${new Date().getFullYear()} PlayerARC.`;
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Verification PIN email will not be sent."
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send verification PIN email:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Verification PIN email sent successfully:", result.id);
+  } catch (error) {
+    console.error("❌ Error sending verification PIN email:", error);
+  }
+}
+
+/**
+ * Send a player join approval email
+ *
+ * Sent when an admin approves a player's join request.
+ * Content: 'Your request to join [Org] has been approved. You now have access to your player portal.'
+ */
+export async function sendPlayerJoinApprovalEmail(data: {
+  email: string;
+  userName: string;
+  organizationName: string;
+  orgLink: string;
+  linkedToHistory: boolean;
+}): Promise<void> {
+  const { email, userName, organizationName, orgLink, linkedToHistory } = data;
+  const firstName = userName.trim().split(WHITESPACE_REGEX)[0] || userName;
+
+  const subject = `You've been approved to join ${organizationName} on PlayerARC`;
+  const preheaderText = `Your request to join ${organizationName} has been approved.`;
+  const logoUrl = getLogoUrl();
+
+  const historyNote = linkedToHistory
+    ? '<p style="margin: 0 0 16px 0; color: #22c55e;">✅ Your existing player history has been linked to your account.</p>'
+    : "";
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="display: none; max-height: 0px; overflow: hidden;">${preheaderText}</div>
+        <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
+            <tr>
+              <td style="text-align: center; padding-bottom: 4px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 12px;">
+                      <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto; display: block;" />
+                    </td>
+                    <td style="vertical-align: middle;">
+                      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; line-height: 1.2;">PlayerARC</h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center; padding-top: 0;">
+                <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic;">As many as possible, for as long as possible…</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
+          <h2 style="color: #1E3A5F; margin: 0 0 16px 0;">Welcome to ${organizationName}!</h2>
+          <p style="margin: 0 0 16px 0;">Hi ${firstName},</p>
+          <p style="margin: 0 0 16px 0;">Your request to join <strong>${organizationName}</strong> has been approved. You now have access to your player portal.</p>
+          ${historyNote}
+          <p style="margin: 0 0 16px 0;">From your player portal you can:</p>
+          <ul style="margin: 0 0 24px 0; padding-left: 20px;">
+            <li style="margin-bottom: 8px;">View your player passport and development history</li>
+            <li style="margin-bottom: 8px;">Track your goals and assessments</li>
+            <li style="margin-bottom: 8px;">Access your training records</li>
+          </ul>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${orgLink}" style="background-color: #1E3A5F; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Go to Player Portal</a>
+          </div>
+          <p style="font-size: 12px; color: #999; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="${orgLink}" style="color: #1E3A5F; word-break: break-all;">${orgLink}</a>
+          </p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+          <p>© ${new Date().getFullYear()} PlayerARC. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const textBody = `Hi ${firstName},
+
+Your request to join ${organizationName} has been approved. You now have access to your player portal.
+${linkedToHistory ? "\n✅ Your existing player history has been linked to your account.\n" : ""}
+Visit your player portal: ${orgLink}
+
+© ${new Date().getFullYear()} PlayerARC.`;
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Player approval email will not be sent."
+    );
+    console.log(
+      `[sendPlayerJoinApprovalEmail] Would send to: ${email}, org: ${organizationName}`
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send player approval email:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Player approval email sent successfully:", result.id);
+  } catch (error) {
+    console.error("❌ Error sending player approval email:", error);
+  }
+}
+
+// ============================================================
 // EMAIL VERIFICATION
 // ============================================================
 
@@ -1569,6 +1978,7 @@ type PasswordResetEmailData = {
 export async function sendPasswordResetEmail(
   data: PasswordResetEmailData
 ): Promise<void> {
+  // biome-ignore lint/correctness/noUnusedVariables: name is used in the HTML template literal below
   const { to, name, resetUrl } = data;
   const logoUrl = getLogoUrl();
   const subject = "Reset your PlayerARC password";
@@ -1793,5 +2203,166 @@ export async function sendMagicLinkEmail(
     console.log("✅ Magic link email sent successfully:", result.id);
   } catch (error) {
     console.error("❌ Error sending magic link email:", error);
+  }
+}
+
+// ============================================================
+// Child Account Invite Email (Phase 7: Child Authorization)
+// ============================================================
+
+type ChildAccountInviteEmailData = {
+  email: string;
+  playerFirstName: string;
+  parentName: string;
+  organizationName: string;
+  setupLink: string;
+};
+
+export async function sendChildAccountInviteEmail(
+  data: ChildAccountInviteEmailData
+): Promise<void> {
+  const { email, playerFirstName, parentName, organizationName, setupLink } =
+    data;
+
+  const subject = `${parentName} has given you access to PlayerARC at ${organizationName}`;
+
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:40px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:40px 40px 32px;text-align:center;">
+      <h1 style="color:#ffffff;font-size:28px;font-weight:700;margin:0 0 8px;">
+        PlayerARC
+      </h1>
+      <p style="color:#c4b5fd;font-size:16px;margin:0;">Your sports journey, your way</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:40px;">
+      <h2 style="color:#111827;font-size:22px;font-weight:600;margin:0 0 16px;">
+        Hi ${playerFirstName}!
+      </h2>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">
+        <strong>${parentName}</strong> has given you access to see your player development data at
+        <strong>${organizationName}</strong> on PlayerARC.
+      </p>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 32px;">
+        Set up your account to view your assessments, development goals, and coach feedback — all in one place.
+      </p>
+
+      <!-- CTA Button -->
+      <div style="text-align:center;margin:0 0 32px;">
+        <a href="${setupLink}"
+           style="display:inline-block;background:#4f46e5;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:8px;">
+          Set Up My Account
+        </a>
+      </div>
+
+      <!-- Expiry notice -->
+      <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:16px;margin:0 0 24px;">
+        <p style="color:#92400e;font-size:14px;margin:0;">
+          ⏰ <strong>This link expires in 7 days.</strong> If it expires, ask your parent to send a new invite from their parent dashboard.
+        </p>
+      </div>
+
+      <!-- Help text -->
+      <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 8px;">
+        If you have trouble with the button above, copy and paste this URL into your browser:
+      </p>
+      <p style="color:#4f46e5;font-size:13px;word-break:break-all;margin:0 0 24px;">
+        ${setupLink}
+      </p>
+
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;">
+
+      <p style="color:#9ca3af;font-size:13px;margin:0;">
+        If you weren't expecting this email, you can safely ignore it. No account will be created without your action.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#f9fafb;padding:24px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="color:#9ca3af;font-size:13px;margin:0;">
+        © ${new Date().getFullYear()} PlayerARC. All rights reserved.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const textBody = `
+Hi ${playerFirstName}!
+
+${parentName} has given you access to see your player development data at ${organizationName} on PlayerARC.
+
+Set up your account by clicking the link below:
+
+${setupLink}
+
+This link expires in 7 days. If it expires, ask your parent to send a new invite from their parent dashboard.
+
+If you weren't expecting this email, you can safely ignore it.
+
+© ${new Date().getFullYear()} PlayerARC. All rights reserved.
+  `.trim();
+
+  // Send email via Resend API
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Child account invite email will not be sent. Set RESEND_API_KEY in Convex dashboard."
+    );
+    console.log("📧 Child account invite (not sent):", {
+      to: email,
+      subject,
+      setupLink,
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error(
+        "❌ Failed to send child account invite email via Resend:",
+        {
+          status: response.status,
+          error: errorData,
+        }
+      );
+      return;
+    }
+
+    const result = await response.json();
+    console.log("✅ Child account invite email sent successfully:", result.id);
+  } catch (error) {
+    console.error("❌ Error sending child account invite email:", error);
   }
 }

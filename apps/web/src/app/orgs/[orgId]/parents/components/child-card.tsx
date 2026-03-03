@@ -8,17 +8,88 @@ import {
   Calendar,
   CheckCircle,
   ChevronRight,
+  GraduationCap,
   Heart,
+  Mail,
   Star,
   Target,
   TrendingUp,
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { SendGraduationInviteDialog } from "@/components/graduation/send-invite-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { GrantChildAccessSection } from "./grant-child-access-section";
+
+function isEighteenOrOver(dateOfBirth?: string): boolean {
+  if (!dateOfBirth) {
+    return false;
+  }
+  const dob = new Date(dateOfBirth);
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 18);
+  return dob <= cutoff;
+}
+
+type ChildGraduationBannerProps = {
+  playerIdentityId: Id<"playerIdentities">;
+  playerName: string;
+};
+
+function ChildGraduationBanner({
+  playerIdentityId,
+  playerName,
+}: ChildGraduationBannerProps) {
+  const [showDialog, setShowDialog] = useState(false);
+  const graduationStatus = useQuery(
+    api.models.playerGraduations.getPlayerGraduationStatus,
+    { playerIdentityId }
+  );
+
+  // Don't show if player has already claimed their adult account
+  if (graduationStatus?.status === "claimed") {
+    return null;
+  }
+
+  const hasExistingInvite = graduationStatus?.status === "invitation_sent";
+
+  return (
+    <>
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <div className="mb-2 flex items-center gap-2">
+          <GraduationCap className="h-4 w-4 text-amber-700" />
+          <span className="font-medium text-amber-900 text-sm">
+            {playerName} has turned 18
+          </span>
+        </div>
+        {hasExistingInvite && (
+          <p className="mb-2 text-amber-700 text-xs">
+            An invite was previously sent — you can send another.
+          </p>
+        )}
+        <Button
+          className="w-full bg-amber-600 text-white hover:bg-amber-700"
+          onClick={() => setShowDialog(true)}
+          size="sm"
+        >
+          <Mail className="mr-2 h-4 w-4" />
+          Send Account Invite
+        </Button>
+      </div>
+
+      <SendGraduationInviteDialog
+        onClose={() => setShowDialog(false)}
+        open={showDialog}
+        playerIdentityId={playerIdentityId}
+        playerName={playerName}
+      />
+    </>
+  );
+}
 
 // US-PERF-015/016: Type for bulk child data passed from parent dashboard
 type BulkChildData = {
@@ -66,6 +137,7 @@ type ChildCardProps = {
       dateOfBirth?: string;
     };
     enrollment?: {
+      _id?: Id<"orgPlayerEnrollments">;
       ageGroup?: string;
       status?: string;
       attendance?: { training?: number; matches?: number };
@@ -655,6 +727,22 @@ export function ChildCard({ child, orgId, bulkData }: ChildCardProps) {
             <span className="font-medium">View Full Passport</span>
             <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
+        )}
+        {/* Graduation Banner - shown for 18+ children who haven't claimed their account */}
+        {isEighteenOrOver(player.dateOfBirth) && (
+          <ChildGraduationBanner
+            playerIdentityId={player._id}
+            playerName={`${player.firstName} ${player.lastName}`}
+          />
+        )}
+        {/* Grant Player Access - shown for under-18 children with an enrollment */}
+        {!isEighteenOrOver(player.dateOfBirth) && enrollment?._id && (
+          <GrantChildAccessSection
+            childName={`${player.firstName} ${player.lastName}`}
+            childPlayerId={enrollment._id}
+            dateOfBirth={player.dateOfBirth}
+            organizationId={orgId}
+          />
         )}
       </CardContent>
     </Card>

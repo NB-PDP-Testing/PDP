@@ -97,6 +97,8 @@ const _playerIdentityValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   createdFrom: v.optional(v.string()),
+  normalizedFirstName: v.optional(v.string()),
+  normalizedLastName: v.optional(v.string()),
 });
 
 // ============================================================
@@ -1656,7 +1658,7 @@ export const getSmartMatchesForGuardian = query({
         results.push({
           playerIdentityId: enrollment.playerIdentityId,
           name: `${player.firstName} ${player.lastName}`,
-          ageGroup: enrollment.ageGroup,
+          ageGroup: enrollment.ageGroup ?? "",
           dateOfBirth: player.dateOfBirth,
           matchScore: score,
           matchReasons,

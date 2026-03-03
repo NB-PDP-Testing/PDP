@@ -483,6 +483,7 @@ export const createInvitationRequest = mutation({
         title: "New Invitation Request",
         message: `${args.userEmail} is requesting a new invitation`,
         link: `/orgs/${invitationResult.organizationId}/admin/invitations?tab=requests`,
+        targetRole: "admin",
       });
     }
 
@@ -1062,6 +1063,7 @@ export const notifyExistingUserOfInvitation = mutation({
       title: "You've been invited to an organization",
       message: `You've been invited to join ${orgName}. Click to accept.`,
       link: `/orgs/accept-invitation/${args.invitationId}`,
+      targetRole: "admin",
     });
 
     return { notified: true };

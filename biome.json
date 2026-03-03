@@ -36,7 +36,8 @@
       "!**/mvp-app",
       "!**/apps/web/uat",
       "!**/test-results",
-      "!**/playwright-report"
+      "!**/playwright-report",
+      "!**/.claude/worktrees"
     ]
   },
   "formatter": {

@@ -32,6 +32,7 @@ import {
   CoachMobileNav,
   CoachSidebar,
 } from "@/components/layout/coach-sidebar";
+import { RoleContextBadge } from "@/components/layout/role-context-badge";
 import Loader from "@/components/loader";
 import { HeaderQuickActionsMenu } from "@/components/quick-actions/header-quick-actions-menu";
 import { Button } from "@/components/ui/button";
@@ -434,6 +435,7 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="flex items-center gap-2">
+              <RoleContextBadge orgId={orgId} />
               {/* Notification Center */}
               <NotificationCenter organizationId={orgId} />
 

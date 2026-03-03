@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  Bell,
   CheckCircle,
   Clock,
   Crown,
@@ -27,6 +28,7 @@ import { toast } from "sonner";
 import { LogoUpload } from "@/components/logo-upload";
 import { OrgThemedButton } from "@/components/org-themed-button";
 import { DensityToggle } from "@/components/polish/density-toggle";
+import { MyRolesSection } from "@/components/settings/my-roles-section";
 import { NotificationPreferences } from "@/components/settings/notification-preferences";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,11 +55,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
 import { getContrastColor, getWCAGCompliance } from "@/lib/color-utils";
 import { StatCard } from "../stat-card";
+import { WellnessDispatchSection } from "./wellness-dispatch-section";
 
 // Default colors for preview when no color is set
 const DEFAULT_COLORS = {
@@ -107,6 +118,7 @@ export default function OrgSettingsPage() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as string;
+  const { data: session } = authClient.useSession();
 
   const [org, setOrg] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
@@ -214,6 +226,30 @@ export default function OrgSettingsPage() {
   });
   const transferOwnership = useMutation(api.models.members.transferOwnership);
 
+  // Wellness reminder config queries and mutations (US-P4-009)
+  const wellnessOrgConfig = useQuery(
+    api.models.playerHealthChecks.getWellnessOrgConfig,
+    { organizationId: orgId }
+  );
+  const updateWellnessConfig = useMutation(
+    api.models.playerHealthChecks.updateWellnessOrgConfig
+  );
+
+  // Wellness reminder local state (controlled form)
+  const [wellnessRemindersEnabled, setWellnessRemindersEnabled] =
+    useState(false);
+  const [wellnessReminderFrequency, setWellnessReminderFrequency] = useState<
+    "daily" | "match_day_only" | "training_day_only"
+  >("daily");
+  const [wellnessReminderType, setWellnessReminderType] = useState<
+    "in_app" | "email" | "both"
+  >("in_app");
+  const [wellnessLowScoreAlertsEnabled, setWellnessLowScoreAlertsEnabled] =
+    useState(false);
+  const [wellnessLowScoreThreshold, setWellnessLowScoreThreshold] =
+    useState("2.0");
+  const [savingWellnessConfig, setSavingWellnessConfig] = useState(false);
+
   useEffect(() => {
     const loadOrg = async () => {
       try {
@@ -236,6 +272,19 @@ export default function OrgSettingsPage() {
     };
     loadOrg();
   }, [orgId]);
+
+  // Populate wellness config state from Convex query
+  useEffect(() => {
+    if (wellnessOrgConfig) {
+      setWellnessRemindersEnabled(wellnessOrgConfig.remindersEnabled);
+      setWellnessReminderFrequency(wellnessOrgConfig.reminderFrequency);
+      setWellnessReminderType(wellnessOrgConfig.reminderType);
+      setWellnessLowScoreAlertsEnabled(wellnessOrgConfig.lowScoreAlertsEnabled);
+      setWellnessLowScoreThreshold(
+        wellnessOrgConfig.lowScoreThreshold.toString()
+      );
+    }
+  }, [wellnessOrgConfig]);
 
   // Populate social links, supported sports, and sharing contact from Convex query
   useEffect(() => {
@@ -529,6 +578,31 @@ export default function OrgSettingsPage() {
   const secondaryContrast = getContrastColor(previewSecondary);
   const tertiaryContrast = getContrastColor(previewTertiary);
 
+  const handleSaveWellnessConfig = async () => {
+    const threshold = Number.parseFloat(wellnessLowScoreThreshold);
+    if (Number.isNaN(threshold) || threshold < 1 || threshold > 5) {
+      toast.error("Threshold must be between 1 and 5");
+      return;
+    }
+    setSavingWellnessConfig(true);
+    try {
+      await updateWellnessConfig({
+        organizationId: orgId,
+        updatedBy: session?.user?.id ?? orgId,
+        remindersEnabled: wellnessRemindersEnabled,
+        reminderFrequency: wellnessReminderFrequency,
+        reminderType: wellnessReminderType,
+        lowScoreAlertsEnabled: wellnessLowScoreAlertsEnabled,
+        lowScoreThreshold: threshold,
+      });
+      toast.success("Wellness reminder settings saved");
+    } catch {
+      toast.error("Failed to save wellness settings");
+    } finally {
+      setSavingWellnessConfig(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -558,6 +632,8 @@ export default function OrgSettingsPage() {
           Manage your organization's details, branding, and theme
         </p>
       </div>
+
+      <MyRolesSection />
 
       {/* General Settings */}
       <Card>
@@ -1714,6 +1790,150 @@ export default function OrgSettingsPage() {
                 shared player passports from other organizations.
               </p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Wellness Reminders — Only for admins (US-P4-009) */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Wellness Reminders
+            </CardTitle>
+            <CardDescription>
+              Configure daily wellness check-in reminders and low-score alerts
+              for your players.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Master toggle */}
+            <div className="flex min-h-[44px] items-center gap-3 rounded-lg border px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm">Enable Reminders</p>
+                <p className="text-muted-foreground text-xs">
+                  Send daily check-in reminders to players who have not
+                  submitted that day
+                </p>
+              </div>
+              <Switch
+                aria-label="Enable wellness reminders"
+                checked={wellnessRemindersEnabled}
+                onCheckedChange={setWellnessRemindersEnabled}
+              />
+            </div>
+
+            {wellnessRemindersEnabled && (
+              <div className="space-y-4 pl-2">
+                {/* Frequency */}
+                <div className="space-y-2">
+                  <Label>Reminder Frequency</Label>
+                  <Select
+                    onValueChange={(v) =>
+                      setWellnessReminderFrequency(
+                        v as "daily" | "match_day_only" | "training_day_only"
+                      )
+                    }
+                    value={wellnessReminderFrequency}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Every Day</SelectItem>
+                      <SelectItem value="match_day_only">
+                        Match Days Only
+                      </SelectItem>
+                      <SelectItem value="training_day_only">
+                        Training Days Only
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Reminder type */}
+                <div className="space-y-2">
+                  <Label>Reminder Type</Label>
+                  <Select
+                    onValueChange={(v) =>
+                      setWellnessReminderType(v as "in_app" | "email" | "both")
+                    }
+                    value={wellnessReminderType}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="in_app">In-App Only</SelectItem>
+                      <SelectItem value="email">Email Only</SelectItem>
+                      <SelectItem value="both">In-App + Email</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {/* Low-score alerts */}
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex min-h-[44px] items-center gap-3 rounded-lg border px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm">Low Score Alerts</p>
+                  <p className="text-muted-foreground text-xs">
+                    Alert admins and medical staff when a player&apos;s wellness
+                    score falls below the threshold. Coaches do not receive
+                    these alerts.
+                  </p>
+                </div>
+                <Switch
+                  aria-label="Enable low score alerts"
+                  checked={wellnessLowScoreAlertsEnabled}
+                  onCheckedChange={setWellnessLowScoreAlertsEnabled}
+                />
+              </div>
+
+              {wellnessLowScoreAlertsEnabled && (
+                <div className="space-y-2 pl-2">
+                  <Label htmlFor="wellness-threshold">
+                    Score Threshold (1–5)
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      className="w-24"
+                      id="wellness-threshold"
+                      max="5"
+                      min="1"
+                      onChange={(e) =>
+                        setWellnessLowScoreThreshold(e.target.value)
+                      }
+                      placeholder="2.0"
+                      step="0.1"
+                      type="number"
+                      value={wellnessLowScoreThreshold}
+                    />
+                    <span className="text-muted-foreground text-sm">
+                      Alert when average score ≤ this value
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                disabled={savingWellnessConfig}
+                onClick={handleSaveWellnessConfig}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                {savingWellnessConfig ? "Saving..." : "Save Wellness Settings"}
+              </Button>
+            </div>
+
+            {/* WhatsApp/SMS push notification dispatch (US-P8-006) */}
+            <WellnessDispatchSection
+              organizationId={orgId}
+              userId={session?.user?.id ?? ""}
+            />
           </CardContent>
         </Card>
       )}

@@ -58,6 +58,10 @@ export type PendingInvitation = {
     id: string;
     name: string;
   }>;
+  // Matched adult player record that needs explicit confirmation before linking
+  matchedPlayerIdentityId?: string;
+  matchedPlayerName?: string;
+  matchedPlayerDob?: string;
 };
 
 type UnifiedInvitationStepProps = {
@@ -90,6 +94,20 @@ export function UnifiedInvitationStep({
     for (const invitation of invitations) {
       for (const player of invitation.playerLinks || []) {
         initial[`${invitation.invitationId}:${player.id}`] = "unselected";
+      }
+    }
+    return initial;
+  });
+
+  // Track whether the user has confirmed the matched player record is theirs
+  // Key: invitationId
+  const [playerConfirmations, setPlayerConfirmations] = useState<
+    Record<string, "mine" | "not_mine" | "unselected">
+  >(() => {
+    const initial: Record<string, "mine" | "not_mine" | "unselected"> = {};
+    for (const invitation of invitations) {
+      if (invitation.matchedPlayerIdentityId) {
+        initial[invitation.invitationId] = "unselected";
       }
     }
     return initial;
@@ -138,6 +156,15 @@ export function UnifiedInvitationStep({
     ).length;
   };
 
+  const hasMatchedPlayer = !!(
+    currentInvitation?.matchedPlayerIdentityId &&
+    currentInvitation.functionalRoles.includes("player")
+  );
+
+  const playerConfirmed =
+    hasMatchedPlayer &&
+    playerConfirmations[currentInvitation?.invitationId ?? ""] !== "unselected";
+
   const handleAcceptInvitation = async () => {
     if (!currentInvitation) {
       return;
@@ -147,6 +174,14 @@ export function UnifiedInvitationStep({
     if (hasPlayerLinks && getSelectedCount() === 0) {
       toast.error(
         "Please select at least one child as yours, or click 'Decline All Children'"
+      );
+      return;
+    }
+
+    // If there's a matched player record, require the user to confirm or decline it
+    if (hasMatchedPlayer && !playerConfirmed) {
+      toast.error(
+        "Please confirm whether the player record shown is yours before continuing."
       );
       return;
     }
@@ -181,6 +216,13 @@ export function UnifiedInvitationStep({
         )
         .map((p) => p.id);
 
+      // Only pass acceptedPlayerIdentityId if user confirmed it's theirs
+      const acceptedPlayerIdentityId =
+        hasMatchedPlayer &&
+        playerConfirmations[currentInvitation.invitationId] === "mine"
+          ? currentInvitation.matchedPlayerIdentityId
+          : undefined;
+
       await syncFunctionalRolesWithSelections({
         invitationId: currentInvitation.invitationId,
         organizationId: currentInvitation.organizationId,
@@ -189,6 +231,7 @@ export function UnifiedInvitationStep({
         selectedPlayerIds,
         declinedPlayerIds,
         consentToSharing,
+        acceptedPlayerIdentityId,
       });
 
       // 3. Set organization as active
@@ -442,6 +485,97 @@ export function UnifiedInvitationStep({
         </div>
       )}
 
+      {/* Player record confirmation - shown when a matching player record was found */}
+      {hasMatchedPlayer && currentInvitation.matchedPlayerIdentityId && (
+        <div>
+          <div className="mb-3">
+            <h3 className="font-semibold text-muted-foreground text-sm">
+              Existing Player Record Found
+            </h3>
+            <p className="mt-1 text-muted-foreground text-xs">
+              We found a player record that may belong to you. Please confirm
+              whether it is yours.
+            </p>
+          </div>
+          <div
+            className={`rounded-lg border p-3 transition-colors ${
+              playerConfirmations[currentInvitation.invitationId] === "mine"
+                ? "border-green-500 bg-green-50"
+                : playerConfirmations[currentInvitation.invitationId] ===
+                    "not_mine"
+                  ? "border-red-500 bg-red-50"
+                  : "bg-card"
+            }`}
+          >
+            <div className="mb-2">
+              <p className="font-medium">
+                {currentInvitation.matchedPlayerName ?? "Player record"}
+              </p>
+              {currentInvitation.matchedPlayerDob && (
+                <p className="text-muted-foreground text-xs">
+                  DOB:{" "}
+                  {new Date(
+                    currentInvitation.matchedPlayerDob
+                  ).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:gap-2">
+              <Button
+                className={`h-14 flex-1 text-base sm:h-8 sm:text-xs ${
+                  playerConfirmations[currentInvitation.invitationId] === "mine"
+                    ? "bg-green-600 hover:bg-green-700"
+                    : ""
+                }`}
+                disabled={isProcessing}
+                onClick={() =>
+                  setPlayerConfirmations((prev) => ({
+                    ...prev,
+                    [currentInvitation.invitationId]: "mine",
+                  }))
+                }
+                size="sm"
+                type="button"
+                variant={
+                  playerConfirmations[currentInvitation.invitationId] === "mine"
+                    ? "default"
+                    : "outline"
+                }
+              >
+                <Check className="mr-2 h-5 w-5 sm:mr-1 sm:h-3 sm:w-3" />
+                Yes, this is me
+              </Button>
+              <Button
+                className={`h-14 flex-1 text-base sm:h-8 sm:text-xs ${
+                  playerConfirmations[currentInvitation.invitationId] ===
+                  "not_mine"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : ""
+                }`}
+                disabled={isProcessing}
+                onClick={() =>
+                  setPlayerConfirmations((prev) => ({
+                    ...prev,
+                    [currentInvitation.invitationId]: "not_mine",
+                  }))
+                }
+                size="sm"
+                type="button"
+                variant={
+                  playerConfirmations[currentInvitation.invitationId] ===
+                  "not_mine"
+                    ? "default"
+                    : "outline"
+                }
+              >
+                <X className="mr-2 h-5 w-5 sm:mr-1 sm:h-3 sm:w-3" />
+                No, that&apos;s not me
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Privacy & Consent - only show if there are children */}
       {hasPlayerLinks && (
         <div className="rounded-lg border bg-muted/30 p-4">
@@ -505,7 +639,11 @@ export function UnifiedInvitationStep({
           <DrawerFooter className="flex-col gap-2 pt-2">
             <Button
               className="h-12 w-full"
-              disabled={isProcessing || (hasPlayerLinks && selectedCount === 0)}
+              disabled={
+                isProcessing ||
+                (hasPlayerLinks && selectedCount === 0) ||
+                (hasMatchedPlayer && !playerConfirmed)
+              }
               onClick={handleAcceptInvitation}
               style={{ backgroundColor: "var(--pdp-navy)" }}
             >
@@ -566,7 +704,11 @@ export function UnifiedInvitationStep({
             </Button>
           )}
           <Button
-            disabled={isProcessing || (hasPlayerLinks && selectedCount === 0)}
+            disabled={
+              isProcessing ||
+              (hasPlayerLinks && selectedCount === 0) ||
+              (hasMatchedPlayer && !playerConfirmed)
+            }
             onClick={handleAcceptInvitation}
             style={{ backgroundColor: "var(--pdp-navy)" }}
           >

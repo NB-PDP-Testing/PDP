@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
   SelectContent,
@@ -52,6 +53,7 @@ export default function JoinOrganizationRequestPage() {
   const [selectedRoles, setSelectedRoles] = useState<FunctionalRole[]>([]);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [alreadyMember, setAlreadyMember] = useState(false);
 
   // Common field - phone (used by both parent and coach)
   const [phone, setPhone] = useState("");
@@ -62,6 +64,12 @@ export default function JoinOrganizationRequestPage() {
       setPhone(currentUser.phone);
     }
   }, [currentUser?.phone, phone]);
+
+  // Player-specific fields
+  const [playerDateOfBirth, setPlayerDateOfBirth] = useState("");
+  const [playerFederationNumber, setPlayerFederationNumber] = useState("");
+  const [playerPhone, setPlayerPhone] = useState("");
+  const [playerPostcode, setPlayerPostcode] = useState("");
 
   // Coach-specific fields
   const [coachSport, setCoachSport] = useState("");
@@ -85,6 +93,15 @@ export default function JoinOrganizationRequestPage() {
   ): "member" | "admin" =>
     functionalRoles.includes("admin") ? "admin" : "member";
 
+  // Check if player fields are valid
+  const isPlayerDataValid = () => {
+    if (!selectedRoles.includes("player")) {
+      return true;
+    }
+    // DOB is required for players (used for youth record matching)
+    return playerDateOfBirth.length > 0;
+  };
+
   // Check if coach fields are valid
   const isCoachDataValid = () => {
     if (!selectedRoles.includes("coach")) {
@@ -101,7 +118,7 @@ export default function JoinOrganizationRequestPage() {
     try {
       const betterAuthRole = inferBetterAuthRole(selectedRoles);
 
-      await createJoinRequest({
+      const result = await createJoinRequest({
         organizationId: orgId,
         requestedRole: betterAuthRole,
         requestedFunctionalRoles: selectedRoles,
@@ -123,7 +140,32 @@ export default function JoinOrganizationRequestPage() {
         coachAgeGroups: selectedRoles.includes("coach")
           ? coachAgeGroups || undefined
           : undefined,
+
+        // Player-specific fields
+        playerDateOfBirth: selectedRoles.includes("player")
+          ? playerDateOfBirth || undefined
+          : undefined,
+        playerFederationNumber: selectedRoles.includes("player")
+          ? playerFederationNumber || undefined
+          : undefined,
+        playerPhone: selectedRoles.includes("player")
+          ? playerPhone || undefined
+          : undefined,
+        playerPostcode: selectedRoles.includes("player")
+          ? playerPostcode || undefined
+          : undefined,
       });
+
+      if (result.status === "already_member") {
+        setAlreadyMember(true);
+        return;
+      }
+
+      if (result.status === "pending_request_exists") {
+        toast.info("You already have a pending request for this organisation.");
+        router.push("/orgs/join");
+        return;
+      }
 
       toast.success(
         "Join request submitted successfully! An admin will review your request."
@@ -139,7 +181,36 @@ export default function JoinOrganizationRequestPage() {
     }
   };
 
-  const canSubmit = selectedRoles.length > 0 && isCoachDataValid();
+  const canSubmit =
+    selectedRoles.length > 0 && isCoachDataValid() && isPlayerDataValid();
+
+  if (alreadyMember) {
+    return (
+      <div className="container mx-auto max-w-2xl space-y-6 py-8">
+        <Card className="border-green-200">
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                <Check className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <CardTitle>You&apos;re already registered here</CardTitle>
+                <CardDescription>
+                  Your account is already a member of this organisation. No need
+                  to submit another request.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href={`/orgs/${orgId}`}>Go to your dashboard →</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-2xl space-y-6 py-8">
@@ -323,6 +394,74 @@ export default function JoinOrganizationRequestPage() {
                 </p>
               )}
             </div>
+
+            {/* Player-specific: Date of Birth (required for youth record matching) */}
+            {selectedRoles.includes("player") && (
+              <div className="space-y-4 rounded-lg border border-orange-200 bg-orange-50/50 p-4 dark:border-orange-800 dark:bg-orange-950/20">
+                <h3 className="flex items-center gap-2 font-medium text-orange-800 dark:text-orange-200">
+                  <Users className="h-4 w-4" />
+                  Player Information
+                </h3>
+                <div className="space-y-2">
+                  <Label htmlFor="playerDob">
+                    Date of Birth <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    disabled={isSubmitting}
+                    id="playerDob"
+                    max={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setPlayerDateOfBirth(e.target.value)}
+                    type="date"
+                    value={playerDateOfBirth}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Used to match you with your existing player record if one
+                    exists
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="playerFederationNumber">
+                    Federation / Registration Number (Optional)
+                  </Label>
+                  <Input
+                    disabled={isSubmitting}
+                    id="playerFederationNumber"
+                    onChange={(e) => setPlayerFederationNumber(e.target.value)}
+                    placeholder="e.g., GAA, FAI, IRFU reg. number"
+                    value={playerFederationNumber}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Your national federation registration number for stronger
+                    identity matching
+                  </p>
+                </div>
+                {/* Phone and Postcode — optional signals for stronger matching */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="playerPhone">Phone (Optional)</Label>
+                    <PhoneInput
+                      countries={["IE", "GB", "US"]}
+                      defaultCountry="IE"
+                      disabled={isSubmitting}
+                      onChange={(value) => setPlayerPhone(value ?? "")}
+                      value={playerPhone}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="playerPostcode">Postcode (Optional)</Label>
+                    <Input
+                      disabled={isSubmitting}
+                      id="playerPostcode"
+                      maxLength={10}
+                      onChange={(e) => setPlayerPostcode(e.target.value)}
+                      placeholder="e.g. D01 F5P2"
+                      type="text"
+                      value={playerPostcode}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Phone Number - shown for parent or coach */}
             {(selectedRoles.includes("parent") ||

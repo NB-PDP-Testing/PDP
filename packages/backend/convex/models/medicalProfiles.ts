@@ -93,7 +93,7 @@ export const getAllForOrganization = query({
       player: v.object({
         _id: v.id("playerIdentities"),
         name: v.string(),
-        ageGroup: v.string(),
+        ageGroup: v.optional(v.string()),
         sport: v.string(),
         dateOfBirth: v.optional(v.string()),
       }),

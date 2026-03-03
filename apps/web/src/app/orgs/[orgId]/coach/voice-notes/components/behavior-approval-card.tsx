@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Edit2,
+  EyeOff,
   Lock,
   X,
   XCircle,
@@ -17,6 +18,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
@@ -65,6 +67,9 @@ export function BehaviorApprovalCard({
 
   // Collapsible state - collapsed by default on mobile
   const [isInsightExpanded, setIsInsightExpanded] = useState(false);
+
+  // Phase 7: Restrict from child view toggle (default OFF — non-breaking)
+  const [restrictChildView, setRestrictChildView] = useState(false);
 
   useEffect(() => {
     // Expand by default on desktop (>= 768px)
@@ -118,6 +123,7 @@ export function BehaviorApprovalCard({
       setIsApproving(true);
       await approveSummary({
         summaryId: summary._id,
+        restrictChildView,
       });
       toast.success("Behavior summary approved");
       onApprove();
@@ -269,6 +275,24 @@ export function BehaviorApprovalCard({
             </div>
           </CollapsibleContent>
         </Collapsible>
+
+        {/* Phase 7: Restrict from child view toggle */}
+        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+          <Checkbox
+            checked={restrictChildView}
+            id="restrict-child-view-behavior"
+            onCheckedChange={(checked) =>
+              setRestrictChildView(checked === true)
+            }
+          />
+          <label
+            className="flex cursor-pointer items-center gap-1.5 text-amber-900 text-xs sm:text-sm"
+            htmlFor="restrict-child-view-behavior"
+          >
+            <EyeOff className="h-3.5 w-3.5 shrink-0" />
+            Restrict from child view — Parent and coach only
+          </label>
+        </div>
 
         {/* Action Buttons - no checklist required, just manual review */}
         <div className="flex xs:flex-row flex-col gap-2 pt-1 sm:pt-2">

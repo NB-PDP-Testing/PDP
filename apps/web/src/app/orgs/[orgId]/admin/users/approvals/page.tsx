@@ -139,7 +139,16 @@ export default function JoinRequestApprovalsPage() {
     coachTeams?: string;
     coachAgeGroups?: string;
     message?: string;
+    // Player-specific fields for youth record matching
+    playerDateOfBirth?: string;
+    matchedYouthIdentityId?: string;
+    matchedYouthName?: string;
+    matchedYouthConfidence?: string;
   } | null>(null);
+  // Player-specific: ID of youth identity to link on approval
+  const [linkToYouthIdentityId, setLinkToYouthIdentityId] = useState<
+    string | null
+  >(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -210,6 +219,9 @@ export default function JoinRequestApprovalsPage() {
         coachTeams: selectedTeams.length > 0 ? selectedTeams : undefined,
         linkedPlayerIds:
           selectedPlayerIds.length > 0 ? selectedPlayerIds : undefined,
+        linkToYouthIdentityId: linkToYouthIdentityId
+          ? (linkToYouthIdentityId as any)
+          : undefined,
       });
       toast.success("Join request approved");
       setApproveDialogOpen(false);
@@ -273,6 +285,13 @@ export default function JoinRequestApprovalsPage() {
     setSelectedTeams([]);
     setSelectedPlayerIds([]);
     setExpandedMatches(false);
+    // Default: link to youth identity if HIGH match detected
+    setLinkToYouthIdentityId(
+      request.matchedYouthIdentityId &&
+        request.matchedYouthConfidence === "high"
+        ? request.matchedYouthIdentityId
+        : null
+    );
     setApproveDialogOpen(true);
   };
 
@@ -281,6 +300,7 @@ export default function JoinRequestApprovalsPage() {
     setSelectedTeams([]);
     setSelectedPlayerIds([]);
     setExpandedMatches(false);
+    setLinkToYouthIdentityId(null);
   };
 
   const toggleTeam = (teamName: string) => {
@@ -302,11 +322,17 @@ export default function JoinRequestApprovalsPage() {
   // Check if request needs configuration
   const needsConfiguration = (request: any) => {
     const roles = request.requestedFunctionalRoles || [];
+    // Player requests with a HIGH youth match need the link/create choice
+    const hasHighPlayerMatch =
+      (roles.includes("player") || request.requestedRole === "player") &&
+      request.matchedYouthIdentityId &&
+      request.matchedYouthConfidence === "high";
     return (
       roles.includes("coach") ||
       roles.includes("parent") ||
       request.requestedRole === "coach" ||
-      request.requestedRole === "parent"
+      request.requestedRole === "parent" ||
+      hasHighPlayerMatch
     );
   };
 
@@ -318,6 +344,11 @@ export default function JoinRequestApprovalsPage() {
   const isParentRequest = (request: any) => {
     const roles = request.requestedFunctionalRoles || [];
     return roles.includes("parent") || request.requestedRole === "parent";
+  };
+
+  const isPlayerRequest = (request: any) => {
+    const roles = request.requestedFunctionalRoles || [];
+    return roles.includes("player") || request.requestedRole === "player";
   };
 
   // Handlers for functional role requests (existing members)
@@ -531,6 +562,29 @@ export default function JoinRequestApprovalsPage() {
                 </div>
               )}
 
+            {/* Player youth match flag */}
+            {(request.requestedFunctionalRoles?.includes("player") ||
+              request.requestedRole === "player") &&
+              request.matchedYouthIdentityId &&
+              request.matchedYouthConfidence === "high" && (
+                <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-2 dark:border-orange-800 dark:bg-orange-950/30">
+                  <p className="flex items-center gap-1 font-medium text-orange-800 text-xs dark:text-orange-200">
+                    <Star className="h-3 w-3" />
+                    Youth Record Match Found
+                  </p>
+                  <p className="mt-1 text-orange-700 text-xs dark:text-orange-300">
+                    May match{" "}
+                    <span className="font-medium">
+                      {request.matchedYouthName}
+                    </span>
+                    {request.playerDateOfBirth && (
+                      <>, born {request.playerDateOfBirth}</>
+                    )}
+                    . Link or create new?
+                  </p>
+                </div>
+              )}
+
             {request.message && (
               <div className="mt-3 rounded-lg border bg-muted/50 p-3">
                 <p className="mb-1 font-medium text-xs">Message</p>
@@ -606,9 +660,9 @@ export default function JoinRequestApprovalsPage() {
 
   // Get high confidence matches
   const highConfidenceMatches =
-    smartMatches?.filter((m) => m.confidence === "high") || [];
+    smartMatches?.filter((m: any) => m.confidence === "high") || [];
   const otherMatches =
-    smartMatches?.filter((m) => m.confidence !== "high") || [];
+    smartMatches?.filter((m: any) => m.confidence !== "high") || [];
 
   return (
     <div className="space-y-6">
@@ -1006,7 +1060,7 @@ export default function JoinRequestApprovalsPage() {
                       High Confidence Matches
                     </p>
                     <div className="space-y-2 rounded-lg border border-green-200 bg-green-50 p-3">
-                      {highConfidenceMatches.map((match) => (
+                      {highConfidenceMatches.map((match: any) => (
                         <div
                           className="flex w-full items-center gap-3 rounded p-2 text-left hover:bg-green-100"
                           key={match.playerIdentityId}
@@ -1057,7 +1111,7 @@ export default function JoinRequestApprovalsPage() {
                     </button>
                     {expandedMatches && (
                       <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
-                        {otherMatches.map((match) => (
+                        {otherMatches.map((match: any) => (
                           <div
                             className="flex w-full items-center gap-3 rounded p-2 text-left hover:bg-muted"
                             key={match.playerIdentityId}
@@ -1110,6 +1164,104 @@ export default function JoinRequestApprovalsPage() {
                 )}
               </div>
             )}
+
+            {/* Player Youth Match Configuration */}
+            {selectedRequest &&
+              isPlayerRequest(selectedRequest) &&
+              selectedRequest.matchedYouthIdentityId &&
+              selectedRequest.matchedYouthConfidence === "high" && (
+                <div className="space-y-3">
+                  <Label className="font-medium text-sm">
+                    Player History (Player)
+                  </Label>
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-800 dark:bg-orange-950/20">
+                    <p className="mb-2 flex items-center gap-2 font-medium text-orange-800 text-sm dark:text-orange-200">
+                      <Star className="h-4 w-4" />
+                      Youth Record Match Found
+                    </p>
+                    <p className="mb-3 text-orange-700 text-sm dark:text-orange-300">
+                      May match{" "}
+                      <span className="font-medium">
+                        {selectedRequest.matchedYouthName}
+                      </span>
+                      {selectedRequest.playerDateOfBirth && (
+                        <>, born {selectedRequest.playerDateOfBirth}</>
+                      )}
+                      . Choose how to proceed:
+                    </p>
+                    <div className="space-y-2">
+                      <button
+                        className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
+                          linkToYouthIdentityId ===
+                          selectedRequest.matchedYouthIdentityId
+                            ? "border-orange-500 bg-orange-100 dark:bg-orange-900/40"
+                            : "border-border bg-background hover:bg-accent/50"
+                        }`}
+                        onClick={() =>
+                          setLinkToYouthIdentityId(
+                            selectedRequest.matchedYouthIdentityId ?? null
+                          )
+                        }
+                        type="button"
+                      >
+                        <div
+                          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                            linkToYouthIdentityId ===
+                            selectedRequest.matchedYouthIdentityId
+                              ? "border-orange-500 bg-orange-500"
+                              : "border-muted-foreground"
+                          }`}
+                        >
+                          {linkToYouthIdentityId ===
+                            selectedRequest.matchedYouthIdentityId && (
+                            <div className="h-2 w-2 rounded-full bg-white" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">
+                            Link to Existing History
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            Merges this user&apos;s account with{" "}
+                            {selectedRequest.matchedYouthName}&apos;s youth
+                            record, preserving all history.
+                          </p>
+                        </div>
+                      </button>
+                      <button
+                        className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
+                          linkToYouthIdentityId === null
+                            ? "border-primary bg-accent/30"
+                            : "border-border bg-background hover:bg-accent/50"
+                        }`}
+                        onClick={() => setLinkToYouthIdentityId(null)}
+                        type="button"
+                      >
+                        <div
+                          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                            linkToYouthIdentityId === null
+                              ? "border-primary bg-primary"
+                              : "border-muted-foreground"
+                          }`}
+                        >
+                          {linkToYouthIdentityId === null && (
+                            <div className="h-2 w-2 rounded-full bg-white" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">
+                            Create New Profile
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            Creates a fresh adult player profile without linking
+                            to the youth record.
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
           </div>
 
           <DialogFooter>
@@ -1128,7 +1280,11 @@ export default function JoinRequestApprovalsPage() {
               onClick={handleApprove}
               variant="primary"
             >
-              {loading ? "Approving..." : "Approve & Add to Org"}
+              {loading
+                ? "Approving..."
+                : linkToYouthIdentityId
+                  ? "Approve & Link to History"
+                  : "Approve & Add to Org"}
             </OrgThemedButton>
           </DialogFooter>
         </DialogContent>

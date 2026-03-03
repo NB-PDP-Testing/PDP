@@ -166,6 +166,14 @@ crons.daily(
   {}
 );
 
+// Phase 7 (Child Authorization): 30-day and 7-day pre-birthday notifications (daily at 6:15 AM UTC)
+crons.daily(
+  "detect-pre-birthday-notifications",
+  { hourUTC: 6, minuteUTC: 15 },
+  internal.jobs.graduations.detectPreBirthdayNotifications,
+  {}
+);
+
 // Phase 2.3: Clean up expired import wizard drafts daily at 4 AM UTC
 crons.daily(
   "cleanup-expired-import-drafts",
@@ -261,6 +269,54 @@ crons.interval(
   "check-pipeline-health",
   { minutes: 5 },
   internal.models.voicePipelineAlerts.checkPipelineHealth,
+  {}
+);
+
+// Phase 4 Wellness: Send daily wellness reminders at 8 AM UTC (US-P4-009)
+crons.daily(
+  "send-wellness-reminders",
+  { hourUTC: 8, minuteUTC: 0 },
+  internal.models.playerHealthChecks.sendWellnessReminders,
+  {}
+);
+
+// Phase 8 WhatsApp/SMS Wellness Dispatch: Check every 15 minutes for org dispatch windows (US-P8-007)
+crons.interval(
+  "check-wellness-dispatch",
+  { minutes: 15 },
+  internal.jobs.wellnessDispatch.checkWellnessDispatch,
+  {}
+);
+
+// Phase 9: GDPR Article 5 retention enforcement — nightly at 02:00 UTC (US-P9-006)
+crons.daily(
+  "enforce-retention-policy",
+  { hourUTC: 2, minuteUTC: 0 },
+  internal.jobs.retentionEnforcement.enforceRetentionPolicy,
+  {}
+);
+
+// Phase 9: Weekly retention digest — every Monday at 08:00 UTC (US-P9-006)
+crons.weekly(
+  "weekly-retention-digest",
+  { dayOfWeek: "monday", hourUTC: 8, minuteUTC: 0 },
+  internal.jobs.retentionEnforcement.sendWeeklyRetentionDigest,
+  {}
+);
+
+// Nightly soft-delete of expired WhatsApp messages — 01:05 UTC (Fix 20)
+crons.daily(
+  "soft-delete-expired-whatsapp-messages",
+  { hourUTC: 1, minuteUTC: 5 },
+  internal.jobs.retentionEnforcement.softDeleteExpiredWhatsappMessages,
+  {}
+);
+
+// Nightly hard-delete of WhatsApp messages past 30-day grace — 02:05 UTC (Fix 20)
+crons.daily(
+  "hard-delete-expired-whatsapp-messages",
+  { hourUTC: 2, minuteUTC: 5 },
+  internal.jobs.retentionEnforcement.hardDeleteExpiredWhatsappMessages,
   {}
 );
 

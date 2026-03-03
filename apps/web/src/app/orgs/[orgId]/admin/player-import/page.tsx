@@ -3,11 +3,12 @@
 const WHITESPACE_REGEX = /\s+/;
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   CheckCircle,
   Download,
+  Loader2,
   Upload,
   Users,
   XCircle,
@@ -15,6 +16,7 @@ import {
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,6 +34,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -69,7 +78,20 @@ type ParsedPlayer = {
   rowIndex: number;
   // Display name for backwards compatibility in UI
   displayName: string;
+  // Federation registration numbers (Phase 3: US-P3-006)
+  faiNumber?: string;
+  irfuNumber?: string;
+  gaaNumber?: string;
 };
+
+type YouthMatchResult = {
+  confidence: "high" | "medium" | "low" | "none";
+  matchId: string | null;
+  matchName: string | null;
+  matchDob: string | null;
+};
+
+type RowDecision = "accept" | "skip" | "review_later";
 
 type MissingTeam = {
   sport: string;
@@ -79,11 +101,11 @@ type MissingTeam = {
   count: number;
 };
 
-const SAMPLE_CSV = `FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth
-John,Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,mother,2013-05-15
-Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,mother,2015-08-22
-Liam,Murphy,U14,GAA Football,Male,2025,Tom,Murphy,tom.murphy@email.com,0851112223,father,2011-03-10
-Sophie,Brown,U12,Hurling,Female,2025,Anne,Brown,anne.brown@email.com,0857654321,mother,2013-11-05`;
+const SAMPLE_CSV = `FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth,FAINumber,IRFUNumber,GAANumber
+John,Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,mother,2013-05-15,,,
+Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,mother,2015-08-22,,,
+Liam,Murphy,U14,GAA Football,Male,2025,Tom,Murphy,tom.murphy@email.com,0851112223,father,2011-03-10,,,
+Sophie,Brown,U12,Hurling,Female,2025,Anne,Brown,anne.brown@email.com,0857654321,mother,2013-11-05,,,`;
 
 // Helper: Map sport name to sport code
 const mapSportNameToCode = (sportName: string): string => {
@@ -135,6 +157,14 @@ export default function PlayerImportPage() {
   const findOrCreatePassportMutation = useMutation(
     api.models.sportPassports.findOrCreatePassport
   );
+  const transitionToAdultMutation = useMutation(
+    api.models.adultPlayers.transitionToAdult
+  );
+  const enrollPlayerMutation = useMutation(
+    api.models.orgPlayerEnrollments.enrollPlayer
+  );
+
+  const convex = useConvex();
 
   const [csvData, setCsvData] = useState("");
   const [parsedPlayers, setParsedPlayers] = useState<ParsedPlayer[]>([]);
@@ -144,6 +174,15 @@ export default function PlayerImportPage() {
     current: 0,
     total: 0,
   });
+
+  // Youth match state (US-P3-003)
+  const [youthMatches, setYouthMatches] = useState<
+    Map<number, YouthMatchResult>
+  >(new Map());
+  const [rowDecisions, setRowDecisions] = useState<Map<number, RowDecision>>(
+    new Map()
+  );
+  const [isCheckingMatches, setIsCheckingMatches] = useState(false);
 
   const isLoading = teams === undefined;
 
@@ -315,6 +354,9 @@ export default function PlayerImportPage() {
         postcode: row.Postcode,
         country: row.Country,
         rowIndex: players.length,
+        faiNumber: row.FAINumber?.trim() || undefined,
+        irfuNumber: row.IRFUNumber?.trim() || undefined,
+        gaaNumber: row.GAANumber?.trim() || undefined,
       });
     }
 
@@ -387,7 +429,76 @@ export default function PlayerImportPage() {
   const unmatchedCount = parsedPlayers.filter((p) => !p.matchedTeamId).length;
   const matchedCount = parsedPlayers.filter((p) => p.matchedTeamId).length;
 
-  const handleParse = () => {
+  // Calculate age from ISO date string
+  const calculateAge = (dob: string): number => {
+    const birth = new Date(dob);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const m = now.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
+      age -= 1;
+    }
+    return age;
+  };
+
+  // Run player match checks for all rows after parsing
+  const checkYouthMatchesForAdults = async (players: ParsedPlayer[]) => {
+    if (players.length === 0) {
+      return;
+    }
+    setIsCheckingMatches(true);
+    try {
+      const results = await Promise.all(
+        players.map((p) =>
+          convex.query(api.models.playerMatching.findPlayerMatchCandidates, {
+            organizationId: orgId,
+            firstName: p.firstName,
+            lastName: p.lastName,
+            dateOfBirth: p.dateOfBirth,
+            ...(p.faiNumber || p.irfuNumber || p.gaaNumber
+              ? {
+                  federationIds: {
+                    fai: p.faiNumber,
+                    irfu: p.irfuNumber,
+                    gaa: p.gaaNumber,
+                  },
+                }
+              : {}),
+          })
+        )
+      );
+
+      const matchMap = new Map<number, YouthMatchResult>();
+      const decisionMap = new Map<number, RowDecision>();
+
+      for (const [i, player] of players.entries()) {
+        const candidates = results[i];
+        // Use the best candidate (first in sorted list)
+        const best = candidates[0];
+        if (best && best.confidence !== "none") {
+          const youthMatch: YouthMatchResult = {
+            confidence: best.confidence,
+            matchId: best._id,
+            matchName: `${best.firstName} ${best.lastName}`,
+            matchDob: best.dateOfBirth,
+          };
+          matchMap.set(player.rowIndex, youthMatch);
+          // Default: HIGH → accept, MEDIUM → skip
+          decisionMap.set(
+            player.rowIndex,
+            best.confidence === "high" ? "accept" : "skip"
+          );
+        }
+      }
+
+      setYouthMatches(matchMap);
+      setRowDecisions(decisionMap);
+    } finally {
+      setIsCheckingMatches(false);
+    }
+  };
+
+  const handleParse = async () => {
     if (!csvData.trim()) {
       toast.error("Please enter CSV data");
       return;
@@ -406,7 +517,12 @@ export default function PlayerImportPage() {
 
     const matched = matchPlayersToTeams(parsed, teams);
     setParsedPlayers(matched);
+    // Reset youth matches for new parse
+    setYouthMatches(new Map());
+    setRowDecisions(new Map());
     toast.success(`Parsed ${parsed.length} players`);
+    // Check youth matches for adult rows
+    await checkYouthMatchesForAdults(matched);
   };
 
   const handleLoadSample = () => {
@@ -415,9 +531,9 @@ export default function PlayerImportPage() {
   };
 
   const downloadTemplate = () => {
-    const template = `FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth,Address,Town,Postcode,Country
-John,Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,mother,2013-05-15,123 Main St,Dublin,D01 X123,Ireland
-Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,mother,2015-08-22,456 Park Ave,Cork,T12 Y456,Ireland`;
+    const template = `FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth,FAINumber,IRFUNumber,GAANumber
+John,Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,mother,2013-05-15,,,
+Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,mother,2015-08-22,,,`;
 
     const blob = new Blob([template], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -488,10 +604,63 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
     setImportProgress({ current: 0, total: playersToImport.length });
 
     try {
+      // ========== STEP 0: Handle "Accept Match" adult rows (merge into existing youth) ==========
+      const acceptRows = playersToImport.filter(
+        (p) =>
+          rowDecisions.get(p.rowIndex) === "accept" &&
+          youthMatches.has(p.rowIndex)
+      );
+      const normalRows = playersToImport.filter((p) => !acceptRows.includes(p));
+
+      let mergedCount = 0;
+      for (const player of acceptRows) {
+        const match = youthMatches.get(player.rowIndex);
+        if (!match?.matchId) {
+          continue;
+        }
+        try {
+          await transitionToAdultMutation({
+            playerIdentityId: match.matchId as any,
+          });
+          await enrollPlayerMutation({
+            playerIdentityId: match.matchId as any,
+            organizationId: orgId,
+            ageGroup: player.ageGroup,
+            season: player.season,
+          });
+          // Assign to team if matched
+          if (player.matchedTeamId) {
+            await bulkAddToTeamMutation({
+              teamId: player.matchedTeamId,
+              playerIdentityIds: [match.matchId as any],
+              organizationId: orgId,
+              season: player.season,
+            });
+          }
+          mergedCount += 1;
+        } catch (err) {
+          console.error(
+            `Failed to merge youth record for ${player.displayName}:`,
+            err
+          );
+        }
+      }
+
+      if (normalRows.length === 0) {
+        toast.success(
+          `Import complete: ${mergedCount} adult${mergedCount !== 1 ? "s" : ""} merged with existing youth profiles`
+        );
+        setCsvData("");
+        setParsedPlayers([]);
+        setYouthMatches(new Map());
+        setRowDecisions(new Map());
+        return;
+      }
+
       // ========== STEP 1: Create player identities, guardians, and enrollments ==========
       console.log("📋 Step 1: Creating player identities and enrollments...");
 
-      const formattedPlayers = playersToImport.map((player) => ({
+      const formattedPlayers = normalRows.map((player) => ({
         firstName: player.firstName,
         lastName: player.lastName,
         dateOfBirth: player.dateOfBirth,
@@ -527,7 +696,7 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
       >();
 
       for (const identity of result.playerIdentities) {
-        const originalPlayer = playersToImport[identity.index];
+        const originalPlayer = normalRows[identity.index];
         if (originalPlayer?.matchedTeamId) {
           const teamPlayers =
             playersByTeam.get(originalPlayer.matchedTeamId) || [];
@@ -543,7 +712,7 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
             teamId,
             playerIdentityIds: playerIds,
             organizationId: orgId,
-            season: playersToImport[0]?.season || "2025",
+            season: normalRows[0]?.season || "2025",
           });
           totalTeamAssignments += teamResult.added;
           console.log(
@@ -569,7 +738,7 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
 
       for (const identity of result.playerIdentities) {
         try {
-          const originalPlayer = playersToImport[identity.index];
+          const originalPlayer = normalRows[identity.index];
           const sportCode = mapSportNameToCode(originalPlayer.sport);
 
           await findOrCreatePassportMutation({
@@ -594,11 +763,14 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
 
       setImportProgress({
         current: result.totalProcessed,
-        total: playersToImport.length,
+        total: normalRows.length,
       });
 
       // ========== Build comprehensive result message ==========
       const parts: string[] = [];
+      if (mergedCount > 0) {
+        parts.push(`${mergedCount} merged with existing profiles`);
+      }
       parts.push(`${result.totalProcessed} processed`);
       if (result.playersCreated > 0) {
         parts.push(`${result.playersCreated} new players`);
@@ -633,6 +805,8 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
       if (result.totalProcessed > 0) {
         setCsvData("");
         setParsedPlayers([]);
+        setYouthMatches(new Map());
+        setRowDecisions(new Map());
       }
     } catch (error) {
       const errorMessage =
@@ -811,48 +985,140 @@ John Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567
                     <TableHead>Gender</TableHead>
                     <TableHead>Season</TableHead>
                     <TableHead>Matched Team</TableHead>
+                    <TableHead>
+                      Youth Match
+                      {isCheckingMatches && (
+                        <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />
+                      )}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {parsedPlayers.map((player) => (
-                    <TableRow
-                      className={
-                        player.matchedTeamId ? undefined : "bg-red-500/30"
-                      }
-                      key={`${player.displayName}-${player.ageGroup}-${player.rowIndex}`}
-                    >
-                      <TableCell className="font-medium">
-                        {player.displayName}
-                      </TableCell>
-                      <TableCell>{player.ageGroup}</TableCell>
-                      <TableCell>{player.sport}</TableCell>
-                      <TableCell className="capitalize">
-                        {player.gender}
-                      </TableCell>
-                      <TableCell>{player.season}</TableCell>
-                      <TableCell>
-                        {player.matchedTeamId ? (
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                            <span className="text-sm">
-                              {player.matchedTeamName}
+                  {parsedPlayers.map((player) => {
+                    const isAdult = calculateAge(player.dateOfBirth) >= 18;
+                    const youthMatch = youthMatches.get(player.rowIndex);
+                    const decision = rowDecisions.get(player.rowIndex);
+                    return (
+                      <TableRow
+                        className={
+                          player.matchedTeamId ? undefined : "bg-red-500/30"
+                        }
+                        key={`${player.displayName}-${player.ageGroup}-${player.rowIndex}`}
+                      >
+                        <TableCell className="font-medium">
+                          {player.displayName}
+                        </TableCell>
+                        <TableCell>{player.ageGroup}</TableCell>
+                        <TableCell>{player.sport}</TableCell>
+                        <TableCell className="capitalize">
+                          {player.gender}
+                        </TableCell>
+                        <TableCell>{player.season}</TableCell>
+                        <TableCell>
+                          {player.matchedTeamId ? (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-sm">
+                                {player.matchedTeamName}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <XCircle className="h-4 w-4 text-red-600" />
+                              <span className="text-muted-foreground text-sm">
+                                No matching team
+                              </span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {!isAdult && (
+                            <span className="text-muted-foreground text-xs">
+                              —
                             </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <XCircle className="h-4 w-4 text-red-600" />
-                            <span className="text-muted-foreground text-sm">
-                              No matching team
+                          )}
+                          {isAdult && !youthMatch && !isCheckingMatches && (
+                            <span className="text-muted-foreground text-xs">
+                              —
                             </span>
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          )}
+                          {isAdult && youthMatch && (
+                            <div className="flex flex-col gap-1">
+                              <Badge
+                                className={
+                                  youthMatch.confidence === "high"
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-yellow-100 text-yellow-700"
+                                }
+                                variant="outline"
+                              >
+                                {youthMatch.confidence === "high"
+                                  ? "High"
+                                  : "Medium"}
+                              </Badge>
+                              <Select
+                                onValueChange={(v: RowDecision) => {
+                                  const next = new Map(rowDecisions);
+                                  next.set(player.rowIndex, v);
+                                  setRowDecisions(next);
+                                }}
+                                value={decision ?? "skip"}
+                              >
+                                <SelectTrigger className="h-7 w-[130px] text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="accept">
+                                    Accept Match
+                                  </SelectItem>
+                                  <SelectItem value="skip">
+                                    Skip Match
+                                  </SelectItem>
+                                  <SelectItem value="review_later">
+                                    Review Later
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          {/* Import Summary */}
+          {youthMatches.size > 0 && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-blue-800 text-sm">
+              {Array.from(rowDecisions.values()).filter((d) => d === "accept")
+                .length > 0 && (
+                <p>
+                  <span className="font-medium">
+                    {
+                      Array.from(rowDecisions.values()).filter(
+                        (d) => d === "accept"
+                      ).length
+                    }{" "}
+                    adult row
+                    {Array.from(rowDecisions.values()).filter(
+                      (d) => d === "accept"
+                    ).length !== 1
+                      ? "s"
+                      : ""}
+                  </span>{" "}
+                  will be merged with existing youth profiles.{" "}
+                  {youthMatches.size -
+                    Array.from(rowDecisions.values()).filter(
+                      (d) => d === "accept"
+                    ).length}{" "}
+                  will create new profiles.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Import Actions */}
           <div className="flex flex-col gap-3 sm:flex-row">

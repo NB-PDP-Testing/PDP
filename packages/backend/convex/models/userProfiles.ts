@@ -229,6 +229,48 @@ export const updateProfileWithSync = mutation({
       await ctx.db.patch(guardianIdentity._id, guardianUpdates);
     }
 
+    // Sync to linked playerIdentity if one exists
+    const playerIdentity = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (playerIdentity && playerIdentity.playerType === "adult") {
+      const playerUpdates: Record<string, string | number | undefined> = {
+        updatedAt: Date.now(),
+      };
+
+      if (args.firstName !== undefined) {
+        playerUpdates.firstName = args.firstName.trim();
+      }
+      if (args.lastName !== undefined) {
+        playerUpdates.lastName = args.lastName.trim();
+      }
+      if (normalizedPhone !== undefined) {
+        playerUpdates.phone = normalizedPhone;
+      }
+      if (args.address !== undefined) {
+        playerUpdates.address = args.address.trim();
+      }
+      if (args.address2 !== undefined) {
+        playerUpdates.address2 = args.address2.trim();
+      }
+      if (args.town !== undefined) {
+        playerUpdates.town = args.town.trim();
+      }
+      if (args.county !== undefined) {
+        playerUpdates.county = args.county.trim();
+      }
+      if (normalizedPostcode !== undefined) {
+        playerUpdates.postcode = normalizedPostcode;
+      }
+      if (args.country !== undefined) {
+        playerUpdates.country = args.country.trim();
+      }
+
+      await ctx.db.patch(playerIdentity._id, playerUpdates);
+    }
+
     return { success: true };
   },
 });

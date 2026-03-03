@@ -163,7 +163,7 @@ export async function findSimilarPlayersLogic(
         lastName: player.lastName,
         fullName: `${player.firstName} ${player.lastName}`,
         similarity,
-        ageGroup: enrollment.ageGroup,
+        ageGroup: enrollment.ageGroup ?? "",
         sport: enrollment.sport ?? null,
       });
     }

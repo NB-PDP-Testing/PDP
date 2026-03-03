@@ -55,19 +55,6 @@ export function createAuth(
           resetUrl: url,
         });
       },
-      sendVerificationEmail: async ({
-        user,
-        url,
-      }: {
-        user: { email: string; name: string };
-        url: string;
-      }) => {
-        await sendVerificationEmail({
-          to: user.email,
-          name: user.name,
-          verificationUrl: url,
-        });
-      },
     },
     emailVerification: {
       sendOnSignUp: true,

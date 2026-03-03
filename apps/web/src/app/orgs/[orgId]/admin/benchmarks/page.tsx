@@ -7,11 +7,11 @@ import {
   Award,
   BarChart3,
   CheckCircle,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   ExternalLink,
   Info,
-  Target,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -47,6 +47,23 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useOrgTheme } from "@/hooks/use-org-theme";
+
+// Sport emoji map keyed by sport code
+const SPORT_EMOJIS: Record<string, string> = {
+  soccer: "⚽",
+  rugby: "🏉",
+  gaa_football: "🏈",
+  hurling: "🥍",
+  hockey: "🏑",
+  basketball: "🏀",
+  athletics: "🏃",
+  irish_dancing: "💃",
+  strength_conditioning: "💪",
+  swimming: "🏊",
+  tennis: "🎾",
+  cricket: "🏏",
+  gaelic_games: "🏐",
+};
 
 // Rating level descriptions
 const RATING_LEVELS = {
@@ -404,65 +421,97 @@ export default function OrgAdminBenchmarksPage() {
         </CardContent>
       </Card>
 
-      {/* Sport Selector */}
-      {isLoading ? (
-        <div className="flex gap-4">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-10 w-48" />
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-muted-foreground" />
+      {/* Sport Selector — card grid */}
+      <div className="space-y-3">
+        <p className="font-medium text-muted-foreground text-sm">
+          Select a sport
+        </p>
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {[...new Array(4)].map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders
+              <Skeleton className="h-24 w-full rounded-xl" key={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {sports?.map((sport) => {
+              const isSelected = selectedSport === sport.code;
+              return (
+                <button
+                  className="group flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all hover:shadow-md"
+                  key={sport._id}
+                  onClick={() => {
+                    setSelectedSport(isSelected ? null : sport.code);
+                    setSelectedAgeGroup(null);
+                  }}
+                  style={
+                    isSelected
+                      ? {
+                          borderColor: theme.primary,
+                          backgroundColor: "rgb(var(--org-primary-rgb) / 0.06)",
+                        }
+                      : {
+                          borderColor: "hsl(var(--border))",
+                          backgroundColor: "white",
+                        }
+                  }
+                  type="button"
+                >
+                  <span className="text-3xl leading-none">
+                    {SPORT_EMOJIS[sport.code] ?? "🏆"}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-sm">
+                      {sport.name}
+                    </p>
+                    {sport.governingBody && (
+                      <p className="truncate text-muted-foreground text-xs">
+                        {sport.governingBody}
+                      </p>
+                    )}
+                  </div>
+                  {isSelected && (
+                    <CheckCircle2
+                      className="h-4 w-4"
+                      style={{ color: theme.primary }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Age group filter — shown inline once a sport is chosen */}
+        {selectedSport && ageGroups && (
+          <div className="flex items-center gap-2 pt-1">
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
             <Select
-              onValueChange={(value) => {
-                setSelectedSport(value);
-                setSelectedAgeGroup(null);
-              }}
-              value={selectedSport ?? ""}
+              onValueChange={(value) =>
+                setSelectedAgeGroup(value === "all" ? null : value)
+              }
+              value={selectedAgeGroup ?? "all"}
             >
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Select a sport" />
+                <SelectValue placeholder="All age groups" />
               </SelectTrigger>
               <SelectContent>
-                {sports?.map((sport) => (
-                  <SelectItem key={sport._id} value={sport.code}>
-                    {sport.name}
+                <SelectItem value="all">All age groups</SelectItem>
+                {ageGroups.map((ag) => (
+                  <SelectItem key={ag._id} value={ag.code}>
+                    {ag.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-
-          {selectedSport && ageGroups && (
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-muted-foreground" />
-              <Select
-                onValueChange={(value) =>
-                  setSelectedAgeGroup(value === "all" ? null : value)
-                }
-                value={selectedAgeGroup ?? "all"}
-              >
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="All age groups" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All age groups</SelectItem>
-                  {ageGroups.map((ag) => (
-                    <SelectItem key={ag._id} value={ag.code}>
-                      {ag.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Content */}
-      {selectedSport ? (
-        benchmarks === undefined || skills === undefined ? (
+      {selectedSport &&
+        (benchmarks === undefined || skills === undefined ? (
           <div className="space-y-4">
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />
@@ -813,24 +862,7 @@ export default function OrgAdminBenchmarksPage() {
               </p>
             </CardContent>
           </Card>
-        )
-      ) : (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div
-              className="mb-4 rounded-full p-4"
-              style={{ backgroundColor: "rgb(var(--org-primary-rgb) / 0.1)" }}
-            >
-              <Target className="h-8 w-8" style={{ color: theme.primary }} />
-            </div>
-            <h3 className="mb-2 font-semibold text-lg">Select a Sport</h3>
-            <p className="max-w-sm text-muted-foreground">
-              Choose a sport above to view skill benchmarks and expected ratings
-              by age group.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+        ))}
     </div>
   );
 }

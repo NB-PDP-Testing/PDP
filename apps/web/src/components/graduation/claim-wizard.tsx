@@ -6,8 +6,9 @@
  * Steps:
  * 1. Welcome - Introduction with player name and organization
  * 2. Account - Sign in or create account
- * 3. GDPR - Accept privacy policy
- * 4. Confirm - Review and finalize claim
+ * 3. Verify - SMS or email PIN verification
+ * 4. GDPR - Accept privacy policy
+ * 5. Confirm - Review and finalize claim
  */
 
 import { api } from "@pdp/backend/convex/_generated/api";
@@ -17,7 +18,9 @@ import {
   Check,
   ChevronRight,
   GraduationCap,
+  KeyRound,
   LogIn,
+  RefreshCw,
   ShieldCheck,
   User,
 } from "lucide-react";
@@ -34,6 +37,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 
@@ -41,10 +45,11 @@ type ClaimWizardProps = {
   token: string;
   playerName: string;
   organizationName: string;
+  organizationId?: string;
   playerIdentityId: Id<"playerIdentities">;
 };
 
-type WizardStep = "welcome" | "account" | "gdpr" | "confirm";
+type WizardStep = "welcome" | "account" | "verify" | "gdpr" | "confirm";
 
 const STEPS: {
   id: WizardStep;
@@ -53,6 +58,7 @@ const STEPS: {
 }[] = [
   { id: "welcome", label: "Welcome", icon: GraduationCap },
   { id: "account", label: "Account", icon: LogIn },
+  { id: "verify", label: "Verify", icon: KeyRound },
   { id: "gdpr", label: "Privacy", icon: ShieldCheck },
   { id: "confirm", label: "Confirm", icon: Check },
 ];
@@ -61,14 +67,23 @@ export function ClaimWizard({
   token,
   playerName,
   organizationName,
-  // playerIdentityId will be used when redirecting to the player dashboard in US-010
-  // biome-ignore lint/correctness/noUnusedFunctionParameters: Will be used in US-010
+  organizationId,
   playerIdentityId,
 }: ClaimWizardProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<WizardStep>("welcome");
   const [gdprAccepted, setGdprAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // PIN verification state
+  const [pinChannel, setPinChannel] = useState<"sms" | "email">("email");
+  const [maskedDestination, setMaskedDestination] = useState("");
+  const [pinCode, setPinCode] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [isSendingPin, setIsSendingPin] = useState(false);
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+  const [pinLocked, setPinLocked] = useState(false);
+  const [pinExpired, setPinExpired] = useState(false);
 
   const { data: session } = authClient.useSession();
 
@@ -78,8 +93,71 @@ export function ClaimWizard({
   const claimAccount = useMutation(
     api.models.playerGraduations.claimPlayerAccount
   );
+  const sendVerificationPin = useMutation(
+    api.models.playerGraduations.sendClaimVerificationPin
+  );
+  const verifyPinMutation = useMutation(
+    api.models.playerGraduations.verifyClaimPin
+  );
 
   const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
+
+  const handleSendPin = async () => {
+    if (!session?.user?.email) {
+      return;
+    }
+    setIsSendingPin(true);
+    setPinError("");
+    setPinExpired(false);
+    setPinLocked(false);
+    try {
+      const result = await sendVerificationPin({
+        playerIdentityId,
+        claimEmail: session.user.email,
+      });
+      if (result.success) {
+        setPinChannel(result.channel);
+        setMaskedDestination(result.maskedDestination);
+      } else {
+        toast.error(result.error ?? "Failed to send verification code.");
+      }
+    } catch (err) {
+      console.error("Failed to send verification PIN:", err);
+      toast.error("Failed to send verification code. Please try again.");
+    } finally {
+      setIsSendingPin(false);
+    }
+  };
+
+  const handleVerifyPin = async () => {
+    if (!pinCode.trim()) {
+      return;
+    }
+    setIsVerifyingPin(true);
+    setPinError("");
+    try {
+      const result = await verifyPinMutation({
+        playerIdentityId,
+        pin: pinCode.trim(),
+      });
+      if (result.valid) {
+        setCurrentStep("gdpr");
+      } else if (result.locked) {
+        setPinLocked(true);
+        setPinError(result.error ?? "Too many incorrect attempts.");
+      } else if (result.expired) {
+        setPinExpired(true);
+        setPinError(result.error ?? "Code expired. Please request a new one.");
+      } else {
+        setPinError(result.error ?? "Incorrect code.");
+      }
+    } catch (err) {
+      console.error("Failed to verify PIN:", err);
+      setPinError("Failed to verify code. Please try again.");
+    } finally {
+      setIsVerifyingPin(false);
+    }
+  };
 
   const handleNextStep = async () => {
     switch (currentStep) {
@@ -87,19 +165,21 @@ export function ClaimWizard({
         setCurrentStep("account");
         break;
       case "account":
-        // User must be signed in to proceed
         if (!session?.user) {
           toast.error("Please sign in or create an account to continue");
           return;
         }
-        setCurrentStep("gdpr");
+        await handleSendPin();
+        setCurrentStep("verify");
+        break;
+      case "verify":
+        await handleVerifyPin();
         break;
       case "gdpr":
         if (!gdprAccepted) {
           toast.error("Please accept the privacy policy to continue");
           return;
         }
-        // Accept GDPR
         if (gdprVersion) {
           try {
             await acceptGdpr({
@@ -118,7 +198,6 @@ export function ClaimWizard({
         await handleClaimAccount();
         break;
       default:
-        // All steps are handled, this is just for TypeScript exhaustiveness
         break;
     }
   };
@@ -140,8 +219,11 @@ export function ClaimWizard({
         toast.success(
           "Account claimed successfully! Welcome to your dashboard."
         );
-        // For now, redirect to home page - the player dashboard will be implemented in US-010
-        router.push("/");
+        if (organizationId) {
+          router.push(`/orgs/${organizationId}`);
+        } else {
+          router.push("/");
+        }
       } else {
         toast.error(
           result.error || "Failed to claim account. Please try again."
@@ -218,6 +300,80 @@ export function ClaimWizard({
                     </Link>
                   </Button>
                 </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case "verify":
+        return (
+          <div className="space-y-6">
+            {pinLocked ? (
+              <div className="space-y-4 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                  <KeyRound className="h-6 w-6 text-red-600" />
+                </div>
+                <p className="font-medium text-red-800">Too Many Attempts</p>
+                <p className="text-muted-foreground text-sm">
+                  Please ask your guardian to resend the invite to get a new
+                  link.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {maskedDestination ? (
+                  <>
+                    <p className="text-center text-muted-foreground text-sm">
+                      A verification code has been sent to{" "}
+                      <span className="font-medium">{maskedDestination}</span>{" "}
+                      via {pinChannel === "sms" ? "SMS" : "email"}. Enter the
+                      6-digit code to confirm your identity.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="pin-input">Verification Code</Label>
+                      <Input
+                        autoComplete="one-time-code"
+                        className="text-center font-mono text-2xl tracking-widest"
+                        disabled={pinExpired}
+                        id="pin-input"
+                        inputMode="numeric"
+                        maxLength={6}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "");
+                          setPinCode(val);
+                          setPinError("");
+                        }}
+                        pattern="[0-9]*"
+                        placeholder="000000"
+                        value={pinCode}
+                      />
+                      {pinError && (
+                        <p className="text-destructive text-sm">{pinError}</p>
+                      )}
+                    </div>
+                    {pinExpired && (
+                      <Button
+                        className="w-full"
+                        disabled={isSendingPin}
+                        onClick={async () => {
+                          setPinCode("");
+                          setPinExpired(false);
+                          await handleSendPin();
+                        }}
+                        variant="outline"
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        {isSendingPin ? "Sending..." : "Resend Code"}
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-muted-foreground text-sm">
+                      Sending verification code...
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -300,6 +456,41 @@ export function ClaimWizard({
     }
   };
 
+  const getNextButtonLabel = () => {
+    if (isSubmitting) {
+      return "Processing...";
+    }
+    if (currentStep === "confirm") {
+      return "Claim Account";
+    }
+    if (currentStep === "verify") {
+      return isVerifyingPin ? "Verifying..." : "Verify Code";
+    }
+    if (currentStep === "account") {
+      return "Continue & Send Code";
+    }
+    return "Continue";
+  };
+
+  const isNextDisabled = () => {
+    if (isSubmitting || isVerifyingPin || isSendingPin) {
+      return true;
+    }
+    if (currentStep === "account" && !session?.user) {
+      return true;
+    }
+    if (currentStep === "gdpr" && !gdprAccepted) {
+      return true;
+    }
+    if (
+      currentStep === "verify" &&
+      (pinLocked || !pinCode || pinCode.length < 6)
+    ) {
+      return true;
+    }
+    return false;
+  };
+
   return (
     <div className="mx-auto max-w-md px-4 py-8">
       {/* Progress Steps */}
@@ -310,7 +501,6 @@ export function ClaimWizard({
             const isActive = step.id === currentStep;
             const isCompleted = index < currentStepIndex;
 
-            // Determine step indicator classes
             const getStepClasses = () => {
               if (isCompleted) {
                 return "bg-primary text-primary-foreground";
@@ -333,13 +523,13 @@ export function ClaimWizard({
                   )}
                 </div>
                 {index < STEPS.length - 1 && (
-                  <ChevronRight className="mx-2 h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="mx-1 h-4 w-4 text-muted-foreground" />
                 )}
               </div>
             );
           })}
         </div>
-        <div className="mt-2 flex justify-between px-2">
+        <div className="mt-2 flex justify-between px-1">
           {STEPS.map((step) => (
             <span
               className={`text-xs ${
@@ -358,7 +548,7 @@ export function ClaimWizard({
       {/* Step Content */}
       <Card>
         <CardHeader>
-          <CardTitle>{STEPS[currentStepIndex].label}</CardTitle>
+          <CardTitle>{STEPS[currentStepIndex]?.label ?? ""}</CardTitle>
           <CardDescription>
             Step {currentStepIndex + 1} of {STEPS.length}
           </CardDescription>
@@ -366,27 +556,17 @@ export function ClaimWizard({
         <CardContent>
           {renderStepContent()}
 
-          <div className="mt-6">
-            <Button
-              className="w-full"
-              disabled={
-                isSubmitting ||
-                (currentStep === "account" && !session?.user) ||
-                (currentStep === "gdpr" && !gdprAccepted)
-              }
-              onClick={handleNextStep}
-            >
-              {(() => {
-                if (isSubmitting) {
-                  return "Processing...";
-                }
-                if (currentStep === "confirm") {
-                  return "Claim Account";
-                }
-                return "Continue";
-              })()}
-            </Button>
-          </div>
+          {!pinLocked && (
+            <div className="mt-6">
+              <Button
+                className="w-full"
+                disabled={isNextDisabled()}
+                onClick={handleNextStep}
+              >
+                {getNextButtonLabel()}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

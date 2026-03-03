@@ -4,6 +4,7 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
+  EyeOff,
   Sparkles,
   XCircle,
 } from "lucide-react";
@@ -51,7 +52,7 @@ type SummaryApprovalCardProps = {
     name: string;
   };
   wouldAutoApprove: boolean;
-  onApprove: () => void;
+  onApprove: (restrictChildView: boolean) => void;
   onSuppress: (feedback?: {
     wasInaccurate: boolean;
     wasTooSensitive: boolean;
@@ -76,6 +77,9 @@ export function SummaryApprovalCard({
 }: SummaryApprovalCardProps) {
   // Check if mobile on mount - collapsed by default on mobile for space
   const [isInsightExpanded, setIsInsightExpanded] = useState(false);
+
+  // Phase 7: Restrict from child view toggle (default OFF — non-breaking)
+  const [restrictChildView, setRestrictChildView] = useState(false);
 
   // Phase 4: Feedback dialog state
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
@@ -282,12 +286,30 @@ export function SummaryApprovalCard({
           </CollapsibleContent>
         </Collapsible>
 
+        {/* Phase 7: Restrict from child view toggle */}
+        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+          <Checkbox
+            checked={restrictChildView}
+            id="restrict-child-view"
+            onCheckedChange={(checked) =>
+              setRestrictChildView(checked === true)
+            }
+          />
+          <label
+            className="flex cursor-pointer items-center gap-1.5 text-amber-900 text-xs sm:text-sm"
+            htmlFor="restrict-child-view"
+          >
+            <EyeOff className="h-3.5 w-3.5 shrink-0" />
+            Restrict from child view — Parent and coach only
+          </label>
+        </div>
+
         {/* Action Buttons - stack on very small screens */}
         <div className="flex xs:flex-row flex-col gap-2 pt-1 sm:pt-2">
           <Button
             className="h-9 flex-1 text-xs sm:h-10 sm:text-sm"
             disabled={isApproving || isSuppressing}
-            onClick={onApprove}
+            onClick={() => onApprove(restrictChildView)}
             variant="default"
           >
             {isApproving ? (

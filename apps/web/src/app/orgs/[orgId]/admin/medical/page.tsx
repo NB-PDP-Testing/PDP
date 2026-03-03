@@ -124,13 +124,11 @@ function PrivacyConfirmation({
 function MedicalProfileDetail({
   profile,
   playerName,
-  playerId,
   onClose,
   onEdit,
 }: {
   profile: any;
   playerName: string;
-  playerId: Id<"players">;
   onClose: () => void;
   onEdit: () => void;
 }) {
@@ -818,14 +816,14 @@ export default function MedicalProfilesPage() {
   }, [allProfiles, searchQuery, filterStatus, filterAlert]);
 
   // Handle view click (with privacy confirmation)
-  const handleViewClick = (
-    playerIdentityId: Id<"playerIdentities">,
-    playerName: string,
-    ageGroup: string,
-    sport: string,
-    profile: any
-  ) => {
-    setPendingView({ playerIdentityId, playerName, ageGroup, sport, profile });
+  const handleViewClick = (args: {
+    playerIdentityId: Id<"playerIdentities">;
+    playerName: string;
+    ageGroup: string;
+    sport: string;
+    profile: any;
+  }) => {
+    setPendingView(args);
   };
 
   // Handle privacy confirmation
@@ -1139,13 +1137,13 @@ export default function MedicalProfilesPage() {
                           <>
                             <Button
                               onClick={() =>
-                                handleViewClick(
-                                  item.player._id,
-                                  item.player.name,
-                                  item.player.ageGroup,
-                                  item.player.sport,
-                                  item.profile
-                                )
+                                handleViewClick({
+                                  playerIdentityId: item.player._id,
+                                  playerName: item.player.name,
+                                  ageGroup: item.player.ageGroup ?? "",
+                                  sport: item.player.sport,
+                                  profile: item.profile,
+                                })
                               }
                               size="sm"
                               variant="outline"
@@ -1158,7 +1156,7 @@ export default function MedicalProfilesPage() {
                                 setEditingProfile({
                                   playerIdentityId: item.player._id,
                                   playerName: item.player.name,
-                                  ageGroup: item.player.ageGroup,
+                                  ageGroup: item.player.ageGroup ?? "",
                                   sport: item.player.sport,
                                   profile: item.profile,
                                 })
@@ -1175,7 +1173,7 @@ export default function MedicalProfilesPage() {
                               setEditingProfile({
                                 playerIdentityId: item.player._id,
                                 playerName: item.player.name,
-                                ageGroup: item.player.ageGroup,
+                                ageGroup: item.player.ageGroup ?? "",
                                 sport: item.player.sport,
                                 profile: null,
                               })
@@ -1220,7 +1218,6 @@ export default function MedicalProfilesPage() {
             setEditingProfile(viewingProfile);
             setViewingProfile(null);
           }}
-          playerId={viewingProfile.playerIdentityId as unknown as Id<"players">}
           playerName={viewingProfile.playerName}
           profile={viewingProfile.profile}
         />

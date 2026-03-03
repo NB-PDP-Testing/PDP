@@ -264,10 +264,13 @@ export default defineSchema({
     // Account claim fields (for 18+ graduation flow)
     claimedAt: v.optional(v.number()), // Timestamp when player claimed account
     claimInvitedBy: v.optional(v.string()), // Guardian userId who initiated claim invitation
+    playerWelcomedAt: v.optional(v.number()), // Timestamp when player completed the welcome onboarding step
 
     // Address (optional, usually from guardian for youth)
     address: v.optional(v.string()),
+    address2: v.optional(v.string()),
     town: v.optional(v.string()),
+    county: v.optional(v.string()),
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
 
@@ -282,6 +285,17 @@ export default defineSchema({
     // Import tracking
     importSessionId: v.optional(v.id("importSessions")),
     externalIds: v.optional(v.record(v.string(), v.string())), // {"foireann": "12345", "pitchero": "67890"}
+
+    // Structured national federation registration numbers (Phase 3: US-P3-006)
+    // Note: externalIds.foireann is the legacy GAA path — do NOT remove it
+    federationIds: v.optional(
+      v.object({
+        fai: v.optional(v.string()), // Football Association of Ireland
+        irfu: v.optional(v.string()), // Irish Rugby Football Union
+        gaa: v.optional(v.string()), // Gaelic Athletic Association
+        other: v.optional(v.string()), // Other governing body
+      })
+    ),
 
     // Federation sync tracking
     lastSyncedAt: v.optional(v.number()), // Timestamp of last federation sync
@@ -337,6 +351,18 @@ export default defineSchema({
     .index("by_org", ["organizationId"])
     .index("by_removeId", ["removeId"]),
 
+  // Dismissed potential duplicate pairs — persists admin's "not a duplicate" decision
+  dismissedDuplicatePairs: defineTable({
+    organizationId: v.string(),
+    // Always stored with the lower _id first so lookups are order-independent
+    playerIdA: v.id("playerIdentities"),
+    playerIdB: v.id("playerIdentities"),
+    dismissedBy: v.string(), // userId of the admin who dismissed
+    dismissedAt: v.number(),
+  })
+    .index("by_org", ["organizationId"])
+    .index("by_org_pair", ["organizationId", "playerIdA", "playerIdB"]),
+
   // Player Graduations - tracks players who have turned 18 and their graduation status
   playerGraduations: defineTable({
     playerIdentityId: v.id("playerIdentities"),
@@ -373,15 +399,33 @@ export default defineSchema({
     token: v.string(), // Secure random token
     email: v.string(), // Email the token was sent to
 
+    // Token type discriminator
+    // "graduation" = adult graduation flow (18+ account claim), 30 days validity
+    // "child_account_setup" = parent-granted child account setup, 7 days validity
+    tokenType: v.optional(
+      v.union(v.literal("graduation"), v.literal("child_account_setup"))
+    ),
+
     // Validity
     createdAt: v.number(),
-    expiresAt: v.number(), // 30 days validity
+    expiresAt: v.number(), // 30 days (graduation) or 7 days (child_account_setup)
 
     // Usage tracking
     usedAt: v.optional(v.number()), // Set when token is used
   })
     .index("by_token", ["token"])
-    .index("by_player", ["playerIdentityId"]),
+    .index("by_player", ["playerIdentityId"])
+    .index("by_email", ["email"]),
+
+  // Verification PINs - short-lived PINs for identity verification (e.g. account claim)
+  verificationPins: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    pin: v.string(), // 6-digit numeric string
+    expiresAt: v.number(), // 10 minutes from creation
+    usedAt: v.optional(v.number()), // Set atomically when claim succeeds
+    attemptCount: v.number(), // Tracks failed attempts (lock after 3)
+    channel: v.union(v.literal("sms"), v.literal("email")), // How PIN was sent
+  }).index("by_player", ["playerIdentityId"]),
 
   // Guardian-Player relationship (N:M)
   guardianPlayerLinks: defineTable({
@@ -459,8 +503,8 @@ export default defineSchema({
 
     // Membership info
     clubMembershipNumber: v.optional(v.string()),
-    ageGroup: v.string(),
-    season: v.string(),
+    ageGroup: v.optional(v.string()),
+    season: v.optional(v.string()),
     sport: v.optional(v.string()), // DEPRECATED Phase 3: Use sportPassports.sportCode instead. This field is kept for backwards compatibility but should not be used.
 
     // Status
@@ -496,6 +540,10 @@ export default defineSchema({
     // Metadata
     enrolledAt: v.number(),
     updatedAt: v.number(),
+
+    // Phase 9: GDPR Article 17 soft-delete (anonymisation) fields
+    isDeleted: v.optional(v.boolean()),
+    deletedAt: v.optional(v.number()),
   })
     .index("by_playerIdentityId", ["playerIdentityId"])
     .index("by_organizationId", ["organizationId"])
@@ -691,6 +739,11 @@ export default defineSchema({
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
     ),
     createdAt: v.number(),
+
+    // Data retention fields (Phase 9)
+    retentionExpiresAt: v.optional(v.number()),
+    retentionExpired: v.optional(v.boolean()),
+    retentionExpiredAt: v.optional(v.number()),
   })
     .index("by_passportId", ["passportId"])
     .index("by_playerIdentityId", ["playerIdentityId"])
@@ -701,7 +754,8 @@ export default defineSchema({
     .index("by_assessor", ["assessedBy", "assessmentDate"])
     .index("by_organizationId", ["organizationId", "assessmentDate"])
     .index("by_type", ["passportId", "assessmentType"])
-    .index("by_importSessionId", ["importSessionId"]),
+    .index("by_importSessionId", ["importSessionId"])
+    .index("by_retention_expired", ["retentionExpired", "retentionExpiredAt"]),
 
   // Passport Goals - Development goals linked to sport passports
   passportGoals: defineTable({
@@ -1590,6 +1644,15 @@ export default defineSchema({
     coachTeams: v.optional(v.string()), // Comma-separated team names
     coachAgeGroups: v.optional(v.string()), // Comma-separated age groups
 
+    // Player-specific fields for youth record matching
+    playerDateOfBirth: v.optional(v.string()), // YYYY-MM-DD, used for youth matching
+    playerFederationNumber: v.optional(v.string()), // Federation ID supplied at join request
+    playerPhone: v.optional(v.string()), // E.164 phone — boost signal for matching
+    playerPostcode: v.optional(v.string()), // Postcode — boost signal for matching
+    matchedYouthIdentityId: v.optional(v.id("playerIdentities")), // Matched youth record
+    matchedYouthName: v.optional(v.string()), // Denormalized for display in admin UI
+    matchedYouthConfidence: v.optional(v.string()), // "high" | "medium" | "low"
+
     // Timestamps
     requestedAt: v.number(),
     reviewedAt: v.optional(v.number()),
@@ -2397,6 +2460,13 @@ export default defineSchema({
     revokedBy: v.optional(v.string()), // userId of coach who revoked
     revocationReason: v.optional(v.string()), // Why coach revoked
 
+    // Child view restriction (Phase 7 - Child Player Passport Authorization)
+    restrictChildView: v.optional(v.boolean()), // If true, hidden from child's portal
+
+    // Child response (Phase 7 - View+Interact mode, ages 16–17)
+    childResponse: v.optional(v.string()), // Child's text response to this feedback item
+    childResponseAt: v.optional(v.number()), // Timestamp when child added response
+
     // Override tracking (Phase 4 - Learning Loop)
     // Tracks when coach overrides AI decisions to learn patterns
     overrideType: v.optional(
@@ -2416,6 +2486,11 @@ export default defineSchema({
         otherReason: v.optional(v.string()), // Free-text other reason
       })
     ),
+
+    // Data retention fields (Phase 9)
+    retentionExpiresAt: v.optional(v.number()),
+    retentionExpired: v.optional(v.boolean()),
+    retentionExpiredAt: v.optional(v.number()),
   })
     .index("by_voiceNote", ["voiceNoteId"])
     .index("by_player", ["playerIdentityId"])
@@ -2438,7 +2513,8 @@ export default defineSchema({
       "status",
       "createdAt",
     ]) // Added for N+1 query optimization
-    .index("by_status_scheduledDeliveryAt", ["status", "scheduledDeliveryAt"]), // Added for scheduled delivery processing
+    .index("by_status_scheduledDeliveryAt", ["status", "scheduledDeliveryAt"]) // Added for scheduled delivery processing
+    .index("by_retention_expired", ["retentionExpired", "retentionExpiredAt"]),
 
   // AI usage tracking for cost visibility and analytics (Phase 5.3)
   // Logs every AI API call with token counts and costs
@@ -3890,11 +3966,36 @@ export default defineSchema({
       v.literal("milestone_completed"), // Recovery milestone marked complete
       v.literal("clearance_received"), // Medical clearance received
       // Org invitation notifications (Issue #437)
-      v.literal("org_invitation_received") // Existing user invited to an org
+      v.literal("org_invitation_received"), // Existing user invited to an org
+      // Graduation notifications (Phase 2 - Adult Player Graduation Flow)
+      v.literal("age_transition_available"), // Guardian notified player turned 18
+      v.literal("age_transition_claimed"), // Admins notified player claimed their account
+      // Phase 7: Pre-birthday advance notifications
+      v.literal("age_transition_30_days"), // 30-day pre-birthday notice to parent & child
+      v.literal("age_transition_7_days"), // 7-day pre-birthday notice to parent & child
+      // Phase 7: Child data erasure (GDPR Recital 65)
+      v.literal("child_data_erasure"), // Admin notified of erasure request; child notified of decision
+      // Wellness notifications (Phase 4)
+      v.literal("wellness_access_request"), // Player notified a coach requested access
+      v.literal("wellness_reminder"), // Daily wellness check-in reminder (US-P4-009)
+      // Retention notifications (Phase 9)
+      v.literal("retention_weekly_digest"), // Weekly data retention summary for org admins
+      // Player role notifications (Phase 6)
+      v.literal("player_role_approved") // Player self-registration approved by admin
     ),
     title: v.string(),
     message: v.string(),
     link: v.optional(v.string()), // URL for navigation
+    // Role routing: only show this notification when user is acting in this role
+    // If omitted, notification is shown regardless of active role (backward compatible)
+    targetRole: v.optional(
+      v.union(
+        v.literal("coach"),
+        v.literal("admin"),
+        v.literal("parent"),
+        v.literal("player")
+      )
+    ),
     // Injury context (optional - only set for injury notifications)
     relatedInjuryId: v.optional(v.id("playerInjuries")),
     relatedPlayerId: v.optional(v.id("playerIdentities")),
@@ -4190,6 +4291,11 @@ export default defineSchema({
     // Timestamps
     receivedAt: v.number(),
     processedAt: v.optional(v.number()),
+
+    // Data retention fields (Phase 9 — GDPR Article 5)
+    retentionExpiresAt: v.optional(v.number()),
+    retentionExpired: v.optional(v.boolean()),
+    retentionExpiredAt: v.optional(v.number()),
   })
     .index("by_messageSid", ["messageSid"])
     .index("by_fromNumber", ["fromNumber"])
@@ -4198,7 +4304,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_receivedAt", ["receivedAt"])
     .index("by_fromNumber_and_receivedAt", ["fromNumber", "receivedAt"])
-    .index("by_duplicateOfMessageId", ["duplicateOfMessageId"]),
+    .index("by_duplicateOfMessageId", ["duplicateOfMessageId"])
+    .index("by_retention_expired", ["retentionExpired", "retentionExpiredAt"]),
 
   // WhatsApp session memory for multi-org coaches
   // Remembers which org a coach was recently messaging about (2-hour timeout)
@@ -5423,4 +5530,422 @@ export default defineSchema({
     .index("by_organizationId", ["organizationId"])
     .index("by_connector_and_time", ["connectorId", "receivedAt"]) // For rate limiting
     .index("by_receivedAt", ["receivedAt"]), // For cleanup/archival
+
+  // ============================================================
+  // PHASE 4: DAILY PLAYER WELLNESS CHECK
+  // ============================================================
+
+  // Daily wellness check-in records
+  dailyPlayerHealthChecks: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(), // Better Auth organization ID
+    checkDate: v.string(), // YYYY-MM-DD
+
+    // 5 core dimensions (always enabled)
+    sleepQuality: v.optional(v.number()), // 1-5
+    energyLevel: v.optional(v.number()), // 1-5
+    mood: v.optional(v.number()), // 1-5
+    physicalFeeling: v.optional(v.number()), // 1-5
+    motivation: v.optional(v.number()), // 1-5
+
+    // 3 optional dimensions
+    foodIntake: v.optional(v.number()), // 1-5
+    waterIntake: v.optional(v.number()), // 1-5
+    muscleRecovery: v.optional(v.number()), // 1-5
+
+    enabledDimensions: v.array(v.string()), // dimensions enabled at time of submission
+
+    // Cycle phase (female 18+ only, GDPR Article 9)
+    cyclePhase: v.optional(
+      v.union(
+        v.literal("menstruation"),
+        v.literal("early_follicular"),
+        v.literal("ovulation"),
+        v.literal("early_luteal"),
+        v.literal("late_luteal")
+      )
+    ),
+
+    notes: v.optional(v.string()),
+    submittedAt: v.number(),
+    updatedAt: v.number(),
+    submittedOffline: v.optional(v.boolean()),
+    deviceSubmittedAt: v.optional(v.number()),
+    // Phase 8: tracks which channel submitted this check-in
+    source: v.optional(
+      v.union(
+        v.literal("app"),
+        v.literal("whatsapp_flows"),
+        v.literal("whatsapp_conversational"),
+        v.literal("sms")
+      )
+    ),
+
+    // Phase 9: GDPR Article 5 retention fields
+    retentionExpiresAt: v.optional(v.number()), // Unix ms when record should be soft-deleted
+    retentionExpired: v.optional(v.boolean()), // true once soft-deleted by cron
+    retentionExpiredAt: v.optional(v.number()), // when soft-delete was applied
+  })
+    .index("by_player_and_date", ["playerIdentityId", "checkDate"])
+    .index("by_org_and_date", ["organizationId", "checkDate"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_retention_expired", ["retentionExpired", "retentionExpiredAt"]),
+
+  // Per-player wellness dimension settings
+  playerWellnessSettings: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    enabledDimensions: v.array(v.string()), // defaults to 5 core dimensions
+    updatedAt: v.number(),
+    // Phase 8: WhatsApp/SMS channel settings
+    wellnessChannel: v.optional(
+      v.union(v.literal("whatsapp_flows"), v.literal("sms_conversational"))
+    ),
+    whatsappNumber: v.optional(v.string()), // E.164 format
+    whatsappOptIn: v.optional(v.boolean()),
+    whatsappOptedInAt: v.optional(v.number()),
+    // Phase 8.7: Tracks last date a WhatsApp Flow message was dispatched (YYYY-MM-DD)
+    // Used by the dispatch cron to prevent double-sending on the same day
+    lastFlowSentDate: v.optional(v.string()),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_org", ["organizationId"])
+    .index("by_whatsapp_number", ["whatsappNumber"]),
+
+  // Coach access requests for player wellness data
+  wellnessCoachAccess: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    coachUserId: v.string(), // Better Auth user ID
+    coachName: v.string(), // denormalised for display
+    requestedAt: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("denied"),
+      v.literal("revoked")
+    ),
+    approvedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_coach_and_player", ["coachUserId", "playerIdentityId"])
+    .index("by_org_and_coach", ["organizationId", "coachUserId"]),
+
+  // GDPR consents for sensitive health data
+  playerHealthConsents: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    consentType: v.string(), // 'cycle_tracking'
+    givenAt: v.number(),
+    withdrawnAt: v.optional(v.number()),
+  }).index("by_player_and_type", ["playerIdentityId", "consentType"]),
+
+  // Per-org wellness reminder and alert configuration (US-P4-009, extended US-P8-006)
+  wellnessOrgConfig: defineTable({
+    organizationId: v.string(),
+    // Reminder settings
+    remindersEnabled: v.boolean(), // master toggle
+    reminderFrequency: v.union(
+      v.literal("daily"),
+      v.literal("match_day_only"),
+      v.literal("training_day_only")
+    ),
+    reminderType: v.union(
+      v.literal("in_app"),
+      v.literal("email"),
+      v.literal("both")
+    ),
+    // Low-score alert settings
+    lowScoreAlertsEnabled: v.boolean(),
+    lowScoreThreshold: v.number(), // default 2.0
+    // WhatsApp/SMS dispatch settings (US-P8-006)
+    whatsappEnabled: v.optional(v.boolean()), // master toggle for WhatsApp/SMS dispatch
+    dispatchTime: v.optional(v.string()), // HH:MM 24h format, default "08:00"
+    dispatchTimezone: v.optional(v.string()), // IANA timezone, default "Europe/Dublin"
+    dispatchActiveDays: v.optional(v.array(v.string())), // ["Mon","Tue",...] empty=all
+    dispatchTargetTeamIds: v.optional(v.array(v.string())), // empty=all teams
+    // Updated at
+    updatedAt: v.number(),
+    updatedBy: v.string(), // userId
+  }).index("by_org", ["organizationId"]),
+
+  // AI-generated wellness insights for players (US-P4-010)
+  playerWellnessInsights: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    insight: v.string(), // max 20-word insight text
+    generatedAt: v.number(),
+    basedOnDays: v.number(), // number of check-in records used
+    triggerCheckId: v.id("dailyPlayerHealthChecks"),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_player_and_date", ["playerIdentityId", "generatedAt"]),
+
+  // ============================================================
+  // PHASE 7: CHILD PLAYER PASSPORT AUTHORIZATION
+  // Parent-controlled access for under-18 players to view their
+  // own development data. GDPR/COPPA compliant with audit log.
+  // ============================================================
+
+  // One record per child — unified access level regardless of how many guardians
+  parentChildAuthorizations: defineTable({
+    parentUserId: v.string(), // Better Auth user ID of granting parent
+    childPlayerId: v.id("orgPlayerEnrollments"), // The child's enrollment record
+    organizationId: v.string(), // Better Auth organization ID
+    accessLevel: v.union(
+      v.literal("none"), // No platform access
+      v.literal("view_only"), // Read-only (recommended ages 13–15)
+      v.literal("view_interact") // Can add goals/notes (recommended ages 16–17)
+    ),
+    grantedAt: v.number(), // Timestamp of initial grant
+    grantedBy: v.string(), // Better Auth user ID of parent who granted
+    revokedAt: v.optional(v.number()), // Set when access is revoked
+    revokedBy: v.optional(v.string()), // User ID of parent who revoked
+    // Granular content toggles (all default true)
+    includeCoachFeedback: v.boolean(),
+    includeVoiceNotes: v.boolean(),
+    includeDevelopmentGoals: v.boolean(),
+    includeAssessments: v.boolean(),
+    includeWellnessAccess: v.boolean(),
+  })
+    .index("by_parent_and_child", ["parentUserId", "childPlayerId"])
+    .index("by_child", ["childPlayerId"])
+    .index("by_org", ["organizationId"]),
+
+  // WRITE-ONCE audit log — satisfies GDPR Article 5 accountability + COPPA
+  parentChildAuthorizationLogs: defineTable({
+    authorizationId: v.id("parentChildAuthorizations"),
+    childPlayerId: v.id("orgPlayerEnrollments"), // Denormalised for by_child queries
+    changedAt: v.number(),
+    changedBy: v.string(), // Better Auth user ID
+    action: v.union(
+      v.literal("granted"),
+      v.literal("updated"),
+      v.literal("revoked"),
+      v.literal("toggle_changed")
+    ),
+    fromAccessLevel: v.optional(v.string()),
+    toAccessLevel: v.optional(v.string()),
+    togglesChanged: v.optional(
+      v.array(
+        v.object({
+          field: v.string(), // e.g. "includeCoachFeedback"
+          from: v.boolean(),
+          to: v.boolean(),
+        })
+      )
+    ),
+  })
+    .index("by_authorization", ["authorizationId"])
+    .index("by_child", ["childPlayerId"])
+    .index("by_changed_at", ["changedAt"]),
+
+  // ============================================================
+  // PHASE 7: CHILD DATA ERASURE REQUESTS (GDPR Recital 65)
+  // Child's independent right to data deletion without parental approval.
+  // Admin reviews before executing hard deletion.
+  // ============================================================
+
+  childDataErasureRequests: defineTable({
+    childPlayerId: v.id("orgPlayerEnrollments"), // The child's enrollment record
+    playerIdentityId: v.id("playerIdentities"), // Denormalised for deletion
+    requestingUserId: v.string(), // Better Auth user ID of child
+    organizationId: v.string(), // Better Auth organization ID
+    requestedAt: v.number(),
+
+    // Status workflow
+    status: v.union(
+      v.literal("pending"), // Awaiting admin review
+      v.literal("completed"), // Data deleted
+      v.literal("declined") // Admin declined with explanation
+    ),
+
+    // If declined
+    declinedAt: v.optional(v.number()),
+    declinedBy: v.optional(v.string()), // Admin user ID
+    declinedReason: v.optional(v.string()),
+
+    // If completed
+    processedAt: v.optional(v.number()),
+    processedBy: v.optional(v.string()), // Admin user ID
+  })
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_child", ["childPlayerId"])
+    .index("by_requesting_user", ["requestingUserId"]),
+
+  // ============================================================
+  // PHASE 8: WHATSAPP WELLNESS SESSIONS
+  // Tracks in-progress conversational/SMS wellness check-ins.
+  // NOT used for WhatsApp Flows channel (stateless on our side).
+  // ============================================================
+
+  // Dispatch event log for error tracking and admin monitoring (US-P8-009)
+  wellnessDispatchLog: defineTable({
+    organizationId: v.string(),
+    logDate: v.string(), // YYYY-MM-DD
+    playerIdentityId: v.id("playerIdentities"),
+    channel: v.union(
+      v.literal("whatsapp_flows"),
+      v.literal("sms_conversational"),
+      v.literal("sms")
+    ),
+    eventType: v.union(
+      v.literal("sent"),
+      v.literal("failed"),
+      v.literal("fallback")
+    ),
+    error: v.optional(v.string()),
+    timestamp: v.number(),
+  })
+    .index("by_org_and_date", ["organizationId", "logDate"])
+    .index("by_player_and_date", ["playerIdentityId", "logDate"]),
+
+  whatsappWellnessSessions: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    sessionDate: v.string(), // YYYY-MM-DD
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("abandoned")
+    ),
+    enabledDimensions: v.array(v.string()), // dimensions for this session
+    currentDimensionIndex: v.number(), // 0-based index into enabledDimensions
+    collectedResponses: v.any(), // Record<dimensionKey, 1-5>
+    phoneNumber: v.string(), // E.164 format
+    channel: v.literal("sms_conversational"),
+    sentAt: v.number(), // when session was created/sent
+    startedAt: v.optional(v.number()), // when player first replied
+    completedAt: v.optional(v.number()),
+    expiresAt: v.number(), // sentAt + 8 hours
+    dailyHealthCheckId: v.optional(v.id("dailyPlayerHealthChecks")),
+    invalidReplyCount: v.number(), // abandon after 3 invalid replies
+    // Soft-delete fields (GDPR Article 17 erasure via COMMUNICATION_DATA category)
+    retentionExpired: v.optional(v.boolean()),
+    retentionExpiredAt: v.optional(v.number()),
+  })
+    .index("by_phone_and_date", ["phoneNumber", "sessionDate"])
+    .index("by_player_and_date", ["playerIdentityId", "sessionDate"])
+    .index("by_org_and_date", ["organizationId", "sessionDate"]),
+
+  // ============================================================
+  // PHASE 9: GDPR COMPLIANCE — ERASURE REQUESTS
+  // GDPR Article 17 — Adult right to erasure
+  // This table is NEVER subject to retention cron or future erasure processing
+  // It is the Article 5(2) accountability record of how erasure requests were handled
+  // ============================================================
+
+  erasureRequests: defineTable({
+    playerId: v.id("orgPlayerEnrollments"),
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    requestedByUserId: v.string(),
+    submittedAt: v.number(),
+    deadline: v.number(), // submittedAt + 2592000000 (30 days in ms)
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_review"),
+      v.literal("completed"),
+      v.literal("rejected")
+    ),
+    playerGrounds: v.optional(v.string()), // Player's optional reason for the request
+    categoryDecisions: v.optional(
+      v.array(
+        v.object({
+          category: v.string(),
+          decision: v.union(v.literal("approved"), v.literal("rejected")),
+          grounds: v.optional(v.string()),
+          erasedAt: v.optional(v.number()),
+        })
+      )
+    ),
+    adminUserId: v.optional(v.string()),
+    processedAt: v.optional(v.number()),
+    adminResponseNote: v.optional(v.string()),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_deadline", ["status", "deadline"]),
+
+  // ============================================================
+  // PHASE 9: GDPR COMPLIANCE — ORG RETENTION CONFIGURATION
+  // GDPR Article 5(1)(e) — Storage limitation
+  // Org-configurable retention periods per data category
+  // ============================================================
+
+  orgRetentionConfig: defineTable({
+    organizationId: v.string(),
+    wellnessDays: v.number(), // default 730 (2 years)
+    assessmentDays: v.number(), // default 1825 (5 years)
+    injuryDays: v.number(), // default 2555 (7 years — legal minimum)
+    coachFeedbackDays: v.number(), // default 1825 (5 years)
+    auditLogDays: v.number(), // default 1095 (3 years — legal minimum)
+    communicationDays: v.number(), // default 365 (1 year)
+    updatedAt: v.number(),
+    updatedByUserId: v.string(),
+  }).index("by_org", ["organizationId"]),
+
+  // ============================================================
+  // PHASE 9: GDPR COMPLIANCE — RETENTION CRON LOGS
+  // Audit trail of nightly retention enforcement runs
+  // ============================================================
+
+  retentionCronLogs: defineTable({
+    runAt: v.number(),
+    softDeletedCount: v.number(),
+    hardDeletedCount: v.number(),
+    tablesProcessed: v.array(v.string()),
+    errors: v.optional(v.array(v.string())),
+  }).index("by_runAt", ["runAt"]),
+
+  // ============================================================
+  // PHASE 9: GDPR COMPLIANCE — BREACH REGISTER
+  // GDPR Articles 33/34 — Data breach notification obligations
+  // ============================================================
+
+  // ============================================================
+  // GDPR EXPORT RATE LIMITING
+  // Server-side enforcement of the 24-hour cooldown on data exports
+  // GDPR Article 20 — Right to Data Portability
+  // ============================================================
+
+  gdprExportLog: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    requestedAt: v.number(),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_player_and_org", ["playerIdentityId", "organizationId"]),
+
+  breachRegister: defineTable({
+    organizationId: v.string(),
+    detectedAt: v.number(),
+    detectedByUserId: v.string(),
+    description: v.string(),
+    affectedDataCategories: v.array(v.string()),
+    estimatedAffectedCount: v.optional(v.number()),
+    severity: v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("critical")
+    ),
+    status: v.union(
+      v.literal("detected"),
+      v.literal("under_assessment"),
+      v.literal("dpc_notified"),
+      v.literal("individuals_notified"),
+      v.literal("closed")
+    ),
+    dpcNotifiedAt: v.optional(v.number()),
+    individualsNotifiedAt: v.optional(v.number()),
+    resolutionNotes: v.optional(v.string()),
+    closedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_org", ["organizationId"])
+    .index("by_org_and_status", ["organizationId", "status"]),
 });

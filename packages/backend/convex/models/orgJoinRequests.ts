@@ -1,7 +1,11 @@
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
+import { sendPlayerJoinApprovalEmail } from "../utils/email";
+
+// Regex defined at module level for performance (used inside handler)
+const WHITESPACE_REGEX = /\s+/;
 
 /**
  * Organization join request management functions
@@ -51,8 +55,19 @@ export const createJoinRequest = mutation({
     coachGender: v.optional(v.string()),
     coachTeams: v.optional(v.string()),
     coachAgeGroups: v.optional(v.string()),
+
+    // Player-specific fields
+    playerDateOfBirth: v.optional(v.string()), // YYYY-MM-DD, required when player role selected
+    playerFederationNumber: v.optional(v.string()), // Optional federation registration number
+    playerPhone: v.optional(v.string()), // E.164 phone — boost signal for matching
+    playerPostcode: v.optional(v.string()), // Postcode — boost signal for matching
   },
-  returns: v.id("orgJoinRequests"),
+  returns: v.union(
+    v.object({ status: v.literal("ok"), id: v.id("orgJoinRequests") }),
+    v.object({ status: v.literal("already_member") }),
+    v.object({ status: v.literal("pending_request_exists") })
+  ),
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Join request creation handles multiple role types (coach, parent, player) with role-specific fields and youth matching — refactoring would reduce clarity.
   handler: async (ctx, args) => {
     const user = await authComponent.getAuthUser(ctx);
     if (!user) {
@@ -69,9 +84,7 @@ export const createJoinRequest = mutation({
       .first();
 
     if (existingRequest) {
-      throw new Error(
-        "You already have a pending request for this organization"
-      );
+      return { status: "pending_request_exists" as const };
     }
 
     // Check if user is already a member
@@ -96,7 +109,7 @@ export const createJoinRequest = mutation({
     );
 
     if (memberResult) {
-      throw new Error("You are already a member of this organization");
+      return { status: "already_member" as const };
     }
 
     // Get organization details
@@ -136,8 +149,48 @@ export const createJoinRequest = mutation({
         ? "admin"
         : "member";
 
+    // Player-specific: run player record matching if player role + DOB provided
+    let matchedYouthIdentityId: string | undefined;
+    let matchedYouthName: string | undefined;
+    let matchedYouthConfidence: string | undefined;
+
+    if (functionalRoles.includes("player") && args.playerDateOfBirth) {
+      // Parse userName to firstName/lastName for matching
+      const nameParts = user.name.trim().split(WHITESPACE_REGEX);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || nameParts[0] || "";
+
+      const matchResult: {
+        confidence: "high" | "medium" | "low" | "none";
+        match: { _id: string; firstName: string; lastName: string } | null;
+        matchScore: number;
+        matchedFields: string[];
+        warningFlag?: string;
+      } = await ctx.runQuery(
+        internal.models.playerMatching.findBestPlayerMatchInternal,
+        {
+          organizationId: args.organizationId,
+          firstName,
+          lastName,
+          dateOfBirth: args.playerDateOfBirth,
+          email: user.email,
+          phone: args.playerPhone,
+          postcode: args.playerPostcode,
+          federationIds: args.playerFederationNumber
+            ? { other: args.playerFederationNumber }
+            : undefined,
+        }
+      );
+
+      if (matchResult.confidence === "high" && matchResult.match) {
+        matchedYouthIdentityId = matchResult.match._id;
+        matchedYouthName = `${matchResult.match.firstName} ${matchResult.match.lastName}`;
+        matchedYouthConfidence = "high";
+      }
+    }
+
     // Create the join request
-    return await ctx.db.insert("orgJoinRequests", {
+    const joinRequestId = await ctx.db.insert("orgJoinRequests", {
       userId: user._id,
       userEmail: user.email,
       userName: user.name,
@@ -159,7 +212,19 @@ export const createJoinRequest = mutation({
       coachGender: args.coachGender,
       coachTeams: args.coachTeams,
       coachAgeGroups: args.coachAgeGroups,
+
+      // Player-specific fields
+      playerDateOfBirth: args.playerDateOfBirth,
+      playerFederationNumber: args.playerFederationNumber,
+      playerPhone: args.playerPhone,
+      playerPostcode: args.playerPostcode,
+      // biome-ignore lint/suspicious/noExplicitAny: Convex ID string interop — matchedYouthIdentityId is a validated playerIdentities ID
+      matchedYouthIdentityId: matchedYouthIdentityId as any,
+      matchedYouthName,
+      matchedYouthConfidence,
     });
+
+    return { status: "ok" as const, id: joinRequestId };
   },
 });
 
@@ -274,6 +339,7 @@ export const getUserPendingRequests = query({
  * - Can optionally configure role-specific data:
  *   - For coaches: teams to assign
  *   - For parents: players to link
+ *   - For players: optionally link to existing youth identity
  * - See: docs/COMPREHENSIVE_AUTH_PLAN.md
  */
 export const approveJoinRequest = mutation({
@@ -282,6 +348,8 @@ export const approveJoinRequest = mutation({
     // Optional role configuration
     coachTeams: v.optional(v.array(v.string())), // Team names/IDs for coaches
     linkedPlayerIds: v.optional(v.array(v.string())), // Player IDs for parents
+    // Player-specific: link to existing youth identity
+    linkToYouthIdentityId: v.optional(v.id("playerIdentities")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -520,6 +588,43 @@ export const approveJoinRequest = mutation({
       );
     }
 
+    // Link adult player to youth identity if requested
+    if (functionalRoles.includes("player") && args.linkToYouthIdentityId) {
+      await ctx.runMutation(
+        internal.models.adultPlayers.claimYouthProfileInternal,
+        {
+          playerIdentityId: args.linkToYouthIdentityId,
+          userId: request.userId,
+          email: request.userEmail,
+        }
+      );
+
+      // If the registrant is 18+, ensure the linked record is treated as an
+      // adult player. claimYouthProfileInternal uses the stored record's DOB,
+      // which may still be < 18 (e.g. a youth record seeded years ago).
+      // Use the registrant's own DOB from the join request as the authority.
+      if (request.playerDateOfBirth) {
+        const dobMs = new Date(request.playerDateOfBirth).getTime();
+        const registrantAge = Math.floor(
+          (Date.now() - dobMs) / (365.25 * 24 * 60 * 60 * 1000)
+        );
+        if (registrantAge >= 18) {
+          const linkedRecord = await ctx.db.get(args.linkToYouthIdentityId);
+          if (linkedRecord && linkedRecord.playerType !== "adult") {
+            await ctx.db.patch(args.linkToYouthIdentityId, {
+              playerType: "adult",
+              verificationStatus: "self_verified",
+              updatedAt: Date.now(),
+            });
+          }
+        }
+      }
+
+      console.log(
+        `[approveJoinRequest] Linked player ${request.userEmail} to youth identity ${args.linkToYouthIdentityId}`
+      );
+    }
+
     // Copy phone and address from join request to user profile
     // This ensures the profile completion step shows pre-filled values
     if (request.phone || request.address) {
@@ -555,6 +660,17 @@ export const approveJoinRequest = mutation({
       reviewedBy: user._id,
       reviewerName: user.name,
     });
+
+    // Send approval email for player requests
+    if (functionalRoles.includes("player")) {
+      await sendPlayerJoinApprovalEmail({
+        email: request.userEmail,
+        userName: request.userName,
+        organizationName: request.organizationName,
+        orgLink: `${process.env.NEXT_PUBLIC_APP_URL || "https://app.playerarc.io"}/orgs/${request.organizationId}`,
+        linkedToHistory: Boolean(args.linkToYouthIdentityId),
+      });
+    }
 
     return null;
   },

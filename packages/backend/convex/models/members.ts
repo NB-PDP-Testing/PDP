@@ -2603,6 +2603,8 @@ export const syncFunctionalRolesWithChildSelections = mutation({
     selectedPlayerIds: v.array(v.string()),
     declinedPlayerIds: v.array(v.string()),
     consentToSharing: v.boolean(),
+    // The player identity ID the user explicitly confirmed as theirs (undefined = not confirmed / declined)
+    acceptedPlayerIdentityId: v.optional(v.string()),
   },
   returns: v.object({
     success: v.boolean(),
@@ -2972,6 +2974,41 @@ export const syncFunctionalRolesWithChildSelections = mutation({
       }
     }
 
+    // 4. Handle player role - link to matched youth identity only if user confirmed
+    const rawSuggestedRoles: string[] =
+      metadata?.suggestedFunctionalRoles || [];
+    if (rawSuggestedRoles.includes("player")) {
+      const matchedId: string | undefined = metadata?.matchedPlayerIdentityId;
+      // Only link if the user explicitly confirmed this is their record
+      if (matchedId && args.acceptedPlayerIdentityId === matchedId) {
+        try {
+          await ctx.runMutation(
+            internal.models.adultPlayers.claimYouthProfileInternal,
+            {
+              playerIdentityId: matchedId as Id<"playerIdentities">,
+              userId: args.userId,
+              email: args.userEmail,
+            }
+          );
+          console.log(
+            "[syncFunctionalRolesWithChildSelections] Linked player to youth identity (user confirmed):",
+            matchedId
+          );
+        } catch (err) {
+          // Non-breaking — log and continue
+          console.warn(
+            "[syncFunctionalRolesWithChildSelections] Failed to link youth record:",
+            err
+          );
+        }
+      } else if (matchedId && !args.acceptedPlayerIdentityId) {
+        console.log(
+          "[syncFunctionalRolesWithChildSelections] Skipping player link — user did not confirm:",
+          matchedId
+        );
+      }
+    }
+
     // Mark user as invited (Phase 0.8: Onboarding flow differentiation)
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {
       input: {
@@ -3124,6 +3161,95 @@ export const switchActiveFunctionalRole = mutation({
 });
 
 /**
+ * Set the primary functional role for a member in an organization.
+ * primaryFunctionalRole is the persisted default used for post-login redirects.
+ * It does NOT change activeFunctionalRole — takes effect on next login only.
+ */
+export const setPrimaryFunctionalRole = mutation({
+  args: {
+    organizationId: v.string(),
+    functionalRole: v.union(
+      v.literal("coach"),
+      v.literal("parent"),
+      v.literal("admin"),
+      v.literal("player")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.email) {
+      throw new Error("Not authenticated");
+    }
+
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!userResult) {
+      throw new Error("User not found");
+    }
+
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: userResult._id,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      throw new Error("Member not found in this organization");
+    }
+
+    const functionalRoles: ("coach" | "parent" | "admin" | "player")[] =
+      (memberResult as any).functionalRoles || [];
+    if (!functionalRoles.includes(args.functionalRole)) {
+      throw new Error(
+        `You don't have the ${args.functionalRole} role in this organization`
+      );
+    }
+
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+        update: {
+          primaryFunctionalRole: args.functionalRole,
+        } as any,
+      },
+    });
+
+    console.log(
+      `[setPrimaryFunctionalRole] Set primary role to ${args.functionalRole} for user ${userResult._id} in org ${args.organizationId}`
+    );
+    return null;
+  },
+});
+
+/**
  * Get member's active functional role for an organization
  * Returns the active role if set, otherwise returns first role by priority (coach > admin > parent)
  */
@@ -3246,6 +3372,13 @@ export const getMembersForAllOrganizations = query({
         v.literal("player"),
         v.null()
       ),
+      primaryFunctionalRole: v.union(
+        v.literal("coach"),
+        v.literal("parent"),
+        v.literal("admin"),
+        v.literal("player"),
+        v.null()
+      ),
       pendingRoleRequests: v.array(
         v.object({
           role: v.union(
@@ -3340,33 +3473,36 @@ export const getMembersForAllOrganizations = query({
     const memberships = membersResult.page.map((member: Member) => {
       const org = orgMap.get(member.organizationId);
 
-      const functionalRoles: ("coach" | "parent" | "admin")[] =
+      const functionalRoles: ("coach" | "parent" | "admin" | "player")[] =
         (member as any).functionalRoles || [];
       const activeRole = (member as any).activeFunctionalRole as
         | "coach"
         | "parent"
         | "admin"
+        | "player"
         | undefined;
       const pendingRequests: Array<{
-        role: "coach" | "parent" | "admin";
+        role: "coach" | "parent" | "admin" | "player";
         requestedAt: string;
       }> = ((member as any).pendingFunctionalRoleRequests || []).map(
         (req: { role: string; requestedAt: string }) => ({
-          role: req.role as "coach" | "parent" | "admin",
+          role: req.role as "coach" | "parent" | "admin" | "player",
           requestedAt: req.requestedAt,
         })
       );
 
       // Determine effective active role (set or fallback to priority)
-      let effectiveActiveRole: "coach" | "parent" | "admin" | null = null;
+      let effectiveActiveRole: "coach" | "parent" | "admin" | "player" | null =
+        null;
       if (activeRole && functionalRoles.includes(activeRole)) {
         effectiveActiveRole = activeRole;
       } else if (functionalRoles.length > 0) {
         // Fallback to priority
-        const priority: ("coach" | "admin" | "parent")[] = [
+        const priority: ("coach" | "admin" | "parent" | "player")[] = [
           "coach",
           "admin",
           "parent",
+          "player",
         ];
         for (const role of priority) {
           if (functionalRoles.includes(role)) {
@@ -3379,12 +3515,23 @@ export const getMembersForAllOrganizations = query({
         }
       }
 
+      const primaryRole = (member as any).primaryFunctionalRole as
+        | "coach"
+        | "parent"
+        | "admin"
+        | "player"
+        | undefined;
+
       return {
         organizationId: member.organizationId,
         organizationName: org?.name || null,
         organizationLogo: org?.logo || null,
         functionalRoles,
         activeFunctionalRole: effectiveActiveRole,
+        primaryFunctionalRole:
+          primaryRole && functionalRoles.includes(primaryRole)
+            ? primaryRole
+            : null,
         pendingRoleRequests: pendingRequests,
         betterAuthRole: member.role,
       };

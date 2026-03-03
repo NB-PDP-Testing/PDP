@@ -71,6 +71,9 @@ const assessmentValidator = v.object({
   source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
   voiceNoteId: v.optional(v.id("voiceNotes")),
   createdAt: v.number(),
+  retentionExpiresAt: v.optional(v.number()),
+  retentionExpired: v.optional(v.boolean()),
+  retentionExpiredAt: v.optional(v.number()),
 });
 
 // ============================================================
@@ -98,20 +101,22 @@ export const getAssessmentsForPassport = query({
   handler: async (ctx, args) => {
     if (args.skillCode) {
       const skillCode = args.skillCode;
-      return await ctx.db
+      const results = await ctx.db
         .query("skillAssessments")
         .withIndex("by_skill", (q) =>
           q.eq("passportId", args.passportId).eq("skillCode", skillCode)
         )
         .order("desc")
         .collect();
+      return results.filter((r) => !r.retentionExpired);
     }
 
-    return await ctx.db
+    const results = await ctx.db
       .query("skillAssessments")
       .withIndex("by_passportId", (q) => q.eq("passportId", args.passportId))
       .order("desc")
       .collect();
+    return results.filter((r) => !r.retentionExpired);
   },
 });
 
@@ -128,9 +133,12 @@ export const getLatestAssessmentsForPassport = query({
       .order("desc")
       .collect();
 
-    // Get latest for each skill
+    // Get latest non-erased assessment for each skill
     const latestBySkill = new Map<string, (typeof allAssessments)[number]>();
     for (const assessment of allAssessments) {
+      if (assessment.retentionExpired) {
+        continue;
+      }
       if (!latestBySkill.has(assessment.skillCode)) {
         latestBySkill.set(assessment.skillCode, assessment);
       }
@@ -151,18 +159,16 @@ export const getSkillHistory = query({
   },
   returns: v.array(assessmentValidator),
   handler: async (ctx, args) => {
-    const dbQuery = ctx.db
+    const results = await ctx.db
       .query("skillAssessments")
       .withIndex("by_skill", (q) =>
         q.eq("passportId", args.passportId).eq("skillCode", args.skillCode)
       )
-      .order("desc");
+      .order("desc")
+      .collect();
 
-    if (args.limit) {
-      return await dbQuery.take(args.limit);
-    }
-
-    return await dbQuery.collect();
+    const active = results.filter((r) => !r.retentionExpired);
+    return args.limit ? active.slice(0, args.limit) : active;
   },
 });
 
@@ -178,7 +184,7 @@ export const getAssessmentsForPlayer = query({
   handler: async (ctx, args) => {
     if (args.sportCode) {
       const sportCode = args.sportCode;
-      return await ctx.db
+      const results = await ctx.db
         .query("skillAssessments")
         .withIndex("by_player_and_sport", (q) =>
           q
@@ -187,15 +193,17 @@ export const getAssessmentsForPlayer = query({
         )
         .order("desc")
         .collect();
+      return results.filter((r) => !r.retentionExpired);
     }
 
-    return await ctx.db
+    const results = await ctx.db
       .query("skillAssessments")
       .withIndex("by_playerIdentityId", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
       .order("desc")
       .collect();
+    return results.filter((r) => !r.retentionExpired);
   },
 });
 
@@ -233,10 +241,16 @@ export const getAssessmentHistory = query({
       notes: v.optional(v.string()),
       confidence: v.optional(confidenceValidator),
       createdAt: v.optional(v.number()),
+      importSessionId: v.optional(v.id("importSessions")),
+      source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
+      sessionId: v.optional(v.string()),
+      matchId: v.optional(v.string()),
+      voiceNoteId: v.optional(v.id("voiceNotes")),
+      privateNotes: v.optional(v.string()),
     })
   ),
   handler: async (ctx, args) => {
-    const assessments = await ctx.db
+    const rawAssessments = await ctx.db
       .query("skillAssessments")
       .withIndex("by_player_and_sport", (q) =>
         q
@@ -245,7 +259,10 @@ export const getAssessmentHistory = query({
       )
       .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
       .order("desc")
-      .take(args.limit ?? 100);
+      .collect();
+    const assessments = rawAssessments
+      .filter((r) => !r.retentionExpired)
+      .slice(0, args.limit ?? 100);
 
     const skillDefinitions = await ctx.db
       .query("skillDefinitions")
@@ -299,14 +316,17 @@ export const getAssessmentHistoryAllSports = query({
   ),
   handler: async (ctx, args) => {
     // Get all assessments for this player across all sports
-    const assessments = await ctx.db
+    const rawAssessments = await ctx.db
       .query("skillAssessments")
       .withIndex("by_playerIdentityId", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
       .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
       .order("desc")
-      .take(args.limit ?? 100);
+      .collect();
+    const assessments = rawAssessments
+      .filter((r) => !r.retentionExpired)
+      .slice(0, args.limit ?? 100);
 
     // Get all skill definitions to map codes to names
     const skillDefinitions = await ctx.db.query("skillDefinitions").collect();
@@ -389,6 +409,125 @@ export const getOrgAssessments = query({
     }
 
     return assessments;
+  },
+});
+
+/**
+ * Aggregated assessment metrics for the analytics dashboard.
+ * Replaces streaming raw records to the client — computes everything server-side
+ * so we never hit Convex's 8192-item array limit.
+ */
+export const getOrgAssessmentMetrics = query({
+  args: {
+    organizationId: v.string(),
+    startDate: v.optional(v.string()),
+  },
+  returns: v.object({
+    totalAssessments: v.number(),
+    assessmentsThisMonth: v.number(),
+    avgRating: v.number(),
+    ratingTrend: v.number(),
+    uniquePlayerCount: v.number(),
+    // Weekly counts + avg ratings for the last 12 weeks (for chart)
+    weeklyData: v.array(
+      v.object({
+        week: v.string(),
+        count: v.number(),
+        avgRating: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    // Use the compound index to filter by org + date at DB level
+    const q = ctx.db
+      .query("skillAssessments")
+      .withIndex("by_organizationId", (idx) => {
+        const base = idx.eq("organizationId", args.organizationId);
+        return args.startDate
+          ? base.gte("assessmentDate", args.startDate)
+          : base;
+      });
+
+    const assessments = await q.collect();
+
+    if (assessments.length === 0) {
+      return {
+        totalAssessments: 0,
+        assessmentsThisMonth: 0,
+        avgRating: 0,
+        ratingTrend: 0,
+        uniquePlayerCount: 0,
+        weeklyData: [],
+      };
+    }
+
+    const now = new Date();
+    const thisMonthStr = new Date(now.getFullYear(), now.getMonth(), 1)
+      .toISOString()
+      .split("T")[0];
+    const lastMonthStr = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      .toISOString()
+      .split("T")[0];
+
+    let totalRating = 0;
+    let thisMonthCount = 0;
+    let thisMonthRating = 0;
+    let lastMonthCount = 0;
+    let lastMonthRating = 0;
+    const uniquePlayers = new Set<string>();
+    const weeklyMap = new Map<string, { count: number; totalRating: number }>();
+
+    for (const a of assessments) {
+      totalRating += a.rating;
+      uniquePlayers.add(a.playerIdentityId);
+
+      const d = a.assessmentDate;
+      if (d >= thisMonthStr) {
+        thisMonthCount += 1;
+        thisMonthRating += a.rating;
+      } else if (d >= lastMonthStr) {
+        lastMonthCount += 1;
+        lastMonthRating += a.rating;
+      }
+
+      // Bucket into week (Sunday-aligned)
+      const date = new Date(d);
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      const weekKey = weekStart.toISOString().split("T")[0];
+      const bucket = weeklyMap.get(weekKey) ?? { count: 0, totalRating: 0 };
+      bucket.count += 1;
+      bucket.totalRating += a.rating;
+      weeklyMap.set(weekKey, bucket);
+    }
+
+    const avgRating = totalRating / assessments.length;
+    const thisMonthAvg =
+      thisMonthCount > 0 ? thisMonthRating / thisMonthCount : 0;
+    const lastMonthAvg =
+      lastMonthCount > 0 ? lastMonthRating / lastMonthCount : 0;
+    const ratingTrend =
+      lastMonthAvg > 0
+        ? ((thisMonthAvg - lastMonthAvg) / lastMonthAvg) * 100
+        : 0;
+
+    const weeklyData = Array.from(weeklyMap.entries())
+      .map(([week, { count, totalRating: wr }]) => ({
+        week,
+        count,
+        avgRating: Math.round((wr / count) * 100) / 100,
+      }))
+      .sort((a, b) => a.week.localeCompare(b.week))
+      .slice(-12);
+
+    return {
+      totalAssessments: assessments.length,
+      assessmentsThisMonth: thisMonthCount,
+      avgRating: Math.round(avgRating * 100) / 100,
+      ratingTrend: Math.round(ratingTrend * 10) / 10,
+      uniquePlayerCount: uniquePlayers.size,
+      weeklyData,
+    };
   },
 });
 
@@ -491,6 +630,19 @@ export const recordAssessment = mutation({
       throw new Error("Rating must be between 1 and 5");
     }
 
+    // Self-assessment guard: coaches cannot submit assessments for their own player record
+    if (args.assessmentType !== "self") {
+      const identity = await ctx.auth.getUserIdentity();
+      if (identity?.subject) {
+        const playerIdentity = await ctx.db.get(passport.playerIdentityId);
+        if (playerIdentity?.userId === identity.subject) {
+          throw new Error(
+            "A coach cannot submit an assessment for their own player record"
+          );
+        }
+      }
+    }
+
     // Get previous rating for this skill
     const previousAssessment = await ctx.db
       .query("skillAssessments")
@@ -528,7 +680,7 @@ export const recordAssessment = mutation({
 
     const now = Date.now();
 
-    return await ctx.db.insert("skillAssessments", {
+    const assessmentId = await ctx.db.insert("skillAssessments", {
       passportId: args.passportId,
       playerIdentityId: passport.playerIdentityId,
       sportCode: passport.sportCode,
@@ -552,6 +704,20 @@ export const recordAssessment = mutation({
       confidence: args.confidence,
       createdAt: now,
     });
+
+    // Stamp retention expiry using org's assessmentDays config (Fix 5)
+    const retentionConfigRecord = await ctx.db
+      .query("orgRetentionConfig")
+      .withIndex("by_org", (q) =>
+        q.eq("organizationId", passport.organizationId)
+      )
+      .first();
+    const assessmentDays = retentionConfigRecord?.assessmentDays ?? 1825; // 5 years default
+    await ctx.db.patch(assessmentId, {
+      retentionExpiresAt: now + assessmentDays * 86_400_000,
+    });
+
+    return assessmentId;
   },
 });
 
@@ -583,6 +749,19 @@ export const recordBatchAssessments = mutation({
     const passport = await ctx.db.get(args.passportId);
     if (!passport) {
       throw new Error("Sport passport not found");
+    }
+
+    // Self-assessment guard: coaches cannot submit assessments for their own player record
+    if (args.assessmentType !== "self") {
+      const identity = await ctx.auth.getUserIdentity();
+      if (identity?.subject) {
+        const playerIdentity = await ctx.db.get(passport.playerIdentityId);
+        if (playerIdentity?.userId === identity.subject) {
+          throw new Error(
+            "A coach cannot submit an assessment for their own player record"
+          );
+        }
+      }
     }
 
     const now = Date.now();
@@ -746,6 +925,16 @@ export const recordAssessmentWithBenchmark = mutation({
     const playerIdentity = await ctx.db.get(passport.playerIdentityId);
     if (!playerIdentity) {
       throw new Error("Player identity not found");
+    }
+
+    // Self-assessment guard: coaches cannot submit assessments for their own player record
+    if (args.assessmentType !== "self") {
+      const identity = await ctx.auth.getUserIdentity();
+      if (identity?.subject && playerIdentity.userId === identity.subject) {
+        throw new Error(
+          "A coach cannot submit an assessment for their own player record"
+        );
+      }
     }
 
     // Calculate age group from DOB

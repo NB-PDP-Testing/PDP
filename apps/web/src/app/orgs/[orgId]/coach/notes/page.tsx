@@ -159,7 +159,7 @@ export default function CoachNotesPage() {
         enrollmentId: enrollment._id,
         playerIdentityId: player._id,
         playerName: `${player.firstName} ${player.lastName}`,
-        ageGroup: enrollment.ageGroup,
+        ageGroup: enrollment.ageGroup ?? "",
         teams: playerTeams,
         coachNotes,
         lastUpdated,
@@ -184,7 +184,7 @@ export default function CoachNotesPage() {
         enrollmentId: enrollment._id,
         playerIdentityId: player._id,
         playerName: `${player.firstName} ${player.lastName}`,
-        ageGroup: enrollment.ageGroup,
+        ageGroup: enrollment.ageGroup ?? "",
         coachNotes,
       };
     });
@@ -229,6 +229,7 @@ export default function CoachNotesPage() {
       await updateEnrollment({
         enrollmentId,
         coachNotes: editingNotes || undefined,
+        confirmed: true,
       });
       toast.success("Notes saved successfully");
       setEditingId(null);
@@ -255,6 +256,7 @@ export default function CoachNotesPage() {
       await updateEnrollment({
         enrollmentId,
         coachNotes: "",
+        confirmed: true,
       });
       toast.success("Notes cleared");
     } catch (_error) {

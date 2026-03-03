@@ -16,7 +16,6 @@ import {
   Shield,
   Sparkles,
   TrendingUp,
-  User,
   Users,
 } from "lucide-react";
 import type { Route } from "next";
@@ -48,100 +47,115 @@ type NavGroup = {
   items: NavItem[];
 };
 
+type ParentNav = {
+  rootItem: NavItem;
+  groups: NavGroup[];
+  trailingItem: NavItem;
+};
+
 /**
- * Generate parent navigation structure for an organization
+ * Generate parent navigation structure for an organization.
+ * Overview sits at the root (above all groups).
+ * Settings sits at the root below all groups.
+ * The Account section has been removed.
  */
+export function getParentNav(
+  orgId: string,
+  unreadMessagesCount?: number,
+  unreadCoachFeedbackCount?: number
+): ParentNav {
+  return {
+    rootItem: {
+      href: `/orgs/${orgId}/parents`,
+      label: "Overview",
+      icon: Home,
+    },
+    groups: [
+      {
+        label: "Children",
+        icon: Users,
+        items: [
+          {
+            href: `/orgs/${orgId}/parents/children`,
+            label: "My Children",
+            icon: Users,
+          },
+          {
+            href: `/orgs/${orgId}/parents/progress`,
+            label: "Progress",
+            icon: TrendingUp,
+          },
+          {
+            href: `/orgs/${orgId}/parents/sharing`,
+            label: "Passport Sharing",
+            icon: Shield,
+          },
+          {
+            href: `/orgs/${orgId}/parents/medical`,
+            label: "Medical Info",
+            icon: Heart,
+          },
+          {
+            href: `/orgs/${orgId}/parents/injuries`,
+            label: "Injuries",
+            icon: Activity,
+          },
+          {
+            href: `/orgs/${orgId}/parents/wellness`,
+            label: "Wellness",
+            icon: Heart,
+          },
+        ],
+      },
+      {
+        label: "Updates",
+        icon: Bell,
+        items: [
+          {
+            href: `/orgs/${orgId}/parents/coach-feedback`,
+            label: "Coach Feedback",
+            icon: Sparkles,
+            ...(unreadCoachFeedbackCount && unreadCoachFeedbackCount > 0
+              ? { badge: unreadCoachFeedbackCount }
+              : {}),
+          },
+          {
+            href: `/orgs/${orgId}/parents/achievements`,
+            label: "Achievements",
+            icon: Award,
+          },
+          {
+            href: `/orgs/${orgId}/parents/messages`,
+            label: "Messages",
+            icon: MessageSquare,
+            ...(unreadMessagesCount && unreadMessagesCount > 0
+              ? { badge: unreadMessagesCount }
+              : {}),
+          },
+          {
+            href: `/orgs/${orgId}/parents/announcements`,
+            label: "Announcements",
+            icon: Bell,
+          },
+        ],
+      },
+    ],
+    trailingItem: {
+      href: `/orgs/${orgId}/parents/settings`,
+      label: "Settings",
+      icon: Settings,
+    },
+  };
+}
+
+/** @deprecated Use getParentNav instead */
 export function getParentNavGroups(
   orgId: string,
   unreadMessagesCount?: number,
   unreadCoachFeedbackCount?: number
 ): NavGroup[] {
-  return [
-    {
-      label: "Children",
-      icon: Users,
-      items: [
-        {
-          href: `/orgs/${orgId}/parents`,
-          label: "Overview",
-          icon: Home,
-        },
-        {
-          href: `/orgs/${orgId}/parents/children`,
-          label: "My Children",
-          icon: Users,
-        },
-        {
-          href: `/orgs/${orgId}/parents/progress`,
-          label: "Progress",
-          icon: TrendingUp,
-        },
-        {
-          href: `/orgs/${orgId}/parents/sharing`,
-          label: "Passport Sharing",
-          icon: Shield,
-        },
-        {
-          href: `/orgs/${orgId}/parents/medical`,
-          label: "Medical Info",
-          icon: Heart,
-        },
-        {
-          href: `/orgs/${orgId}/parents/injuries`,
-          label: "Injuries",
-          icon: Activity,
-        },
-      ],
-    },
-    {
-      label: "Updates",
-      icon: Bell,
-      items: [
-        {
-          href: `/orgs/${orgId}/parents/coach-feedback`,
-          label: "Coach Feedback",
-          icon: Sparkles,
-          ...(unreadCoachFeedbackCount && unreadCoachFeedbackCount > 0
-            ? { badge: unreadCoachFeedbackCount }
-            : {}),
-        },
-        {
-          href: `/orgs/${orgId}/parents/achievements`,
-          label: "Achievements",
-          icon: Award,
-        },
-        {
-          href: `/orgs/${orgId}/parents/messages`,
-          label: "Messages",
-          icon: MessageSquare,
-          ...(unreadMessagesCount && unreadMessagesCount > 0
-            ? { badge: unreadMessagesCount }
-            : {}),
-        },
-        {
-          href: `/orgs/${orgId}/parents/announcements`,
-          label: "Announcements",
-          icon: Bell,
-        },
-      ],
-    },
-    {
-      label: "Account",
-      icon: Settings,
-      items: [
-        {
-          href: `/orgs/${orgId}/parents/profile`,
-          label: "Profile",
-          icon: User,
-        },
-        {
-          href: `/orgs/${orgId}/parents/settings`,
-          label: "Settings",
-          icon: Settings,
-        },
-      ],
-    },
-  ];
+  return getParentNav(orgId, unreadMessagesCount, unreadCoachFeedbackCount)
+    .groups;
 }
 
 type ParentSidebarProps = {
@@ -167,11 +181,11 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
     { organizationId: orgId }
   );
 
-  const navGroups = getParentNavGroups(
-    orgId,
-    unreadCount ?? 0,
-    unreadCoachFeedbackCount ?? 0
-  );
+  const {
+    rootItem,
+    groups: navGroups,
+    trailingItem,
+  } = getParentNav(orgId, unreadCount ?? 0, unreadCoachFeedbackCount ?? 0);
 
   // Track which groups are expanded - auto-expand group containing current page
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
@@ -202,8 +216,32 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
   return (
     <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-muted/30">
       <div className="flex h-full flex-col overflow-y-auto py-4">
+        {/* Root nav item — Overview */}
+        <nav className="px-3 pb-1">
+          <Link href={rootItem.href as Route}>
+            <Button
+              className="w-full justify-start gap-2"
+              size="sm"
+              style={
+                isActive(rootItem.href) && primaryColor
+                  ? {
+                      backgroundColor: `${primaryColor}15`,
+                      color: primaryColor,
+                      borderColor: primaryColor,
+                      borderWidth: "1px",
+                    }
+                  : undefined
+              }
+              variant={isActive(rootItem.href) ? "secondary" : "ghost"}
+            >
+              <rootItem.icon className="h-4 w-4" />
+              {rootItem.label}
+            </Button>
+          </Link>
+        </nav>
+
         {/* Grouped navigation */}
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="space-y-1 px-3">
           {navGroups.map((group) => {
             const isExpanded = expandedGroups.includes(group.label);
             const hasActiveItem = group.items.some((item) =>
@@ -276,6 +314,30 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
             );
           })}
         </nav>
+
+        {/* Trailing root item — Settings */}
+        <nav className="px-3 pt-1">
+          <Link href={trailingItem.href as Route}>
+            <Button
+              className="w-full justify-start gap-2"
+              size="sm"
+              style={
+                isActive(trailingItem.href) && primaryColor
+                  ? {
+                      backgroundColor: `${primaryColor}15`,
+                      color: primaryColor,
+                      borderColor: primaryColor,
+                      borderWidth: "1px",
+                    }
+                  : undefined
+              }
+              variant={isActive(trailingItem.href) ? "secondary" : "ghost"}
+            >
+              <trailingItem.icon className="h-4 w-4" />
+              {trailingItem.label}
+            </Button>
+          </Link>
+        </nav>
       </div>
     </aside>
   );
@@ -308,11 +370,11 @@ export function ParentMobileNav({
     { organizationId: orgId }
   );
 
-  const navGroups = getParentNavGroups(
-    orgId,
-    unreadCount ?? 0,
-    unreadCoachFeedbackCount ?? 0
-  );
+  const {
+    rootItem,
+    groups: navGroups,
+    trailingItem,
+  } = getParentNav(orgId, unreadCount ?? 0, unreadCoachFeedbackCount ?? 0);
   const [open, setOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {
@@ -366,8 +428,29 @@ export function ParentMobileNav({
         </SheetHeader>
 
         <div className="flex flex-col overflow-y-auto py-4">
+          {/* Root nav item — Overview */}
+          <nav className="px-3 pb-1">
+            <Link href={rootItem.href as Route} onClick={() => setOpen(false)}>
+              <Button
+                className="h-11 w-full justify-start gap-2"
+                style={
+                  isActive(rootItem.href) && primaryColor
+                    ? {
+                        backgroundColor: `${primaryColor}15`,
+                        color: primaryColor,
+                      }
+                    : undefined
+                }
+                variant={isActive(rootItem.href) ? "secondary" : "ghost"}
+              >
+                <rootItem.icon className="h-4 w-4" />
+                {rootItem.label}
+              </Button>
+            </Link>
+          </nav>
+
           {/* Grouped navigation */}
-          <nav aria-label="Parent navigation" className="flex-1 space-y-1 px-3">
+          <nav aria-label="Parent navigation" className="space-y-1 px-3">
             {navGroups.map((group) => {
               const isExpanded = expandedGroups.includes(group.label);
               const hasActiveItem = group.items.some((item) =>
@@ -440,6 +523,30 @@ export function ParentMobileNav({
                 </div>
               );
             })}
+          </nav>
+
+          {/* Trailing root item — Settings */}
+          <nav className="px-3 pt-1">
+            <Link
+              href={trailingItem.href as Route}
+              onClick={() => setOpen(false)}
+            >
+              <Button
+                className="h-11 w-full justify-start gap-2"
+                style={
+                  isActive(trailingItem.href) && primaryColor
+                    ? {
+                        backgroundColor: `${primaryColor}15`,
+                        color: primaryColor,
+                      }
+                    : undefined
+                }
+                variant={isActive(trailingItem.href) ? "secondary" : "ghost"}
+              >
+                <trailingItem.icon className="h-4 w-4" />
+                {trailingItem.label}
+              </Button>
+            </Link>
           </nav>
         </div>
       </SheetContent>

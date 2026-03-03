@@ -15,6 +15,7 @@ import { ActionItemsPanel } from "./components/action-items-panel";
 import { AIPracticeAssistant } from "./components/ai-practice-assistant";
 import { ChildCard } from "./components/child-card";
 import { CoachFeedbackSnapshot } from "./components/coach-feedback-snapshot";
+import { GraduationAlerts } from "./components/graduation-alert";
 import { GuardianSettings } from "./components/guardian-settings";
 import { WeeklySchedule } from "./components/weekly-schedule";
 
@@ -197,8 +198,8 @@ function ParentDashboardContent() {
         </div>
       </div>
 
-      {/* Guardian Claims Notification REMOVED
-          The OnboardingOrchestrator now handles guardian claims via UnifiedGuardianClaimStep */}
+      {/* Graduation Alerts - shown above all other content */}
+      <GraduationAlerts orgId={orgId} />
 
       {/* Weekly Schedule - Moved to top */}
       {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}

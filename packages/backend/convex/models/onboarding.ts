@@ -16,6 +16,7 @@
 
 import { v } from "convex/values";
 import { components } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
@@ -28,6 +29,9 @@ const onboardingTaskValidator = v.object({
     v.literal("guardian_claim"),
     v.literal("child_linking"),
     v.literal("player_graduation"),
+    v.literal("player_claim_pending"), // Auto-claim for existing-account graduation path
+    v.literal("player_claimed_account"), // Phase 2 - Player welcome step after claiming account
+    v.literal("child_account_setup"), // Phase 7 - Welcome step for newly-setup child accounts
     v.literal("welcome")
   ),
   priority: v.number(),
@@ -73,6 +77,9 @@ export const getOnboardingTasks = query({
         | "guardian_claim"
         | "child_linking"
         | "player_graduation"
+        | "player_claim_pending"
+        | "player_claimed_account"
+        | "child_account_setup"
         | "welcome";
       priority: number;
       data: unknown;
@@ -159,6 +166,7 @@ export const getOnboardingTasks = query({
             metadata?: {
               suggestedFunctionalRoles?: string[];
               suggestedPlayerLinks?: Array<{ id: string; name?: string }>;
+              matchedPlayerIdentityId?: string;
             };
           }) => {
             const org = await ctx.runQuery(
@@ -175,6 +183,20 @@ export const getOnboardingTasks = query({
               }
             );
 
+            // If there's a matched adult player identity, fetch their name and DOB
+            let matchedPlayerName: string | undefined;
+            let matchedPlayerDob: string | undefined;
+            const matchedPlayerId = inv.metadata?.matchedPlayerIdentityId;
+            if (matchedPlayerId) {
+              const playerRecord = await ctx.db.get(
+                matchedPlayerId as Id<"playerIdentities">
+              );
+              if (playerRecord) {
+                matchedPlayerName = `${playerRecord.firstName} ${playerRecord.lastName}`;
+                matchedPlayerDob = playerRecord.dateOfBirth;
+              }
+            }
+
             return {
               invitationId: inv._id,
               organizationId: inv.organizationId,
@@ -185,6 +207,10 @@ export const getOnboardingTasks = query({
               expiresAt: inv.expiresAt,
               functionalRoles: inv.metadata?.suggestedFunctionalRoles || [],
               playerLinks: inv.metadata?.suggestedPlayerLinks || [],
+              matchedPlayerIdentityId:
+                inv.metadata?.matchedPlayerIdentityId ?? undefined,
+              matchedPlayerName,
+              matchedPlayerDob,
             };
           }
         )
@@ -591,12 +617,125 @@ export const getOnboardingTasks = query({
     }
 
     // =================================================================
-    // Task 5: Welcome message (Future - Phase 2)
+    // Task 4.4: Auto-claim player identity if invite was sent to existing account
+    // Priority 4.4 - Transparently links player history for existing-account users
+    // =================================================================
+    {
+      const pendingTokens = await ctx.db
+        .query("playerClaimTokens")
+        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+        .collect();
+
+      const nowForClaim = Date.now();
+      const validToken = pendingTokens.find(
+        (t) => !t.usedAt && t.expiresAt > nowForClaim
+      );
+
+      if (validToken) {
+        const claimPlayer = await ctx.db.get(validToken.playerIdentityId);
+        // Only show task if player not already linked to another user
+        if (
+          claimPlayer &&
+          (!claimPlayer.userId || claimPlayer.userId === userId)
+        ) {
+          const claimEnrollment = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", validToken.playerIdentityId)
+            )
+            .first();
+
+          if (claimEnrollment) {
+            tasks.push({
+              type: "player_claim_pending",
+              priority: 4.4,
+              data: {
+                playerIdentityId: validToken.playerIdentityId,
+                playerFirstName: claimPlayer.firstName,
+                organizationId: claimEnrollment.organizationId,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    // =================================================================
+    // Task 5: Player claimed account welcome (Phase 2 - Graduation Flow)
+    // Priority 4.5 - Shown to players who just claimed their account
+    // =================================================================
+    {
+      const playerIdentity = await ctx.db
+        .query("playerIdentities")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first();
+
+      if (playerIdentity?.claimedAt && !playerIdentity.playerWelcomedAt) {
+        // Get the organization from enrollment
+        const enrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerIdentity._id)
+          )
+          .first();
+
+        if (enrollment) {
+          tasks.push({
+            type: "player_claimed_account",
+            priority: 4.5,
+            data: {
+              playerIdentityId: playerIdentity._id,
+              playerFirstName: playerIdentity.firstName,
+              organizationId: enrollment.organizationId,
+            },
+          });
+        }
+      }
+    }
+
+    // =================================================================
+    // Task 5b: Child account setup welcome (Phase 7 - Child Authorization)
+    // Priority 4.6 - Shown to youth players who just set up their account
+    // Fires when: playerType='youth' AND userId is set AND playerWelcomedAt is not set
+    // =================================================================
+    {
+      const youthIdentity = await ctx.db
+        .query("playerIdentities")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first();
+
+      if (
+        youthIdentity?.playerType === "youth" &&
+        !youthIdentity.playerWelcomedAt &&
+        // Don't show alongside the adult graduation welcome step
+        !youthIdentity.claimedAt
+      ) {
+        const youthEnrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", youthIdentity._id)
+          )
+          .first();
+
+        if (youthEnrollment) {
+          tasks.push({
+            type: "child_account_setup",
+            priority: 4.6,
+            data: {
+              playerIdentityId: youthIdentity._id,
+              playerFirstName: youthIdentity.firstName,
+              organizationId: youthEnrollment.organizationId,
+            },
+          });
+        }
+      }
+    }
+
+    // =================================================================
+    // Task 6: Welcome message (Future)
     // Priority 5 - First login to organization
     // =================================================================
-    // TODO: Implement in Phase 2
-    // Check if user has never visited the org before (no flow progress records)
-    // If first login, add welcome task
+    // TODO: Implement in future phase
 
     // Sort tasks by priority
     tasks.sort((a, b) => a.priority - b.priority);

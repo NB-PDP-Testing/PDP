@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { components } from "../_generated/api";
+import { internalMutation, mutation, query } from "../_generated/server";
+import { authComponent } from "../auth";
+import { requireAuth } from "../lib/authHelpers";
+import { normalizePostcode } from "../lib/matching/guardianMatcher";
+import { normalizePhoneNumber } from "../lib/phoneUtils";
 import { calculateAge } from "./playerIdentities";
 
 // ============================================================
@@ -32,13 +37,33 @@ const playerIdentityValidator = v.object({
   email: v.optional(v.string()),
   phone: v.optional(v.string()),
   address: v.optional(v.string()),
+  address2: v.optional(v.string()),
   town: v.optional(v.string()),
+  county: v.optional(v.string()),
   postcode: v.optional(v.string()),
   country: v.optional(v.string()),
   verificationStatus: verificationStatusValidator,
+  claimedAt: v.optional(v.number()),
+  claimInvitedBy: v.optional(v.string()),
+  playerWelcomedAt: v.optional(v.number()),
+  importSessionId: v.optional(v.id("importSessions")),
+  externalIds: v.optional(v.record(v.string(), v.string())),
+  federationIds: v.optional(
+    v.object({
+      fai: v.optional(v.string()),
+      irfu: v.optional(v.string()),
+      gaa: v.optional(v.string()),
+      other: v.optional(v.string()),
+    })
+  ),
+  lastSyncedAt: v.optional(v.number()),
+  lastSyncedData: v.optional(v.any()),
+  isActive: v.optional(v.boolean()),
   createdAt: v.number(),
   updatedAt: v.number(),
   createdFrom: v.optional(v.string()),
+  normalizedFirstName: v.optional(v.string()),
+  normalizedLastName: v.optional(v.string()),
 });
 
 // Emergency contact validator
@@ -122,6 +147,29 @@ export const findAdultPlayerByUserId = query({
 });
 
 /**
+ * Check if the current authenticated user has a player dashboard
+ * (i.e., an adult player identity linked to their account)
+ * Used for portal gating in the player layout
+ */
+export const hasPlayerDashboard = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return false;
+    }
+
+    const player = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    return player !== null && player.playerType === "adult";
+  },
+});
+
+/**
  * Check if user has an adult player profile
  */
 export const hasAdultPlayerProfile = query({
@@ -160,6 +208,7 @@ export const registerAdultPlayer = mutation({
   },
   returns: v.id("playerIdentities"),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     // Check if user already has a player identity
     const existingPlayer = await ctx.db
       .query("playerIdentities")
@@ -215,6 +264,11 @@ export const transitionToAdult = mutation({
     emergencyContactsCreated: v.number(),
   }),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
+
+    // Fetch the full Better Auth user so we can sync their profile to the player record
+    const authUser = await authComponent.getAuthUser(ctx);
+
     const player = await ctx.db.get(args.playerIdentityId);
     if (!player) {
       throw new Error("Player not found");
@@ -229,13 +283,23 @@ export const transitionToAdult = mutation({
       throw new Error("Player must be 18 or older to transition to adult");
     }
 
-    // 1. Update player to adult type
+    // When the user self-upgrades, their Better Auth account is the source of truth
+    // for userId and email. Explicit args override, then auth user, then existing record.
+    const resolvedUserId = args.userId ?? authUser?._id ?? player.userId;
+    const resolvedEmail =
+      args.email?.toLowerCase().trim() ??
+      authUser?.email?.toLowerCase().trim() ??
+      player.email;
+    const resolvedPhone =
+      args.phone?.trim() ?? authUser?.phone?.trim() ?? player.phone;
+
+    // 1. Update player to adult type, writing current user profile data
     await ctx.db.patch(args.playerIdentityId, {
       playerType: "adult",
-      userId: args.userId,
-      email: args.email?.toLowerCase().trim(),
-      phone: args.phone?.trim(),
-      verificationStatus: args.userId ? "self_verified" : "unverified",
+      userId: resolvedUserId,
+      email: resolvedEmail,
+      phone: resolvedPhone,
+      verificationStatus: resolvedUserId ? "self_verified" : "unverified",
       updatedAt: Date.now(),
     });
 
@@ -264,11 +328,12 @@ export const transitionToAdult = mutation({
         phone: guardian.phone || "",
         email: guardian.email,
         relationship: mapRelationshipToEmergency(link.relationship),
-        priority: priority++,
+        priority,
         notes: link.isPrimary ? "Former primary guardian" : undefined,
         createdAt: now,
         updatedAt: now,
       });
+      priority += 1;
     }
 
     // 3. Guardian links are kept for historical reference
@@ -282,29 +347,30 @@ export const transitionToAdult = mutation({
 });
 
 /**
- * Update adult player's own profile
+ * Update adult player's own profile — bidirectional sync with Better Auth user record
  */
 export const updateMyProfile = mutation({
   args: {
-    email: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
+    address2: v.optional(v.string()),
     town: v.optional(v.string()),
+    county: v.optional(v.string()),
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
       throw new Error("Not authenticated");
     }
 
-    const userId = identity.subject;
-
     const player = await ctx.db
       .query("playerIdentities")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .first();
 
     if (!player) {
@@ -315,30 +381,143 @@ export const updateMyProfile = mutation({
       throw new Error("Only adult players can update their own profile");
     }
 
-    const updates: Record<string, unknown> = {
-      updatedAt: Date.now(),
-    };
+    const normalizedPhone = args.phone
+      ? normalizePhoneNumber(args.phone)
+      : undefined;
+    const normalizedPostcode = args.postcode
+      ? normalizePostcode(args.postcode)
+      : undefined;
 
-    if (args.email !== undefined) {
-      updates.email = args.email.toLowerCase().trim();
+    // Build playerIdentity updates
+    const playerUpdates: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.firstName !== undefined) {
+      playerUpdates.firstName = args.firstName.trim();
     }
-    if (args.phone !== undefined) {
-      updates.phone = args.phone.trim();
+    if (args.lastName !== undefined) {
+      playerUpdates.lastName = args.lastName.trim();
+    }
+    if (normalizedPhone !== undefined) {
+      playerUpdates.phone = normalizedPhone;
     }
     if (args.address !== undefined) {
-      updates.address = args.address.trim();
+      playerUpdates.address = args.address.trim();
+    }
+    if (args.address2 !== undefined) {
+      playerUpdates.address2 = args.address2.trim();
     }
     if (args.town !== undefined) {
-      updates.town = args.town.trim();
+      playerUpdates.town = args.town.trim();
     }
-    if (args.postcode !== undefined) {
-      updates.postcode = args.postcode.trim();
+    if (args.county !== undefined) {
+      playerUpdates.county = args.county.trim();
+    }
+    if (normalizedPostcode !== undefined) {
+      playerUpdates.postcode = normalizedPostcode;
     }
     if (args.country !== undefined) {
-      updates.country = args.country.trim();
+      playerUpdates.country = args.country.trim();
     }
 
-    await ctx.db.patch(player._id, updates);
+    await ctx.db.patch(player._id, playerUpdates);
+
+    // Sync to Better Auth user record
+    const userUpdates: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.firstName !== undefined) {
+      userUpdates.firstName = args.firstName.trim();
+    }
+    if (args.lastName !== undefined) {
+      userUpdates.lastName = args.lastName.trim();
+    }
+    if (args.firstName !== undefined || args.lastName !== undefined) {
+      const newFirst =
+        args.firstName?.trim() ??
+        (user as Record<string, unknown>).firstName ??
+        "";
+      const newLast =
+        args.lastName?.trim() ??
+        (user as Record<string, unknown>).lastName ??
+        "";
+      userUpdates.name = `${newFirst} ${newLast}`.trim();
+    }
+    if (normalizedPhone !== undefined) {
+      userUpdates.phone = normalizedPhone;
+    }
+    if (args.address !== undefined) {
+      userUpdates.address = args.address.trim();
+    }
+    if (args.address2 !== undefined) {
+      userUpdates.address2 = args.address2.trim();
+    }
+    if (args.town !== undefined) {
+      userUpdates.town = args.town.trim();
+    }
+    if (args.county !== undefined) {
+      userUpdates.county = args.county.trim();
+    }
+    if (normalizedPostcode !== undefined) {
+      userUpdates.postcode = normalizedPostcode;
+    }
+    if (args.country !== undefined) {
+      userUpdates.country = args.country.trim();
+    }
+
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: user._id, operator: "eq" }],
+        update: userUpdates,
+      },
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Sync the player's first and last name from their auth account (Google/Microsoft).
+ * For OAuth users, user.name is the source of truth and cannot be changed in-app.
+ * This is needed when the playerIdentity name was set from a different source
+ * (e.g., a linked child account) and has drifted from the auth account name.
+ */
+export const syncNameFromAuth = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    const player = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!player) {
+      throw new Error("Player profile not found");
+    }
+    if (player.playerType !== "adult") {
+      throw new Error("Only adult players can sync their name");
+    }
+
+    const authName = (user.name ?? "").trim();
+    if (!authName) {
+      throw new Error("No name available from your account");
+    }
+
+    // Split at the first space: "First Middle Last" → firstName="First", lastName="Middle Last"
+    const spaceIdx = authName.indexOf(" ");
+    const firstName =
+      spaceIdx !== -1 ? authName.substring(0, spaceIdx).trim() : authName;
+    const lastName =
+      spaceIdx !== -1 ? authName.substring(spaceIdx + 1).trim() : "";
+
+    await ctx.db.patch(player._id, {
+      firstName,
+      lastName,
+      updatedAt: Date.now(),
+    });
+
     return null;
   },
 });
@@ -358,6 +537,7 @@ export const claimYouthProfile = mutation({
     transitioned: v.boolean(),
   }),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const player = await ctx.db.get(args.playerIdentityId);
     if (!player) {
       throw new Error("Player not found");
@@ -409,11 +589,12 @@ export const claimYouthProfile = mutation({
           phone: guardian.phone || "",
           email: guardian.email,
           relationship: mapRelationshipToEmergency(link.relationship),
-          priority: priority++,
+          priority,
           notes: link.isPrimary ? "Former primary guardian" : undefined,
           createdAt: now,
           updatedAt: now,
         });
+        priority += 1;
       }
 
       return { success: true, transitioned: true };
@@ -426,6 +607,219 @@ export const claimYouthProfile = mutation({
     });
 
     return { success: true, transitioned: false };
+  },
+});
+
+/**
+ * Internal version of claimYouthProfile — for use by other mutations (e.g. approveJoinRequest)
+ */
+export const claimYouthProfileInternal = internalMutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    userId: v.string(),
+    email: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    transitioned: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      throw new Error("Player not found");
+    }
+
+    const existingPlayer = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (existingPlayer) {
+      throw new Error("User already has a player identity");
+    }
+
+    const age = calculateAge(player.dateOfBirth);
+
+    if (age >= 18) {
+      await ctx.db.patch(args.playerIdentityId, {
+        playerType: "adult",
+        userId: args.userId,
+        email: args.email?.toLowerCase().trim(),
+        verificationStatus: "self_verified",
+        updatedAt: Date.now(),
+      });
+
+      const guardianLinks = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_player", (q) =>
+          q.eq("playerIdentityId", args.playerIdentityId)
+        )
+        .collect();
+
+      let priority = 1;
+      const now = Date.now();
+
+      for (const link of guardianLinks) {
+        const guardian = await ctx.db.get(link.guardianIdentityId);
+        if (!guardian) {
+          continue;
+        }
+
+        await ctx.db.insert("playerEmergencyContacts", {
+          playerIdentityId: args.playerIdentityId,
+          firstName: guardian.firstName,
+          lastName: guardian.lastName,
+          phone: guardian.phone || "",
+          email: guardian.email,
+          relationship: mapRelationshipToEmergency(link.relationship),
+          priority,
+          notes: link.isPrimary ? "Former primary guardian" : undefined,
+          createdAt: now,
+          updatedAt: now,
+        });
+        priority += 1;
+      }
+
+      return { success: true, transitioned: true };
+    }
+
+    await ctx.db.patch(args.playerIdentityId, {
+      userId: args.userId,
+      email: args.email?.toLowerCase().trim(),
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, transitioned: false };
+  },
+});
+
+/**
+ * Get today's health/wellness check for the current player
+ * Stub returning null until Phase 3 creates the wellness table.
+ * Returns object with wellnessScore (0–5) when implemented.
+ */
+export const getTodayHealthCheck = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.union(v.object({ wellnessScore: v.number() }), v.null()),
+  handler: async (_ctx, _args) => null,
+});
+
+/**
+ * Get today's priority data for the player dashboard Today section
+ * Returns active injury count and first affected body part
+ */
+export const getTodayPriorityData = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    activeInjuryCount: v.number(),
+    activeInjuryBodyPart: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const activeInjuries = await ctx.db
+      .query("playerInjuries")
+      .withIndex("by_status", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId).eq("status", "active")
+      )
+      .collect();
+
+    const recoveringInjuries = await ctx.db
+      .query("playerInjuries")
+      .withIndex("by_status", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("status", "recovering")
+      )
+      .collect();
+
+    // Apply org-level visibility rules: show injury if visible to all orgs,
+    // or if this org is in the explicit allowlist
+    const isVisibleToOrg = (injury: (typeof activeInjuries)[number]) =>
+      injury.isVisibleToAllOrgs ||
+      (injury.restrictedToOrgIds?.includes(args.organizationId) ?? false);
+
+    const allActive = [...activeInjuries, ...recoveringInjuries].filter(
+      isVisibleToOrg
+    );
+
+    return {
+      activeInjuryCount: allActive.length,
+      activeInjuryBodyPart: allActive[0]?.bodyPart ?? null,
+    };
+  },
+});
+
+// ============================================================
+// PHASE 9: GDPR ARTICLE 17 — ANONYMISATION
+// ============================================================
+
+/**
+ * Anonymise a player's profile data as part of an approved GDPR erasure request.
+ *
+ * This does NOT delete the orgPlayerEnrollments record (referential integrity must
+ * be preserved for historical assessments, injuries, etc.). Instead:
+ * - Marks the enrollment as deleted (isDeleted, deletedAt)
+ * - Anonymises the playerIdentities record (replaces PII with placeholder values)
+ * - Deletes associated emergency contacts
+ *
+ * The record ID is preserved so historical records remain internally consistent.
+ */
+export const anonymisePlayerProfile = internalMutation({
+  args: {
+    playerId: v.id("orgPlayerEnrollments"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const enrollment = await ctx.db.get(args.playerId);
+    if (!enrollment) {
+      return null;
+    }
+
+    const now = Date.now();
+
+    // Mark enrollment as deleted (soft delete)
+    await ctx.db.patch(args.playerId, {
+      isDeleted: true,
+      deletedAt: now,
+    });
+
+    // Anonymise the playerIdentities record — replace PII with placeholder values
+    const playerIdentity = await ctx.db.get(enrollment.playerIdentityId);
+    if (playerIdentity) {
+      await ctx.db.patch(enrollment.playerIdentityId, {
+        firstName: "Deleted",
+        lastName: "Player",
+        dateOfBirth: "1900-01-01",
+        email: undefined,
+        phone: undefined,
+        address: undefined,
+        address2: undefined,
+        town: undefined,
+        county: undefined,
+        postcode: undefined,
+        country: undefined,
+        userId: undefined, // Unlink the Better Auth user account
+        updatedAt: now,
+      });
+    }
+
+    // Delete associated emergency contacts (these are PII and have no referential value)
+    const emergencyContacts = await ctx.db
+      .query("playerEmergencyContacts")
+      .withIndex("by_priority", (q) =>
+        q.eq("playerIdentityId", enrollment.playerIdentityId)
+      )
+      .collect();
+
+    for (const contact of emergencyContacts) {
+      await ctx.db.delete(contact._id);
+    }
+
+    return null;
   },
 });
 
@@ -454,6 +848,8 @@ function mapRelationshipToEmergency(
     case "grandparent":
       return "Grandparent";
     case "other":
+      return "Family";
+    default:
       return "Family";
   }
 }

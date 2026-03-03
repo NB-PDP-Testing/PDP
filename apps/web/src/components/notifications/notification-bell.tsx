@@ -43,7 +43,19 @@ type NotificationType =
   | "injury_reported"
   | "injury_status_changed"
   | "severe_injury_alert"
-  | "injury_cleared";
+  | "injury_cleared"
+  | "milestone_completed"
+  | "clearance_received"
+  | "org_invitation_received"
+  | "age_transition_available"
+  | "age_transition_claimed"
+  | "age_transition_30_days"
+  | "age_transition_7_days"
+  | "child_data_erasure"
+  | "wellness_access_request"
+  | "wellness_reminder"
+  | "retention_weekly_digest"
+  | "player_role_approved";
 
 // Get icon for notification type
 function getNotificationIcon(type: NotificationType) {

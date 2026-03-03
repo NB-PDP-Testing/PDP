@@ -631,6 +631,11 @@ export default function InjuryTrackingPage() {
                           >
                             {STATUS_CONFIG[injury.status as InjuryStatus].label}
                           </Badge>
+                          {injury.reportedByRole === "player" && (
+                            <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                              Player-reported
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-muted-foreground text-sm">
                           {injury.description}

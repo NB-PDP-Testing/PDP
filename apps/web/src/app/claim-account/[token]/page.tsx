@@ -130,6 +130,7 @@ export default function ClaimAccountPage({ params }: ClaimAccountPageProps) {
   return (
     <div className="min-h-screen bg-background">
       <ClaimWizard
+        organizationId={claimStatus.organizationId}
         organizationName={
           claimStatus.organizationName || "Unknown Organization"
         }

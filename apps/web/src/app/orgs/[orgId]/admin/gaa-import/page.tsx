@@ -23,12 +23,12 @@ import type { Team } from "@/lib/types";
 type IdentityPlayer = {
   _id: string;
   name: string;
-  ageGroup: string;
+  ageGroup: string | undefined;
   sport?: string;
   gender: string;
   teamId: string;
   organizationId: string;
-  season: string;
+  season: string | undefined;
   dateOfBirth?: string;
   parentFirstName?: string;
   parentSurname?: string;
@@ -70,21 +70,8 @@ export default function GAAImportPage() {
 
   // Transform raw player data to IdentityPlayer type (from new enrollment system)
   const existingPlayers: IdentityPlayer[] = (existingPlayersRaw ?? []).map(
-    (p: {
-      enrollment: {
-        _id: Id<"orgPlayerEnrollments">;
-        ageGroup: string;
-        season: string;
-        organizationId: string;
-      };
-      player: {
-        _id: Id<"playerIdentities">;
-        firstName: string;
-        lastName: string;
-        dateOfBirth: string;
-        gender: string;
-      };
-    }) => ({
+    // biome-ignore lint/suspicious/noExplicitAny: getPlayersForOrg returns enrollment/player as v.any()
+    (p: any) => ({
       _id: p.player._id, // Use player identity ID as primary ID
       name: `${p.player.firstName} ${p.player.lastName}`,
       ageGroup: p.enrollment.ageGroup,

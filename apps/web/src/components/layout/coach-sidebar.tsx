@@ -45,105 +45,121 @@ type NavGroup = {
   items: NavItem[];
 };
 
+type CoachNav = {
+  rootItems: NavItem[];
+  groups: NavGroup[];
+};
+
 /**
- * Generate coach navigation structure for an organization
+ * Generate coach navigation structure for an organization.
+ * Overview, Team Hub, Team Insights, and Match Day sit at the root
+ * (above all collapsible groups).
  */
+export function getCoachNav(orgId: string): CoachNav {
+  return {
+    rootItems: [
+      {
+        href: `/orgs/${orgId}/coach`,
+        label: "Overview",
+        icon: Home,
+      },
+      {
+        href: `/orgs/${orgId}/coach/team-hub`,
+        label: "Team Hub",
+        icon: LayoutDashboard,
+      },
+      {
+        href: `/orgs/${orgId}/coach/team-insights`,
+        label: "Team Insights",
+        icon: Users,
+      },
+      {
+        href: `/orgs/${orgId}/coach/match-day`,
+        label: "Match Day",
+        icon: Calendar,
+      },
+    ],
+    groups: [
+      {
+        label: "Players",
+        icon: Users,
+        items: [
+          {
+            href: `/orgs/${orgId}/coach/players`,
+            label: "My Players",
+            icon: Users,
+          },
+          {
+            href: `/orgs/${orgId}/coach/assess`,
+            label: "Assessments",
+            icon: ClipboardList,
+          },
+          {
+            href: `/orgs/${orgId}/coach/shared-passports`,
+            label: "Shared Passports",
+            icon: Share2,
+          },
+        ],
+      },
+      {
+        label: "Development",
+        icon: TrendingUp,
+        items: [
+          {
+            href: `/orgs/${orgId}/coach/goals`,
+            label: "Goals",
+            icon: TrendingUp,
+          },
+          {
+            href: `/orgs/${orgId}/coach/todos`,
+            label: "My Tasks",
+            icon: CheckSquare,
+          },
+          {
+            href: `/orgs/${orgId}/coach/voice-notes`,
+            label: "Voice Notes",
+            icon: Mic,
+          },
+          {
+            href: `/orgs/${orgId}/coach/notes`,
+            label: "Development Notes",
+            icon: FileText,
+          },
+          {
+            href: `/orgs/${orgId}/coach/messages`,
+            label: "Messages",
+            icon: MessageSquare,
+          },
+          {
+            href: `/orgs/${orgId}/coach/session-plans`,
+            label: "Session Plans",
+            icon: ClipboardList,
+          },
+        ],
+      },
+      {
+        label: "Health & Attendance",
+        icon: HeartPulse,
+        items: [
+          {
+            href: `/orgs/${orgId}/coach/injuries`,
+            label: "Injuries",
+            icon: Activity,
+          },
+          {
+            href: `/orgs/${orgId}/coach/medical`,
+            label: "Medical Info",
+            icon: HeartPulse,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/** @deprecated Use getCoachNav instead */
 export function getCoachNavGroups(orgId: string): NavGroup[] {
-  return [
-    {
-      label: "Players",
-      icon: Users,
-      items: [
-        {
-          href: `/orgs/${orgId}/coach`,
-          label: "Overview",
-          icon: Home,
-        },
-        {
-          href: `/orgs/${orgId}/coach/players`,
-          label: "My Players",
-          icon: Users,
-        },
-        {
-          href: `/orgs/${orgId}/coach/assess`,
-          label: "Assessments",
-          icon: ClipboardList,
-        },
-        {
-          href: `/orgs/${orgId}/coach/shared-passports`,
-          label: "Shared Passports",
-          icon: Share2,
-        },
-      ],
-    },
-    {
-      label: "Development",
-      icon: TrendingUp,
-      items: [
-        {
-          href: `/orgs/${orgId}/coach/goals`,
-          label: "Goals",
-          icon: TrendingUp,
-        },
-        {
-          href: `/orgs/${orgId}/coach/todos`,
-          label: "My Tasks",
-          icon: CheckSquare,
-        },
-        {
-          href: `/orgs/${orgId}/coach/voice-notes`,
-          label: "Voice Notes",
-          icon: Mic,
-        },
-        {
-          href: `/orgs/${orgId}/coach/notes`,
-          label: "Development Notes",
-          icon: FileText,
-        },
-        {
-          href: `/orgs/${orgId}/coach/team-insights`,
-          label: "Team Insights",
-          icon: Users,
-        },
-        {
-          href: `/orgs/${orgId}/coach/team-hub`,
-          label: "Team Hub",
-          icon: LayoutDashboard,
-        },
-        {
-          href: `/orgs/${orgId}/coach/messages`,
-          label: "Messages",
-          icon: MessageSquare,
-        },
-        {
-          href: `/orgs/${orgId}/coach/session-plans`,
-          label: "Session Plans",
-          icon: ClipboardList,
-        },
-      ],
-    },
-    {
-      label: "Health & Attendance",
-      icon: HeartPulse,
-      items: [
-        {
-          href: `/orgs/${orgId}/coach/injuries`,
-          label: "Injuries",
-          icon: Activity,
-        },
-        {
-          href: `/orgs/${orgId}/coach/medical`,
-          label: "Medical Info",
-          icon: HeartPulse,
-        },
-        {
-          href: `/orgs/${orgId}/coach/match-day`,
-          label: "Match Day",
-          icon: Calendar,
-        },
-      ],
-    },
-  ];
+  return getCoachNav(orgId).groups;
 }
 
 type CoachSidebarProps = {
@@ -157,7 +173,7 @@ type CoachSidebarProps = {
  */
 export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
   const pathname = usePathname();
-  const navGroups = getCoachNavGroups(orgId);
+  const { rootItems, groups: navGroups } = getCoachNav(orgId);
 
   // Track which groups are expanded - auto-expand group containing current page
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
@@ -188,8 +204,38 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
   return (
     <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-muted/30">
       <div className="flex h-full flex-col overflow-y-auto py-4">
+        {/* Root nav items — Overview, Team Hub, Team Insights, Match Day */}
+        <nav className="px-3 pb-1">
+          {rootItems.map((item) => {
+            const ItemIcon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link href={item.href as Route} key={item.href}>
+                <Button
+                  className="w-full justify-start gap-2"
+                  size="sm"
+                  style={
+                    active && primaryColor
+                      ? {
+                          backgroundColor: `${primaryColor}15`,
+                          color: primaryColor,
+                          borderColor: primaryColor,
+                          borderWidth: "1px",
+                        }
+                      : undefined
+                  }
+                  variant={active ? "secondary" : "ghost"}
+                >
+                  <ItemIcon className="h-4 w-4" />
+                  {item.label}
+                </Button>
+              </Link>
+            );
+          })}
+        </nav>
+
         {/* Grouped navigation */}
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="space-y-1 px-3">
           {navGroups.map((group) => {
             const isExpanded = expandedGroups.includes(group.label);
             const hasActiveItem = group.items.some((item) =>
@@ -274,7 +320,7 @@ export function CoachMobileNav({
   trigger,
 }: CoachMobileNavProps) {
   const pathname = usePathname();
-  const navGroups = getCoachNavGroups(orgId);
+  const { rootItems, groups: navGroups } = getCoachNav(orgId);
   const [open, setOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {
@@ -331,8 +377,39 @@ export function CoachMobileNav({
         </SheetHeader>
 
         <div className="flex flex-col overflow-y-auto py-4">
+          {/* Root nav items — Overview, Team Hub, Team Insights, Match Day */}
+          <nav className="px-3 pb-1">
+            {rootItems.map((item) => {
+              const ItemIcon = item.icon;
+              const active = isActive(item.href);
+              return (
+                <Link
+                  href={item.href as Route}
+                  key={item.href}
+                  onClick={() => setOpen(false)}
+                >
+                  <Button
+                    className="h-11 w-full justify-start gap-2"
+                    style={
+                      active && primaryColor
+                        ? {
+                            backgroundColor: `${primaryColor}15`,
+                            color: primaryColor,
+                          }
+                        : undefined
+                    }
+                    variant={active ? "secondary" : "ghost"}
+                  >
+                    <ItemIcon className="h-4 w-4" />
+                    {item.label}
+                  </Button>
+                </Link>
+              );
+            })}
+          </nav>
+
           {/* Grouped navigation */}
-          <nav aria-label="Coach navigation" className="flex-1 space-y-1 px-3">
+          <nav aria-label="Coach navigation" className="space-y-1 px-3">
             {navGroups.map((group) => {
               const isExpanded = expandedGroups.includes(group.label);
               const hasActiveItem = group.items.some((item) =>

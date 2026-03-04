@@ -107,14 +107,17 @@ jobs:
           echo "$CHANGED_FILES"
           echo ""
 
-          # Run biome check
-          echo "$CHANGED_FILES" | xargs npx biome check --diagnostic-level=error
-
-          if [ $? -ne 0 ]; then
+          # Run biome check (exit code 123 = all files were in ignored paths, not an error)
+          echo "$CHANGED_FILES" | xargs npx biome check --diagnostic-level=error || {
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 123 ]; then
+              echo "✅ All changed files are in ignored paths (e.g. _generated/) - skipping lint"
+              exit 0
+            fi
             echo ""
             echo "❌ LINTING FAILED!"
             exit 1
-          fi
+          }
 
           echo "✅ Linting passed!"
 

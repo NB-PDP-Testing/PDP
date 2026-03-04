@@ -41,6 +41,10 @@ export const getCurrentUser = query({
       lastName: v.optional(v.string()),
       phone: v.optional(v.string()),
 
+      // Phone verification
+      phoneVerified: v.optional(v.boolean()),
+      phoneVerifiedAt: v.optional(v.number()),
+
       // Phase 0: Profile completion fields for multi-signal guardian matching
       altEmail: v.optional(v.string()),
       address: v.optional(v.string()),
@@ -721,5 +725,61 @@ export const getUserAuthMethod = query({
       );
       return null;
     }
+  },
+});
+
+/**
+ * Auto-verify email for OAuth users who are currently unverified.
+ * Called from the orgs layout when an OAuth user is detected with emailVerified=false.
+ * This handles the ongoing case (future OAuth signups + migration edge cases).
+ */
+export const autoVerifyOAuthUser = mutation({
+  args: {},
+  returns: v.object({ verified: v.boolean() }),
+  handler: async (ctx) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      return { verified: false };
+    }
+
+    // Already verified — nothing to do
+    if (authUser.emailVerified) {
+      return { verified: true };
+    }
+
+    // Check if user has an OAuth account
+    const accountsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "account",
+        paginationOpts: { cursor: null, numItems: 10 },
+        where: [
+          {
+            field: "userId",
+            value: authUser.userId ?? authUser._id,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const hasOAuth = accountsResult.page?.some(
+      (acc: { providerId?: string }) =>
+        acc.providerId === "google" || acc.providerId === "microsoft"
+    );
+
+    if (hasOAuth) {
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "user",
+          where: [{ field: "_id", value: authUser._id, operator: "eq" }],
+          update: { emailVerified: true },
+        },
+      });
+      console.log("[autoVerifyOAuthUser] Auto-verified:", authUser.email);
+      return { verified: true };
+    }
+
+    return { verified: false };
   },
 });

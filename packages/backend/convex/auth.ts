@@ -6,7 +6,11 @@ import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { ac, admin, member, owner } from "./betterAuth/accessControl";
 import authSchema from "./betterAuth/schema";
-import { sendMagicLinkEmail, sendPasswordResetEmail } from "./utils/email";
+import {
+  sendMagicLinkEmail,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} from "./utils/email";
 
 /**
  * Type for functional roles stored in member.functionalRoles array
@@ -41,14 +45,50 @@ export function createAuth(
     database: authComponent.adapter(ctx),
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: false,
+      requireEmailVerification: false, // Progressive — enforced via UI banner, not session block
       resetPasswordTokenExpiresIn: 3600, // 1 hour
       sendResetPassword: async ({ user, url }) => {
+        console.log("[auth] Password reset requested for:", user.email);
         await sendPasswordResetEmail({
           to: user.email,
           name: user.name,
           resetUrl: url,
         });
+      },
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({
+        user,
+        url,
+      }: {
+        user: { email: string; name: string };
+        url: string;
+      }) => {
+        await sendVerificationEmail({
+          to: user.email,
+          name: user.name,
+          verificationUrl: url,
+        });
+      },
+    },
+    // Rate limiting across all auth endpoints
+    // Prevents brute-force, enumeration, and spam attacks
+    rateLimit: {
+      window: 60,
+      max: 10,
+      customRules: {
+        // Password brute-force: 5 attempts per 15 minutes
+        "/sign-in/email": { window: 900, max: 5 },
+        // Magic link enumeration: 5 per hour
+        "/sign-in/magic-link": { window: 3600, max: 5 },
+        // Password reset enumeration: 3 per hour
+        "/forgot-password": { window: 3600, max: 3 },
+        // Verification email spam: 5 per hour
+        "/email-verification/send-verification-email": { window: 3600, max: 5 },
+        // Signup spam: 3 per hour
+        "/sign-up/email": { window: 3600, max: 3 },
       },
     },
     plugins: [
@@ -58,6 +98,7 @@ export function createAuth(
         expiresIn: 600, // 10 minutes
         disableSignUp: true, // Users must sign up first via proper flow
         sendMagicLink: async ({ email, url }) => {
+          console.log("[auth] Magic link requested for:", email);
           await sendMagicLinkEmail({
             to: email,
             magicLinkUrl: url,

@@ -103,6 +103,7 @@ import type * as migrations_importSoccerLevelDescriptors from "../migrations/imp
 import type * as migrations_importStrengthBenchmarks from "../migrations/importStrengthBenchmarks.js";
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
 import type * as migrations_setupIrishDancing from "../migrations/setupIrishDancing.js";
+import type * as migrations_verifyExistingUsers from "../migrations/verifyExistingUsers.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
 import type * as models_aiCopilot from "../models/aiCopilot.js";
@@ -164,6 +165,7 @@ import type * as models_passportGoals from "../models/passportGoals.js";
 import type * as models_passportSharing from "../models/passportSharing.js";
 import type * as models_phase4TestCleanup from "../models/phase4TestCleanup.js";
 import type * as models_phase4TestSeedMutations from "../models/phase4TestSeedMutations.js";
+import type * as models_phoneVerification from "../models/phoneVerification.js";
 import type * as models_platformCostAlerts from "../models/platformCostAlerts.js";
 import type * as models_platformMessagingSettings from "../models/platformMessagingSettings.js";
 import type * as models_platformStaffInvitations from "../models/platformStaffInvitations.js";
@@ -256,6 +258,7 @@ import type * as scripts_verifyUATSetup from "../scripts/verifyUATSetup.js";
 import type * as seed_defaultRateLimits from "../seed/defaultRateLimits.js";
 import type * as seed_sessionPlansSeed from "../seed/sessionPlansSeed.js";
 import type * as utils_email from "../utils/email.js";
+import type * as utils_sms from "../utils/sms.js";
 
 import type {
   ApiFromModules,
@@ -359,6 +362,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/importStrengthBenchmarks": typeof migrations_importStrengthBenchmarks;
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
   "migrations/setupIrishDancing": typeof migrations_setupIrishDancing;
+  "migrations/verifyExistingUsers": typeof migrations_verifyExistingUsers;
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
   "models/aiCopilot": typeof models_aiCopilot;
@@ -420,6 +424,7 @@ declare const fullApi: ApiFromModules<{
   "models/passportSharing": typeof models_passportSharing;
   "models/phase4TestCleanup": typeof models_phase4TestCleanup;
   "models/phase4TestSeedMutations": typeof models_phase4TestSeedMutations;
+  "models/phoneVerification": typeof models_phoneVerification;
   "models/platformCostAlerts": typeof models_platformCostAlerts;
   "models/platformMessagingSettings": typeof models_platformMessagingSettings;
   "models/platformStaffInvitations": typeof models_platformStaffInvitations;
@@ -512,6 +517,7 @@ declare const fullApi: ApiFromModules<{
   "seed/defaultRateLimits": typeof seed_defaultRateLimits;
   "seed/sessionPlansSeed": typeof seed_sessionPlansSeed;
   "utils/email": typeof utils_email;
+  "utils/sms": typeof utils_sms;
 }>;
 
 /**
@@ -573,6 +579,8 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  phoneVerified?: boolean;
+                  phoneVerifiedAt?: number;
                   postcode?: string;
                   profileCompletedAt?: number;
                   profileCompletionStatus?: "pending" | "completed" | "skipped";
@@ -785,6 +793,8 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "phoneVerified"
+                    | "phoneVerifiedAt"
                     | "altEmail"
                     | "address"
                     | "address2"
@@ -1229,6 +1239,8 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "phoneVerified"
+                    | "phoneVerifiedAt"
                     | "altEmail"
                     | "address"
                     | "address2"
@@ -1771,6 +1783,8 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  phoneVerified?: boolean;
+                  phoneVerifiedAt?: number;
                   postcode?: string;
                   profileCompletedAt?: number;
                   profileCompletionStatus?: "pending" | "completed" | "skipped";
@@ -1796,6 +1810,8 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "phoneVerified"
+                    | "phoneVerifiedAt"
                     | "altEmail"
                     | "address"
                     | "address2"
@@ -2393,6 +2409,8 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  phoneVerified?: boolean;
+                  phoneVerifiedAt?: number;
                   postcode?: string;
                   profileCompletedAt?: number;
                   profileCompletionStatus?: "pending" | "completed" | "skipped";
@@ -2418,6 +2436,8 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "phoneVerified"
+                    | "phoneVerifiedAt"
                     | "altEmail"
                     | "address"
                     | "address2"

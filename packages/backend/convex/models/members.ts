@@ -10,6 +10,7 @@ import {
   mutation,
   query,
 } from "../_generated/server";
+import { authComponent } from "../auth";
 
 /**
  * Type helper for Better Auth teamMember table (not in Convex schema)
@@ -1104,6 +1105,18 @@ export const updateInvitationMetadata = mutation({
     error: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
+    // Auth + email verification guard
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      return { success: false, error: "Not authenticated" };
+    }
+    if (!authUser.emailVerified) {
+      return {
+        success: false,
+        error: "Please verify your email before sending invitations",
+      };
+    }
+
     try {
       // Find the invitation
       const invitationResult = await ctx.runQuery(

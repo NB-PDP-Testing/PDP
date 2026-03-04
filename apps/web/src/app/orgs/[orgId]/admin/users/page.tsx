@@ -65,6 +65,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOrgTheme } from "@/hooks/use-org-theme";
+import { useRequireVerified } from "@/hooks/use-require-verified";
 import { authClient } from "@/lib/auth-client";
 import { getCountryName } from "@/lib/constants/address-data";
 import { DisableMemberDialog } from "./disable-member-dialog";
@@ -92,6 +93,7 @@ type UserEditState = {
 export default function ManageUsersPage() {
   const params = useParams();
   const { theme } = useOrgTheme();
+  const { requireVerification } = useRequireVerified();
   const orgId = params.orgId as string;
   const convex = useConvex();
 
@@ -638,6 +640,9 @@ export default function ManageUsersPage() {
   };
 
   const handleSave = async (member: any) => {
+    if (!requireVerification()) {
+      return;
+    }
     const userId = member.userId;
     const state = editStates[userId];
     if (!state?.modified) {
@@ -823,6 +828,9 @@ export default function ManageUsersPage() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!requireVerification()) {
+      return;
+    }
     if (!inviteEmail) {
       toast.error("Please enter an email address");
       return;

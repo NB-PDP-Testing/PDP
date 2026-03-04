@@ -28,6 +28,7 @@ export const getCurrentUser = query({
       name: v.string(),
       email: v.string(),
       emailVerified: v.boolean(),
+      emailVerifiedAt: v.optional(v.number()),
       image: v.optional(v.union(v.null(), v.string())),
       createdAt: v.number(),
       updatedAt: v.number(),
@@ -773,7 +774,7 @@ export const autoVerifyOAuthUser = mutation({
         input: {
           model: "user",
           where: [{ field: "_id", value: authUser._id, operator: "eq" }],
-          update: { emailVerified: true },
+          update: { emailVerified: true, emailVerifiedAt: Date.now() },
         },
       });
       console.log("[autoVerifyOAuthUser] Auto-verified:", authUser.email);

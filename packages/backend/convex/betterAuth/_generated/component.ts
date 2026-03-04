@@ -41,6 +41,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   currentOrgId?: string;
                   email: string;
                   emailVerified: boolean;
+                  emailVerifiedAt?: number;
                   firstName?: string;
                   gdprConsentVersion?: number;
                   gdprConsentedAt?: number;
@@ -265,6 +266,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "emailVerifiedAt"
                     | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
@@ -712,6 +714,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "emailVerifiedAt"
                     | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
@@ -1250,6 +1253,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
+                  emailVerifiedAt?: number;
                   firstName?: string;
                   gdprConsentVersion?: number;
                   gdprConsentedAt?: number;
@@ -1286,6 +1290,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "emailVerifiedAt"
                     | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
@@ -1877,6 +1882,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
+                  emailVerifiedAt?: number;
                   firstName?: string;
                   gdprConsentVersion?: number;
                   gdprConsentedAt?: number;
@@ -1913,6 +1919,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "emailVerifiedAt"
                     | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
@@ -2491,6 +2498,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           currentOrgId?: string;
           email: string;
           emailVerified: boolean;
+          emailVerifiedAt?: number;
           image?: null | string;
           isPlatformStaff?: boolean;
           name: string;

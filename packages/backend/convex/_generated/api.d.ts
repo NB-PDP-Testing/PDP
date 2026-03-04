@@ -566,6 +566,7 @@ export declare const components: {
                   currentOrgId?: string;
                   email: string;
                   emailVerified: boolean;
+                  emailVerifiedAt?: number;
                   firstName?: string;
                   gdprConsentVersion?: number;
                   gdprConsentedAt?: number;
@@ -789,6 +790,7 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "emailVerifiedAt"
                     | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
@@ -1235,6 +1237,7 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "emailVerifiedAt"
                     | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
@@ -1770,6 +1773,7 @@ export declare const components: {
                   currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
+                  emailVerifiedAt?: number;
                   firstName?: string;
                   gdprConsentVersion?: number;
                   gdprConsentedAt?: number;
@@ -1806,6 +1810,7 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "emailVerifiedAt"
                     | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
@@ -2396,6 +2401,7 @@ export declare const components: {
                   currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
+                  emailVerifiedAt?: number;
                   firstName?: string;
                   gdprConsentVersion?: number;
                   gdprConsentedAt?: number;
@@ -2432,6 +2438,7 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "emailVerifiedAt"
                     | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
@@ -3009,6 +3016,7 @@ export declare const components: {
           currentOrgId?: string;
           email: string;
           emailVerified: boolean;
+          emailVerifiedAt?: number;
           image?: null | string;
           isPlatformStaff?: boolean;
           name: string;

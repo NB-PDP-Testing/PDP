@@ -36,6 +36,7 @@ export const getUserById = query({
       name: v.string(),
       email: v.string(),
       emailVerified: v.boolean(),
+      emailVerifiedAt: v.optional(v.number()),
       image: v.optional(v.union(v.null(), v.string())),
       createdAt: v.number(),
       updatedAt: v.number(),

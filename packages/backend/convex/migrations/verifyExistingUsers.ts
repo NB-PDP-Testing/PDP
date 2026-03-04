@@ -82,7 +82,7 @@ export const verifyExistingOAuthUsers = mutation({
           input: {
             model: "user",
             where: [{ field: "_id", value: userRecord._id, operator: "eq" }],
-            update: { emailVerified: true },
+            update: { emailVerified: true, emailVerifiedAt: Date.now() },
           },
         });
         verified += 1;

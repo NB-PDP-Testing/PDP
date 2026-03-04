@@ -16,6 +16,9 @@ const customUserTable = defineTable({
   updatedAt: v.number(),
   userId: v.optional(v.union(v.null(), v.string())),
 
+  // Email verification timestamp (Better Auth only stores the boolean)
+  emailVerifiedAt: v.optional(v.number()),
+
   // Staff
   isPlatformStaff: v.optional(v.boolean()),
 

@@ -29,6 +29,41 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ReviewStep, SuccessStep } from "./review-and-success-steps";
 
 /**
+ * Converts a sport code (e.g. "gaa_football") to a human-readable name.
+ * Module-level so it can be used across all wizard steps.
+ */
+function formatSportName(sportCode: string): string {
+  const normalizedCode = sportCode.toLowerCase();
+  const sportNames: Record<string, string> = {
+    gaa_gaelic_football: "GAA Gaelic Football",
+    gaa_hurling: "GAA Hurling",
+    gaa_football: "GAA Gaelic Football",
+    gaelic_football: "GAA Gaelic Football",
+    hurling: "GAA Hurling",
+    soccer: "Soccer",
+    football: "Soccer",
+    rugby: "Rugby",
+    rugby_union: "Rugby Union",
+    rugby_league: "Rugby League",
+    basketball: "Basketball",
+    hockey: "Hockey",
+    field_hockey: "Field Hockey",
+    ice_hockey: "Ice Hockey",
+    tennis: "Tennis",
+    cricket: "Cricket",
+    athletics: "Athletics",
+    track_and_field: "Athletics",
+  };
+  return (
+    sportNames[normalizedCode] ||
+    sportCode
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  );
+}
+
+/**
  * Child data structure from parent dashboard
  */
 export type ChildForSharing = {
@@ -470,7 +505,7 @@ function ChildSelectionStep({
                 <div className="mt-1 flex flex-wrap gap-2">
                   {child.sport && (
                     <Badge className="text-xs" variant="secondary">
-                      {child.sport}
+                      {formatSportName(child.sport)}
                     </Badge>
                   )}
                   {child.ageGroup && (
@@ -520,7 +555,7 @@ function ChildSelectionStep({
                       <div className="mt-1 flex flex-wrap gap-2">
                         {child.sport && (
                           <Badge className="text-xs" variant="secondary">
-                            {child.sport}
+                            {formatSportName(child.sport)}
                           </Badge>
                         )}
                         {child.ageGroup && (
@@ -711,39 +746,6 @@ function CrossSportVisibilityStep({
     api.models.sportPassports.getPassportsForPlayer,
     { playerIdentityId }
   );
-
-  // Helper to format sport code to human-readable name
-  const formatSportName = (sportCode: string): string => {
-    const normalizedCode = sportCode.toLowerCase();
-    const sportNames: Record<string, string> = {
-      gaa_gaelic_football: "GAA Gaelic Football",
-      gaa_hurling: "GAA Hurling",
-      gaa_football: "GAA Gaelic Football",
-      gaelic_football: "GAA Gaelic Football",
-      hurling: "GAA Hurling",
-      soccer: "Soccer",
-      football: "Soccer",
-      rugby: "Rugby",
-      rugby_union: "Rugby Union",
-      rugby_league: "Rugby League",
-      basketball: "Basketball",
-      hockey: "Hockey",
-      field_hockey: "Field Hockey",
-      ice_hockey: "Ice Hockey",
-      tennis: "Tennis",
-      cricket: "Cricket",
-      athletics: "Athletics",
-      track_and_field: "Athletics",
-    };
-
-    return (
-      sportNames[normalizedCode] ||
-      sportCode
-        .split("_")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ")
-    );
-  };
 
   // Toggle sport selection
   const toggleSport = (sportCode: string) => {

@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import {
   AlertCircle,
   AlertTriangle,
+  ChevronDown,
   Eye,
   Heart,
   HeartPulse,
@@ -42,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 // Privacy confirmation component for coaches
 function CoachPrivacyConfirmation({
@@ -236,12 +238,16 @@ function CoachMedicalView({
 export default function CoachMedicalPage() {
   const params = useParams();
   const orgId = params.orgId as string;
+  const currentUser = useCurrentUser();
+  const userId = currentUser?._id;
 
   // State
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAlert, setFilterAlert] = useState<
     "all" | "allergies" | "conditions"
   >("all");
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
+  const [teamsExpanded, setTeamsExpanded] = useState(true);
 
   // Privacy confirmation state
   const [pendingView, setPendingView] = useState<{
@@ -258,21 +264,116 @@ export default function CoachMedicalPage() {
   // Queries
   const allProfiles = useQuery(
     api.models.medicalProfiles.getAllForOrganization,
-    {
-      organizationId: orgId,
-    }
+    { organizationId: orgId }
   );
 
-  // Filter players - only show those with medical profiles
+  const coachAssignments = useQuery(
+    api.models.coaches.getCoachAssignmentsWithTeams,
+    userId && orgId ? { userId, organizationId: orgId } : "skip"
+  );
+
+  const teamPlayerLinks = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    orgId ? { organizationId: orgId, status: "active" } : "skip"
+  );
+
+  // Deduplicated coach teams list
+  const coachTeamsList = useMemo(() => {
+    if (!coachAssignments?.teams) {
+      return [];
+    }
+    const seen = new Set<string>();
+    return coachAssignments.teams.filter((t) => {
+      if (!t.teamId || t.teamId.includes("players")) {
+        return false;
+      }
+      if (seen.has(t.teamId)) {
+        return false;
+      }
+      seen.add(t.teamId);
+      return true;
+    });
+  }, [coachAssignments?.teams]);
+
+  // Player IDs grouped by team
+  const playerIdsByTeam = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    if (!teamPlayerLinks) {
+      return map;
+    }
+    for (const link of teamPlayerLinks) {
+      if (!map.has(link.teamId)) {
+        map.set(link.teamId, new Set());
+      }
+      map.get(link.teamId)?.add(link.playerIdentityId.toString());
+    }
+    return map;
+  }, [teamPlayerLinks]);
+
+  // Player count per team
+  const playerCountByTeam = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!teamPlayerLinks) {
+      return counts;
+    }
+    for (const link of teamPlayerLinks) {
+      counts.set(link.teamId, (counts.get(link.teamId) ?? 0) + 1);
+    }
+    return counts;
+  }, [teamPlayerLinks]);
+
+  // Medical alert counts per team
+  const medicalCountsByTeam = useMemo(() => {
+    const result = new Map<
+      string,
+      { allergies: number; conditions: number; medications: number }
+    >();
+    if (!allProfiles) {
+      return result;
+    }
+    for (const [teamId, playerIds] of playerIdsByTeam) {
+      let allergies = 0;
+      let conditions = 0;
+      let medications = 0;
+      for (const item of allProfiles) {
+        if (!item.hasProfile) {
+          continue;
+        }
+        if (!playerIds.has(item.player._id.toString())) {
+          continue;
+        }
+        if (item.hasAllergies) {
+          allergies += 1;
+        }
+        if (item.hasConditions) {
+          conditions += 1;
+        }
+        if (item.hasMedications) {
+          medications += 1;
+        }
+      }
+      result.set(teamId, { allergies, conditions, medications });
+    }
+    return result;
+  }, [allProfiles, playerIdsByTeam]);
+
+  // Filter players - apply team, search, and alert filters
   const filteredPlayers = useMemo(() => {
     if (!allProfiles) {
       return [];
     }
 
     return allProfiles.filter((item: NonNullable<typeof allProfiles>[0]) => {
-      // Only show players WITH medical profiles
       if (!item.hasProfile) {
         return false;
+      }
+
+      // Team filter
+      if (selectedTeamId !== "all") {
+        const teamPlayerIds = playerIdsByTeam.get(selectedTeamId);
+        if (!teamPlayerIds?.has(item.player._id.toString())) {
+          return false;
+        }
       }
 
       // Search filter
@@ -293,9 +394,9 @@ export default function CoachMedicalPage() {
 
       return true;
     });
-  }, [allProfiles, searchQuery, filterAlert]);
+  }, [allProfiles, searchQuery, filterAlert, selectedTeamId, playerIdsByTeam]);
 
-  // Count players with alerts
+  // Count players with alerts (across all / filtered scope)
   const alertCounts = useMemo(() => {
     if (!allProfiles) {
       return { allergies: 0, conditions: 0, medications: 0 };
@@ -341,6 +442,9 @@ export default function CoachMedicalPage() {
   const playersWithProfiles = allProfiles.filter(
     (p: NonNullable<typeof allProfiles>[0]) => p.hasProfile
   ).length;
+
+  const hasActiveFilters =
+    selectedTeamId !== "all" || searchQuery || filterAlert !== "all";
 
   return (
     <div className="space-y-6">
@@ -462,6 +566,142 @@ export default function CoachMedicalPage() {
         </Card>
       </div>
 
+      {/* Team Filter */}
+      {coachTeamsList.length > 0 && (
+        <div className="space-y-3">
+          <button
+            className="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-2.5 text-left shadow-sm transition-colors hover:bg-accent/50"
+            onClick={() => setTeamsExpanded((v) => !v)}
+            type="button"
+          >
+            <span className="font-medium text-sm">
+              {selectedTeamId === "all"
+                ? "All Teams"
+                : `${coachTeamsList.find((t) => t.teamId === selectedTeamId)?.teamName ?? "All Teams"} · selected`}
+            </span>
+            <ChevronDown
+              className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
+              size={18}
+            />
+          </button>
+          {teamsExpanded && (
+            <div
+              className={`grid gap-3 md:gap-4 ${coachTeamsList.length === 1 ? "max-w-xs grid-cols-1" : "grid-cols-2 md:grid-cols-4"}`}
+            >
+              {coachTeamsList.length > 1 && (
+                <Card
+                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${selectedTeamId === "all" ? "ring-2 ring-green-500" : ""}`}
+                  onClick={() => setSelectedTeamId("all")}
+                  style={{
+                    backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                    borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                  }}
+                >
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm leading-tight">
+                          All Teams
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          {coachTeamsList.length} teams
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800 text-lg leading-tight">
+                          {coachTeamsList.reduce(
+                            (sum, t) =>
+                              sum + (playerCountByTeam.get(t.teamId) ?? 0),
+                            0
+                          )}
+                        </p>
+                        <p className="text-gray-500 text-xs">players</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {coachTeamsList.map((team) => {
+                const isSelected = selectedTeamId === team.teamId;
+                const playerCount = playerCountByTeam.get(team.teamId) ?? 0;
+                const medCounts = medicalCountsByTeam.get(team.teamId);
+                const ageMeta = [team.ageGroup, team.gender]
+                  .filter(Boolean)
+                  .join(" • ");
+                return (
+                  <Card
+                    className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${isSelected ? "ring-2 ring-green-500" : ""}`}
+                    key={team.teamId}
+                    onClick={() => setSelectedTeamId(team.teamId)}
+                    style={{
+                      backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                      borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                    }}
+                  >
+                    <CardContent className="p-2.5">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="truncate font-semibold text-gray-800 text-sm leading-tight"
+                            title={team.teamName}
+                          >
+                            {team.teamName}
+                          </p>
+                          {ageMeta && (
+                            <p className="text-gray-500 text-xs">{ageMeta}</p>
+                          )}
+                        </div>
+                        <div className="ml-2 shrink-0 text-right">
+                          <p className="font-bold text-gray-800 text-sm leading-tight">
+                            {playerCount}
+                          </p>
+                          <p className="text-gray-500 text-xs">players</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {medCounts && medCounts.allergies > 0 && (
+                          <Badge
+                            className="bg-orange-100 text-orange-700"
+                            title="With Allergies"
+                          >
+                            <AlertCircle className="h-3 w-3" />
+                            <span className="ml-0.5">
+                              {medCounts.allergies}
+                            </span>
+                          </Badge>
+                        )}
+                        {medCounts && medCounts.conditions > 0 && (
+                          <Badge
+                            className="bg-purple-100 text-purple-700"
+                            title="With Conditions"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            <span className="ml-0.5">
+                              {medCounts.conditions}
+                            </span>
+                          </Badge>
+                        )}
+                        {medCounts && medCounts.medications > 0 && (
+                          <Badge
+                            className="bg-blue-100 text-blue-700"
+                            title="On Medication"
+                          >
+                            <Pill className="h-3 w-3" />
+                            <span className="ml-0.5">
+                              {medCounts.medications}
+                            </span>
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -500,6 +740,9 @@ export default function CoachMedicalPage() {
           <CardTitle>Player Medical Overview</CardTitle>
           <CardDescription>
             {filteredPlayers.length} players with medical profiles
+            {hasActiveFilters && (
+              <span className="ml-2 text-orange-500 text-xs">— Filtered</span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>

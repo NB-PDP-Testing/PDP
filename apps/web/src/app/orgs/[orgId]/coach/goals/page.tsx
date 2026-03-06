@@ -727,7 +727,7 @@ export default function GoalsDashboardPage() {
                     }}
                   >
                     <CardContent className="p-2.5">
-                      <div className="flex items-center justify-between">
+                      <div className="mb-1.5 flex items-center justify-between">
                         <div className="min-w-0 flex-1">
                           <p
                             className="truncate font-semibold text-gray-800 text-sm leading-tight"
@@ -739,29 +739,35 @@ export default function GoalsDashboardPage() {
                             <p className="text-gray-500 text-xs">{ageMeta}</p>
                           )}
                         </div>
+                        <div className="ml-2 shrink-0 text-right">
+                          <p className="font-bold text-gray-800 text-sm leading-tight">
+                            {playerIdsByTeam.get(team.teamId)?.size ?? 0}
+                          </p>
+                          <p className="text-gray-500 text-xs">players</p>
+                        </div>
                       </div>
-                      <div className="mt-2 flex items-center gap-3 text-xs">
-                        <span
-                          className="flex items-center gap-1 text-amber-600"
+                      <div className="flex flex-wrap gap-1">
+                        <Badge
+                          className="bg-amber-100 text-amber-700"
                           title="In Progress"
                         >
-                          <Pencil size={10} />
-                          {ts.inProgress}
-                        </span>
-                        <span
-                          className="flex items-center gap-1 text-green-600"
+                          <Pencil className="h-3 w-3" />
+                          <span className="ml-0.5">{ts.inProgress}</span>
+                        </Badge>
+                        <Badge
+                          className="bg-green-100 text-green-700"
                           title="Completed"
                         >
-                          <CheckCircle size={10} />
-                          {ts.completed}
-                        </span>
-                        <span
-                          className="flex items-center gap-1 text-purple-600"
+                          <CheckCircle className="h-3 w-3" />
+                          <span className="ml-0.5">{ts.completed}</span>
+                        </Badge>
+                        <Badge
+                          className="bg-purple-100 text-purple-700"
                           title="Avg Progress"
                         >
-                          <TrendingUp size={10} />
-                          {ts.avgProgress}%
-                        </span>
+                          <TrendingUp className="h-3 w-3" />
+                          <span className="ml-0.5">{ts.avgProgress}%</span>
+                        </Badge>
                       </div>
                     </CardContent>
                   </Card>

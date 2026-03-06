@@ -7,6 +7,7 @@ import {
   Activity,
   AlertTriangle,
   Calendar,
+  ChevronDown,
   Eye,
   Heart,
   Loader2,
@@ -138,6 +139,9 @@ export default function InjuryTrackingPage() {
   const userId = currentUser?._id || session?.user?.id;
 
   // State
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
+  const [teamsExpanded, setTeamsExpanded] = useState(true);
+  const [historyExpanded, setHistoryExpanded] = useState(true);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -221,6 +225,18 @@ export default function InjuryTrackingPage() {
     userId && orgId ? { organizationId: orgId, coachUserId: userId } : "skip"
   );
 
+  // Coach assignments for team selector
+  const coachAssignments = useQuery(
+    api.models.coaches.getCoachAssignmentsWithTeams,
+    userId && orgId ? { userId, organizationId: orgId } : "skip"
+  );
+
+  // Team-player links for filtering players by team
+  const teamPlayerLinks = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    orgId ? { organizationId: orgId, status: "active" } : "skip"
+  );
+
   const injuries = useQuery(
     api.models.playerInjuries.getInjuriesForPlayer,
     selectedPlayerId
@@ -247,6 +263,96 @@ export default function InjuryTrackingPage() {
     );
   }, [allInjuriesForOrg]);
 
+  // Deduplicated coach teams list for selector
+  const coachTeamsList = useMemo(() => {
+    if (!coachAssignments?.teams) {
+      return [];
+    }
+    const seen = new Set<string>();
+    return coachAssignments.teams.filter((t) => {
+      if (!t.teamId || t.teamId.includes("players")) {
+        return false;
+      }
+      if (seen.has(t.teamId)) {
+        return false;
+      }
+      seen.add(t.teamId);
+      return true;
+    });
+  }, [coachAssignments?.teams]);
+
+  // Player IDs grouped by team
+  const playerIdsByTeam = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    if (!teamPlayerLinks) {
+      return map;
+    }
+    for (const link of teamPlayerLinks) {
+      if (!map.has(link.teamId)) {
+        map.set(link.teamId, new Set());
+      }
+      map.get(link.teamId)?.add(link.playerIdentityId.toString());
+    }
+    return map;
+  }, [teamPlayerLinks]);
+
+  // Player count per team for cards
+  const playerCountByTeam = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!teamPlayerLinks) {
+      return counts;
+    }
+    for (const link of teamPlayerLinks) {
+      counts.set(link.teamId, (counts.get(link.teamId) ?? 0) + 1);
+    }
+    return counts;
+  }, [teamPlayerLinks]);
+
+  // Active/recovering injury count per team
+  const injuryCountByTeam = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!allInjuriesForOrg) {
+      return counts;
+    }
+    // Reverse map: playerIdentityId → teamIds
+    const playerTeams = new Map<string, string[]>();
+    for (const [teamId, playerIds] of playerIdsByTeam) {
+      for (const pid of playerIds) {
+        const existing = playerTeams.get(pid) ?? [];
+        existing.push(teamId);
+        playerTeams.set(pid, existing);
+      }
+    }
+    for (const injury of allInjuriesForOrg) {
+      if (injury.status !== "active" && injury.status !== "recovering") {
+        continue;
+      }
+      const teams =
+        playerTeams.get(injury.playerIdentityId?.toString() ?? "") ?? [];
+      for (const teamId of teams) {
+        counts.set(teamId, (counts.get(teamId) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [allInjuriesForOrg, playerIdsByTeam]);
+
+  // Players filtered by selected team (for the Select Player dropdown)
+  const filteredPlayersForSelector = useMemo(() => {
+    if (!players) {
+      return [];
+    }
+    if (selectedTeamId === "all") {
+      return players;
+    }
+    const teamPlayerIds = playerIdsByTeam.get(selectedTeamId);
+    if (!teamPlayerIds) {
+      return [];
+    }
+    return players.filter(({ enrollment }) =>
+      teamPlayerIds.has(enrollment.playerIdentityId.toString())
+    );
+  }, [players, selectedTeamId, playerIdsByTeam]);
+
   // Mutations
   const reportInjury = useMutation(api.models.playerInjuries.reportInjury);
   const updateInjury = useMutation(api.models.playerInjuries.updateInjury);
@@ -264,18 +370,32 @@ export default function InjuryTrackingPage() {
     );
   }, [injuries, statusFilter]);
 
-  // Filter complete history by status
+  // Filter complete history by status and team
   const filteredHistoryInjuries = useMemo(() => {
     if (!allInjuriesForOrg) {
       return [];
     }
-    if (historyStatusFilter === "all") {
-      return allInjuriesForOrg;
+    let filtered = allInjuriesForOrg;
+    if (historyStatusFilter !== "all") {
+      filtered = filtered.filter(
+        (i: { status: string }) => i.status === historyStatusFilter
+      );
     }
-    return allInjuriesForOrg.filter(
-      (i: { status: string }) => i.status === historyStatusFilter
-    );
-  }, [allInjuriesForOrg, historyStatusFilter]);
+    if (selectedTeamId !== "all") {
+      const teamPlayerIds = playerIdsByTeam.get(selectedTeamId);
+      if (teamPlayerIds) {
+        filtered = filtered.filter((i: { playerIdentityId?: string }) =>
+          teamPlayerIds.has(i.playerIdentityId?.toString() ?? "")
+        );
+      }
+    }
+    return filtered;
+  }, [allInjuriesForOrg, historyStatusFilter, selectedTeamId, playerIdsByTeam]);
+
+  // Active filter states
+  const hasInjuryHistoryFilters = statusFilter !== "all";
+  const hasCompleteHistoryFilters =
+    historyStatusFilter !== "all" || selectedTeamId !== "all";
 
   // Handle add injury
   const handleAddInjury = useCallback(async () => {
@@ -526,6 +646,290 @@ export default function InjuryTrackingPage() {
         </Card>
       )}
 
+      {/* Team Selector */}
+      {coachTeamsList.length > 0 && (
+        <div>
+          <button
+            className="mb-3 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-gray-50"
+            onClick={() => setTeamsExpanded((prev) => !prev)}
+            type="button"
+          >
+            <span className="font-semibold text-gray-700 text-sm">
+              {selectedTeamId === "all"
+                ? "All Teams"
+                : `${coachTeamsList.find((t) => t.teamId === selectedTeamId)?.teamName ?? "All Teams"} · selected`}
+            </span>
+            <ChevronDown
+              className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
+              size={18}
+            />
+          </button>
+          {teamsExpanded && (
+            <div
+              className={`grid gap-3 md:gap-4 ${coachTeamsList.length === 1 ? "max-w-xs grid-cols-1" : "grid-cols-2 md:grid-cols-4"}`}
+            >
+              {coachTeamsList.length > 1 && (
+                <Card
+                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${selectedTeamId === "all" ? "ring-2 ring-green-500" : ""}`}
+                  onClick={() => {
+                    setSelectedTeamId("all");
+                    setSelectedPlayerId(null);
+                  }}
+                  style={{
+                    backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                    borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                  }}
+                >
+                  <CardContent className="p-2.5">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm leading-tight">
+                          All Teams
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          {coachTeamsList.length} teams
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800 text-lg leading-tight">
+                          {coachTeamsList.reduce(
+                            (sum, t) =>
+                              sum + (playerCountByTeam.get(t.teamId) ?? 0),
+                            0
+                          )}
+                        </p>
+                        <p className="text-gray-500 text-xs">players</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge
+                        className="bg-red-100 text-red-700"
+                        title="Active/Recovering Injuries"
+                      >
+                        <Heart className="h-3 w-3" />
+                        <span className="ml-0.5">
+                          {activeInjuriesForOrg?.length ?? 0}
+                        </span>
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {coachTeamsList.map((team) => {
+                const isSelected = selectedTeamId === team.teamId;
+                const playerCount = playerCountByTeam.get(team.teamId) ?? 0;
+                const injuryCount = injuryCountByTeam.get(team.teamId) ?? 0;
+                const ageMeta = [team.ageGroup, team.gender]
+                  .filter(Boolean)
+                  .join(" • ");
+                return (
+                  <Card
+                    className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${isSelected ? "ring-2 ring-green-500" : ""}`}
+                    key={team.teamId}
+                    onClick={() => {
+                      setSelectedTeamId(team.teamId);
+                      setSelectedPlayerId(null);
+                    }}
+                    style={{
+                      backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                      borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                    }}
+                  >
+                    <CardContent className="p-2.5">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="truncate font-semibold text-gray-800 text-sm leading-tight"
+                            title={team.teamName}
+                          >
+                            {team.teamName}
+                          </p>
+                          {ageMeta && (
+                            <p className="text-gray-500 text-xs">{ageMeta}</p>
+                          )}
+                        </div>
+                        <div className="ml-2 shrink-0 text-right">
+                          <p className="font-bold text-gray-800 text-sm leading-tight">
+                            {playerCount}
+                          </p>
+                          <p className="text-gray-500 text-xs">players</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge
+                          className="bg-red-100 text-red-700"
+                          title="Active/Recovering Injuries"
+                        >
+                          <Heart className="h-3 w-3" />
+                          <span className="ml-0.5">{injuryCount}</span>
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* All Injuries History */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Complete Injury History
+            </CardTitle>
+            <CardDescription>
+              All injuries recorded across all players in the organization
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-4">
+            {hasCompleteHistoryFilters && (
+              <button
+                className="rounded-lg border border-gray-300 px-3 py-2 text-gray-500 text-sm transition-colors hover:border-gray-400 hover:text-gray-700"
+                onClick={() => {
+                  setHistoryStatusFilter("all");
+                  setSelectedTeamId("all");
+                }}
+                type="button"
+              >
+                Clear filters
+              </button>
+            )}
+            <Select
+              onValueChange={setHistoryStatusFilter}
+              value={historyStatusFilter}
+            >
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="recovering">Recovering</SelectItem>
+                <SelectItem value="cleared">Cleared</SelectItem>
+                <SelectItem value="healed">Healed</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="text-muted-foreground text-sm">
+              {filteredHistoryInjuries.length} of{" "}
+              {allInjuriesForOrg?.length ?? 0} injuries
+            </div>
+            <button
+              className="rounded-lg p-1 text-gray-500 transition-colors hover:bg-gray-100"
+              onClick={() => setHistoryExpanded((v) => !v)}
+              type="button"
+            >
+              <ChevronDown
+                className={`h-5 w-5 transition-transform ${historyExpanded ? "rotate-180" : ""}`}
+              />
+            </button>
+          </div>
+        </CardHeader>
+        {historyExpanded && (
+          <CardContent>
+            {hasCompleteHistoryFilters && (
+              <p className="mb-3 text-orange-500 text-xs">
+                Filtered — not showing all injuries
+              </p>
+            )}
+            {allInjuriesForOrg === undefined ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredHistoryInjuries.length === 0 ? (
+              <Empty>
+                <EmptyContent>
+                  <EmptyMedia variant="icon">
+                    <Heart className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {historyStatusFilter === "all" && selectedTeamId === "all"
+                      ? "No injury records yet"
+                      : "No results found"}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {historyStatusFilter === "all" && selectedTeamId === "all"
+                      ? "Your organization has no recorded injuries. This is great news!"
+                      : "No injuries found matching the current filters. Try adjusting them."}
+                  </EmptyDescription>
+                </EmptyContent>
+              </Empty>
+            ) : (
+              <div className="space-y-3">
+                {filteredHistoryInjuries.map((injury) => (
+                  <button
+                    className="flex w-full cursor-pointer items-start justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
+                    key={injury._id}
+                    onClick={() => openDetailModal(injury)}
+                    type="button"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100">
+                        <Heart className="h-5 w-5 text-gray-600" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">
+                            {injury.player?.firstName} {injury.player?.lastName}
+                          </span>
+                          {injury.ageGroup && (
+                            <span className="text-muted-foreground text-xs">
+                              ({injury.ageGroup})
+                            </span>
+                          )}
+                          <span className="text-muted-foreground">•</span>
+                          <span className="font-medium">
+                            {injury.bodyPart}
+                            {injury.side && ` (${injury.side})`} -{" "}
+                            {injury.injuryType}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground text-sm">
+                          {injury.description}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {injury.dateOccurred}
+                          </span>
+                          {injury.occurredDuring && (
+                            <span>During: {injury.occurredDuring}</span>
+                          )}
+                          {injury.treatment && (
+                            <span>Treatment: {injury.treatment}</span>
+                          )}
+                          {injury.daysOut && (
+                            <span className="font-medium text-orange-600">
+                              {injury.daysOut} days out
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      <Badge
+                        className={`${SEVERITY_CONFIG[injury.severity as Severity].bgColor} ${SEVERITY_CONFIG[injury.severity as Severity].color}`}
+                      >
+                        {SEVERITY_CONFIG[injury.severity as Severity].label}
+                      </Badge>
+                      <Badge
+                        className={`${STATUS_CONFIG[injury.status as InjuryStatus].bgColor} ${STATUS_CONFIG[injury.status as InjuryStatus].color}`}
+                      >
+                        {STATUS_CONFIG[injury.status as InjuryStatus].label}
+                      </Badge>
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
       {/* Player Selection */}
       <Card>
         <CardHeader>
@@ -546,7 +950,7 @@ export default function InjuryTrackingPage() {
               <SelectValue placeholder="Select a player" />
             </SelectTrigger>
             <SelectContent>
-              {players?.map(({ enrollment, player }) => (
+              {filteredPlayersForSelector.map(({ enrollment, player }) => (
                 <SelectItem
                   key={enrollment.playerIdentityId}
                   value={enrollment.playerIdentityId}
@@ -580,20 +984,36 @@ export default function InjuryTrackingPage() {
                 All recorded injuries for this player
               </CardDescription>
             </div>
-            <Select onValueChange={setStatusFilter} value={statusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="recovering">Recovering</SelectItem>
-                <SelectItem value="cleared">Cleared</SelectItem>
-                <SelectItem value="healed">Healed</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              {hasInjuryHistoryFilters && (
+                <button
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-gray-500 text-sm transition-colors hover:border-gray-400 hover:text-gray-700"
+                  onClick={() => setStatusFilter("all")}
+                  type="button"
+                >
+                  Clear filters
+                </button>
+              )}
+              <Select onValueChange={setStatusFilter} value={statusFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="recovering">Recovering</SelectItem>
+                  <SelectItem value="cleared">Cleared</SelectItem>
+                  <SelectItem value="healed">Healed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
+            {hasInjuryHistoryFilters && (
+              <p className="mb-3 text-orange-500 text-xs">
+                Filtered — not showing all injuries
+              </p>
+            )}
             {injuries === undefined ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -688,135 +1108,6 @@ export default function InjuryTrackingPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* All Injuries History */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Complete Injury History
-            </CardTitle>
-            <CardDescription>
-              All injuries recorded across all players in the organization
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-4">
-            <Select
-              onValueChange={setHistoryStatusFilter}
-              value={historyStatusFilter}
-            >
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="recovering">Recovering</SelectItem>
-                <SelectItem value="cleared">Cleared</SelectItem>
-                <SelectItem value="healed">Healed</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="text-muted-foreground text-sm">
-              {filteredHistoryInjuries.length} of{" "}
-              {allInjuriesForOrg?.length ?? 0} injuries
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {allInjuriesForOrg === undefined ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : filteredHistoryInjuries.length === 0 ? (
-            <Empty>
-              <EmptyContent>
-                <EmptyMedia variant="icon">
-                  <Heart className="h-6 w-6" />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {historyStatusFilter === "all"
-                    ? "No injury records yet"
-                    : "No results found"}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {historyStatusFilter === "all"
-                    ? "Your organization has no recorded injuries. This is great news!"
-                    : `No ${historyStatusFilter} injuries found. Try adjusting the filter.`}
-                </EmptyDescription>
-              </EmptyContent>
-            </Empty>
-          ) : (
-            <div className="space-y-3">
-              {filteredHistoryInjuries.map((injury) => (
-                <button
-                  className="flex w-full cursor-pointer items-start justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
-                  key={injury._id}
-                  onClick={() => openDetailModal(injury)}
-                  type="button"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100">
-                      <Heart className="h-5 w-5 text-gray-600" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">
-                          {injury.player?.firstName} {injury.player?.lastName}
-                        </span>
-                        {injury.ageGroup && (
-                          <span className="text-muted-foreground text-xs">
-                            ({injury.ageGroup})
-                          </span>
-                        )}
-                        <span className="text-muted-foreground">•</span>
-                        <span className="font-medium">
-                          {injury.bodyPart}
-                          {injury.side && ` (${injury.side})`} -{" "}
-                          {injury.injuryType}
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground text-sm">
-                        {injury.description}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {injury.dateOccurred}
-                        </span>
-                        {injury.occurredDuring && (
-                          <span>During: {injury.occurredDuring}</span>
-                        )}
-                        {injury.treatment && (
-                          <span>Treatment: {injury.treatment}</span>
-                        )}
-                        {injury.daysOut && (
-                          <span className="font-medium text-orange-600">
-                            {injury.daysOut} days out
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-shrink-0 items-center gap-2">
-                    <Badge
-                      className={`${SEVERITY_CONFIG[injury.severity as Severity].bgColor} ${SEVERITY_CONFIG[injury.severity as Severity].color}`}
-                    >
-                      {SEVERITY_CONFIG[injury.severity as Severity].label}
-                    </Badge>
-                    <Badge
-                      className={`${STATUS_CONFIG[injury.status as InjuryStatus].bgColor} ${STATUS_CONFIG[injury.status as InjuryStatus].color}`}
-                    >
-                      {STATUS_CONFIG[injury.status as InjuryStatus].label}
-                    </Badge>
-                    <Pencil className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Add Injury Dialog */}
       <Dialog onOpenChange={setShowAddDialog} open={showAddDialog}>

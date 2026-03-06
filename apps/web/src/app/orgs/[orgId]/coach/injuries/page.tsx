@@ -836,10 +836,6 @@ export default function InjuryTrackingPage() {
                 <SelectItem value="healed">Healed</SelectItem>
               </SelectContent>
             </Select>
-            <div className="text-muted-foreground text-sm">
-              {filteredHistoryInjuries.length} of{" "}
-              {allInjuriesForOrg?.length ?? 0} injuries
-            </div>
             <button
               className="rounded-lg p-1 text-gray-500 transition-colors hover:bg-gray-100"
               onClick={() => setHistoryExpanded((v) => !v)}

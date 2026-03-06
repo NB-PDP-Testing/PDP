@@ -660,6 +660,10 @@ export default function InjuryTrackingPage() {
                 : `${coachTeamsList.find((t) => t.teamId === selectedTeamId)?.teamName ?? "All Teams"} · selected`}
             </span>
             <div className="flex items-center gap-2">
+              <ChevronDown
+                className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
+                size={18}
+              />
               {hasCompleteHistoryFilters && (
                 <span
                   className="rounded border border-gray-300 px-2 py-0.5 text-gray-500 text-xs transition-colors hover:border-gray-400 hover:text-gray-700"
@@ -681,10 +685,6 @@ export default function InjuryTrackingPage() {
                   Clear
                 </span>
               )}
-              <ChevronDown
-                className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
-                size={18}
-              />
             </div>
           </button>
           {teamsExpanded && (

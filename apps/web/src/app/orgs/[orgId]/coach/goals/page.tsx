@@ -288,7 +288,7 @@ export default function GoalsDashboardPage() {
     });
   }, [coachAssignments?.teams]);
 
-  // Player IDs per team
+  // Build map of player IDs per team from team-player links
   const playerIdsByTeam = useMemo(() => {
     const map = new Map<string, Set<string>>();
     if (!teamPlayerLinks) {
@@ -669,6 +669,10 @@ export default function GoalsDashboardPage() {
                   } · selected`}
             </span>
             <div className="flex items-center gap-2">
+              <ChevronDown
+                className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
+                size={18}
+              />
               {hasActiveFilters && (
                 <span
                   className="rounded border border-gray-300 px-2 py-0.5 text-gray-500 text-xs transition-colors hover:border-gray-400 hover:text-gray-700"
@@ -688,10 +692,6 @@ export default function GoalsDashboardPage() {
                   Clear
                 </span>
               )}
-              <ChevronDown
-                className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
-                size={18}
-              />
             </div>
           </button>
           {teamsExpanded && (

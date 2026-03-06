@@ -659,10 +659,33 @@ export default function InjuryTrackingPage() {
                 ? "All Teams"
                 : `${coachTeamsList.find((t) => t.teamId === selectedTeamId)?.teamName ?? "All Teams"} · selected`}
             </span>
-            <ChevronDown
-              className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
-              size={18}
-            />
+            <div className="flex items-center gap-2">
+              {hasCompleteHistoryFilters && (
+                <span
+                  className="rounded border border-gray-300 px-2 py-0.5 text-gray-500 text-xs transition-colors hover:border-gray-400 hover:text-gray-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHistoryStatusFilter("all");
+                    setSelectedTeamId("all");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.stopPropagation();
+                      setHistoryStatusFilter("all");
+                      setSelectedTeamId("all");
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  Clear
+                </span>
+              )}
+              <ChevronDown
+                className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
+                size={18}
+              />
+            </div>
           </button>
           {teamsExpanded && (
             <div

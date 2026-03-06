@@ -809,18 +809,6 @@ export default function InjuryTrackingPage() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-4">
-            {hasCompleteHistoryFilters && (
-              <button
-                className="rounded-lg border border-gray-300 px-3 py-2 text-gray-500 text-sm transition-colors hover:border-gray-400 hover:text-gray-700"
-                onClick={() => {
-                  setHistoryStatusFilter("all");
-                  setSelectedTeamId("all");
-                }}
-                type="button"
-              >
-                Clear filters
-              </button>
-            )}
             <Select
               onValueChange={setHistoryStatusFilter}
               value={historyStatusFilter}
@@ -836,6 +824,18 @@ export default function InjuryTrackingPage() {
                 <SelectItem value="healed">Healed</SelectItem>
               </SelectContent>
             </Select>
+            {hasCompleteHistoryFilters && (
+              <button
+                className="rounded-lg border border-gray-300 px-3 py-2 text-gray-500 text-sm transition-colors hover:border-gray-400 hover:text-gray-700"
+                onClick={() => {
+                  setHistoryStatusFilter("all");
+                  setSelectedTeamId("all");
+                }}
+                type="button"
+              >
+                Clear filters
+              </button>
+            )}
             <button
               className="rounded-lg p-1 text-gray-500 transition-colors hover:bg-gray-100"
               onClick={() => setHistoryExpanded((v) => !v)}

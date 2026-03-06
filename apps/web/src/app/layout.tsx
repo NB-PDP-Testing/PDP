@@ -24,7 +24,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PlayerArc - PlayerDevelopment Platform",
+  title: "PlayerARC - Player Development Platform",
   description:
     "PlayerARC - A comprehensive digital ecosystem where parents and coaches collaborate to support and manage a child's sporting development.",
   icons: {

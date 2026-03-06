@@ -3,7 +3,17 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Edit2, FileText, Loader2, Save, User, Users, X } from "lucide-react";
+import {
+  ChevronDown,
+  Edit2,
+  FileText,
+  Loader2,
+  Save,
+  Search,
+  User,
+  Users,
+  X,
+} from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -44,6 +55,11 @@ export default function CoachNotesPage() {
   const [editingNotes, setEditingNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Team filter state
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
+  const [teamsExpanded, setTeamsExpanded] = useState(true);
+  const [playerSearch, setPlayerSearch] = useState("");
+
   // Get coach's players
   const enrolledPlayersData = useQuery(
     api.models.orgPlayerEnrollments.getPlayersForCoachTeams,
@@ -64,6 +80,12 @@ export default function CoachNotesPage() {
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
+
+  // Get coach's team assignments for the team selector
+  const coachAssignments = useQuery(
+    api.models.coaches.getCoachAssignmentsWithTeams,
+    userId && orgId ? { userId, organizationId: orgId } : "skip"
+  );
 
   // Get all passports for org - needed because voice notes write to sportPassports.coachNotes
   // while the enrollment may not have coachNotes set (same logic as getFullPlayerPassportView)
@@ -132,12 +154,15 @@ export default function CoachNotesPage() {
       const playerTeams: string[] = [];
       if (teamPlayerLinks && teams) {
         const links = teamPlayerLinks.filter(
-          (link: any) => link.playerIdentityId === player._id
+          (link: { playerIdentityId: string }) =>
+            link.playerIdentityId === player._id
         );
         for (const link of links) {
-          const team = teams.find((t: any) => t._id === link.teamId);
+          const team = teams.find(
+            (t: { _id: string }) => t._id === link.teamId
+          );
           if (team) {
-            playerTeams.push(team.name);
+            playerTeams.push((team as { name: string }).name);
           }
         }
       }
@@ -168,24 +193,123 @@ export default function CoachNotesPage() {
     if (!enrolledPlayersData) {
       return [];
     }
-    return enrolledPlayersData.map(({ enrollment, player }: any) => {
-      const passportData = passportByPlayerId.get(player._id);
-      const coachNotes =
-        enrollment.coachNotes || passportData?.coachNotes || "";
-      return {
-        enrollmentId: enrollment._id,
-        playerIdentityId: player._id,
-        playerName: `${player.firstName} ${player.lastName}`,
-        ageGroup: enrollment.ageGroup ?? "",
-        coachNotes,
-      };
-    });
+    return enrolledPlayersData.map(
+      ({
+        enrollment,
+        player,
+      }: {
+        enrollment: {
+          _id: Id<"orgPlayerEnrollments">;
+          coachNotes?: string;
+          ageGroup?: string;
+        };
+        player: {
+          _id: Id<"playerIdentities">;
+          firstName: string;
+          lastName: string;
+        };
+      }) => {
+        const passportData = passportByPlayerId.get(player._id);
+        const coachNotes =
+          enrollment.coachNotes || passportData?.coachNotes || "";
+        return {
+          enrollmentId: enrollment._id,
+          playerIdentityId: player._id,
+          playerName: `${player.firstName} ${player.lastName}`,
+          ageGroup: enrollment.ageGroup ?? "",
+          coachNotes,
+        };
+      }
+    );
   }, [enrolledPlayersData, passportByPlayerId]);
 
   const playersWithoutNotes = useMemo(
     () => allPlayers.filter((p) => !p.coachNotes?.trim()),
     [allPlayers]
   );
+
+  // Deduplicated coach team list for the team selector
+  const coachTeamsList = useMemo(() => {
+    if (!coachAssignments?.teams) {
+      return [];
+    }
+    const seen = new Set<string>();
+    return coachAssignments.teams.filter((t) => {
+      if (!t.teamId || t.teamId.includes("players")) {
+        return false;
+      }
+      if (seen.has(t.teamId)) {
+        return false;
+      }
+      seen.add(t.teamId);
+      return true;
+    });
+  }, [coachAssignments?.teams]);
+
+  // Map of teamId -> Set of playerIdentityIds
+  const playerIdsByTeam = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    if (!teamPlayerLinks) {
+      return map;
+    }
+    for (const link of teamPlayerLinks) {
+      if (!map.has(link.teamId)) {
+        map.set(link.teamId, new Set());
+      }
+      map.get(link.teamId)?.add(link.playerIdentityId.toString());
+    }
+    return map;
+  }, [teamPlayerLinks]);
+
+  // Player count per team
+  const playerCountByTeam = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const [teamId, playerIds] of playerIdsByTeam) {
+      counts.set(teamId, playerIds.size);
+    }
+    return counts;
+  }, [playerIdsByTeam]);
+
+  // Note count per team (players with notes in that team)
+  const noteCountByTeam = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const [teamId, playerIds] of playerIdsByTeam) {
+      let count = 0;
+      for (const player of playersWithNotes) {
+        if (playerIds.has(player.playerIdentityId.toString())) {
+          count++;
+        }
+      }
+      counts.set(teamId, count);
+    }
+    return counts;
+  }, [playerIdsByTeam, playersWithNotes]);
+
+  // Filtered notes by team and player search
+  const filteredNotes = useMemo(() => {
+    let result = playersWithNotes;
+
+    if (selectedTeamId !== "all") {
+      const teamPlayerIds = playerIdsByTeam.get(selectedTeamId);
+      result = result.filter((p) =>
+        teamPlayerIds?.has(p.playerIdentityId.toString())
+      );
+    }
+
+    if (playerSearch) {
+      const q = playerSearch.toLowerCase();
+      result = result.filter((p) => p.playerName.toLowerCase().includes(q));
+    }
+
+    return result;
+  }, [playersWithNotes, selectedTeamId, playerIdsByTeam, playerSearch]);
+
+  const hasActiveFilters = selectedTeamId !== "all" || Boolean(playerSearch);
+
+  const clearFilters = () => {
+    setSelectedTeamId("all");
+    setPlayerSearch("");
+  };
 
   // Auto-open edit mode for highlighted player from URL
   useEffect(() => {
@@ -302,6 +426,148 @@ export default function CoachNotesPage() {
         </div>
       </OrgThemedGradient>
 
+      {/* Team Filter */}
+      {coachTeamsList.length > 0 && (
+        <div>
+          <button
+            className="mb-3 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-gray-50"
+            onClick={() => setTeamsExpanded((prev) => !prev)}
+            type="button"
+          >
+            <span className="font-semibold text-gray-700 text-sm">
+              {selectedTeamId === "all"
+                ? "All Teams"
+                : `${coachTeamsList.find((t) => t.teamId === selectedTeamId)?.teamName ?? "All Teams"} · selected`}
+            </span>
+            <div className="flex items-center gap-2">
+              <ChevronDown
+                className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
+                size={18}
+              />
+              {hasActiveFilters && (
+                <span
+                  className="rounded border border-gray-300 px-2 py-0.5 text-gray-500 text-xs transition-colors hover:border-gray-400 hover:text-gray-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearFilters();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.stopPropagation();
+                      clearFilters();
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  Clear
+                </span>
+              )}
+            </div>
+          </button>
+          {teamsExpanded && (
+            <div
+              className={`grid gap-3 md:gap-4 ${coachTeamsList.length === 1 ? "max-w-xs grid-cols-1" : "grid-cols-2 md:grid-cols-4"}`}
+            >
+              {coachTeamsList.length > 1 && (
+                <Card
+                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${selectedTeamId === "all" ? "ring-2 ring-green-500" : ""}`}
+                  onClick={() => setSelectedTeamId("all")}
+                  style={{
+                    backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                    borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                  }}
+                >
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm leading-tight">
+                          All Teams
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          {coachTeamsList.length} teams
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800 text-lg leading-tight">
+                          {coachTeamsList.reduce(
+                            (sum, t) =>
+                              sum + (playerCountByTeam.get(t.teamId) ?? 0),
+                            0
+                          )}
+                        </p>
+                        <p className="text-gray-500 text-xs">players</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {coachTeamsList.map((team) => {
+                const isSelected = selectedTeamId === team.teamId;
+                const playerCount = playerCountByTeam.get(team.teamId) ?? 0;
+                const noteCount = noteCountByTeam.get(team.teamId) ?? 0;
+                const ageMeta = [team.ageGroup, team.gender]
+                  .filter(Boolean)
+                  .join(" • ");
+                return (
+                  <Card
+                    className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${isSelected ? "ring-2 ring-green-500" : ""}`}
+                    key={team.teamId}
+                    onClick={() => setSelectedTeamId(team.teamId)}
+                    style={{
+                      backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                      borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                    }}
+                  >
+                    <CardContent className="p-2.5">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="truncate font-semibold text-gray-800 text-sm leading-tight"
+                            title={team.teamName}
+                          >
+                            {team.teamName}
+                          </p>
+                          {ageMeta && (
+                            <p className="text-gray-500 text-xs">{ageMeta}</p>
+                          )}
+                        </div>
+                        <div className="ml-2 shrink-0 text-right">
+                          <p className="font-bold text-gray-800 text-sm leading-tight">
+                            {playerCount}
+                          </p>
+                          <p className="text-gray-500 text-xs">players</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge
+                          className="bg-blue-100 text-blue-700"
+                          title="Players with notes"
+                        >
+                          <FileText className="h-3 w-3" />
+                          <span className="ml-0.5">{noteCount}</span>
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Player Search */}
+      <div className="relative">
+        <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          onChange={(e) => setPlayerSearch(e.target.value)}
+          placeholder="Search player..."
+          value={playerSearch}
+        />
+      </div>
+
       {/* Notes List */}
       {playersWithNotes.length === 0 ? (
         <Card>
@@ -319,9 +585,33 @@ export default function CoachNotesPage() {
             </p>
           </CardContent>
         </Card>
+      ) : filteredNotes.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Search className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+            <h3 className="mb-2 font-semibold text-lg">No Notes Found</h3>
+            <p className="text-muted-foreground">
+              No players match the current filters.
+            </p>
+            <Button
+              className="mt-4"
+              onClick={clearFilters}
+              size="sm"
+              variant="outline"
+            >
+              Clear filters
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-4">
-          {playersWithNotes.map((player) => (
+          {hasActiveFilters && (
+            <p className="text-muted-foreground text-sm">
+              Showing {filteredNotes.length} of {playersWithNotes.length}{" "}
+              players
+            </p>
+          )}
+          {filteredNotes.map((player) => (
             <Card className="overflow-hidden" key={player.enrollmentId}>
               <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 pb-3">
                 <div className="flex items-start justify-between">

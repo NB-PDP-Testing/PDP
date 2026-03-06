@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  HelpCircle,
   History,
   Loader2,
   Save,
@@ -22,7 +23,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
@@ -70,7 +71,6 @@ type BatchNotes = Record<string, Record<string, string>>; // playerId -> skillCo
 
 export default function AssessPlayerPage() {
   const params = useParams();
-  const router = useRouter();
   const orgId = params.orgId as string;
   const currentUser = useCurrentUser();
   const { data: session } = authClient.useSession();
@@ -778,16 +778,31 @@ export default function AssessPlayerPage() {
     <div className="space-y-6">
       {/* Header with gradient background - matching coach dashboard */}
       <OrgThemedGradient
-        className="rounded-lg p-6 shadow-lg"
+        className="rounded-lg p-4 shadow-md md:p-6"
         style={{ filter: "brightness(0.95)" }}
       >
         <div className="flex flex-col gap-3">
-          {/* Top row: Back + Title */}
-          <div className="flex items-center gap-4">
-            <Button
-              className="border-current/20 bg-current/10 hover:bg-current/20"
-              onClick={() => {
-                if (selectedPlayerId) {
+          {/* Top row: Icon + Title + Players breadcrumb */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
+              <Award className="h-7 w-7 flex-shrink-0" />
+              <div>
+                <h1 className="font-bold text-xl md:text-2xl">
+                  {assessmentMode === "batch"
+                    ? "Team Session Assessment"
+                    : "Assess Player Skills"}
+                </h1>
+                <p className="text-xs opacity-80 md:text-sm">
+                  {assessmentMode === "batch"
+                    ? "Record the same assessment for multiple players at once"
+                    : "Record skill assessments with automatic benchmark comparison"}
+                </p>
+              </div>
+            </div>
+            {selectedPlayerId && (
+              <Button
+                className="border-current/20 bg-current/10 hover:bg-current/20"
+                onClick={() => {
                   setSelectedPlayerId(null);
                   setRatings({});
                   setSavedSkills(new Set());
@@ -795,28 +810,14 @@ export default function AssessPlayerPage() {
                   setSelectedTeamId(null);
                   setSelectedSportCode("all");
                   setPlayerSportCodes([]);
-                } else {
-                  router.back();
-                }
-              }}
-              size="sm"
-              variant="outline"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              {selectedPlayerId ? "Players" : "Back"}
-            </Button>
-            <div>
-              <h1 className="font-bold text-xl sm:text-2xl">
-                {assessmentMode === "batch"
-                  ? "Team Session Assessment"
-                  : "Assess Player Skills"}
-              </h1>
-              <p className="hidden text-sm opacity-80 sm:block">
-                {assessmentMode === "batch"
-                  ? "Record the same assessment for multiple players at once"
-                  : "Record skill assessments with automatic benchmark comparison"}
-              </p>
-            </div>
+                }}
+                size="sm"
+                variant="outline"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Players
+              </Button>
+            )}
           </div>
 
           {/* Controls row: Mode toggle + Benchmarks + Save All */}
@@ -894,6 +895,95 @@ export default function AssessPlayerPage() {
           </div>
         </div>
       </OrgThemedGradient>
+
+      {/* Assessment Status Overview */}
+      {assessmentMode === "individual" && !selectedPlayerId && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {(
+            [
+              {
+                key: "never",
+                label: "Never Assessed",
+                count: statusCounts.never,
+                Icon: HelpCircle,
+                idle: "border-gray-200 bg-gray-50 hover:border-gray-400",
+                active: "border-gray-500 bg-gray-100 ring-2 ring-gray-400",
+                iconColor: "text-gray-500",
+                countColor: "text-gray-700",
+                labelColor: "text-gray-500",
+              },
+              {
+                key: "overdue",
+                label: "Overdue",
+                count: statusCounts.overdue,
+                Icon: AlertCircle,
+                idle: "border-red-200 bg-red-50 hover:border-red-400",
+                active: "border-red-500 bg-red-100 ring-2 ring-red-400",
+                iconColor: "text-red-500",
+                countColor: "text-red-700",
+                labelColor: "text-red-600",
+              },
+              {
+                key: "due_soon",
+                label: "Due Soon",
+                count: statusCounts.due_soon,
+                Icon: Clock,
+                idle: "border-amber-200 bg-amber-50 hover:border-amber-400",
+                active: "border-amber-500 bg-amber-100 ring-2 ring-amber-400",
+                iconColor: "text-amber-500",
+                countColor: "text-amber-700",
+                labelColor: "text-amber-600",
+              },
+              {
+                key: "up_to_date",
+                label: "Up to Date",
+                count: statusCounts.up_to_date,
+                Icon: CheckCircle2,
+                idle: "border-green-200 bg-green-50 hover:border-green-400",
+                active: "border-green-500 bg-green-100 ring-2 ring-green-400",
+                iconColor: "text-green-500",
+                countColor: "text-green-700",
+                labelColor: "text-green-600",
+              },
+            ] as const
+          ).map(
+            ({
+              key,
+              label,
+              count,
+              Icon,
+              idle,
+              active,
+              iconColor,
+              countColor,
+              labelColor,
+            }) => (
+              <button
+                className={`rounded-lg border p-4 text-left transition-all ${
+                  statusFilter === key ? active : idle
+                }`}
+                key={key}
+                onClick={() =>
+                  setStatusFilter(
+                    statusFilter === key
+                      ? null
+                      : (key as "never" | "overdue" | "due_soon" | "up_to_date")
+                  )
+                }
+                type="button"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <Icon className={`h-5 w-5 ${iconColor}`} />
+                  <p className={`font-bold text-xl md:text-2xl ${countColor}`}>
+                    {count}
+                  </p>
+                </div>
+                <p className={`text-xs ${labelColor}`}>{label}</p>
+              </button>
+            )
+          )}
+        </div>
+      )}
 
       {/* Search and Filters */}
       <Card>
@@ -988,91 +1078,6 @@ export default function AssessPlayerPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Assessment Status Overview */}
-      {assessmentMode === "individual" && !selectedPlayerId && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {(
-            [
-              {
-                key: "never",
-                label: "Never Assessed",
-                count: statusCounts.never,
-                Icon: AlertCircle,
-                idle: "border-gray-200 bg-gray-50 hover:border-gray-400",
-                active: "border-gray-500 bg-gray-100 ring-2 ring-gray-400",
-                iconColor: "text-gray-500",
-                countColor: "text-gray-700",
-                labelColor: "text-gray-500",
-              },
-              {
-                key: "overdue",
-                label: "Overdue",
-                count: statusCounts.overdue,
-                Icon: AlertCircle,
-                idle: "border-red-200 bg-red-50 hover:border-red-400",
-                active: "border-red-500 bg-red-100 ring-2 ring-red-400",
-                iconColor: "text-red-500",
-                countColor: "text-red-700",
-                labelColor: "text-red-600",
-              },
-              {
-                key: "due_soon",
-                label: "Due Soon",
-                count: statusCounts.due_soon,
-                Icon: Clock,
-                idle: "border-amber-200 bg-amber-50 hover:border-amber-400",
-                active: "border-amber-500 bg-amber-100 ring-2 ring-amber-400",
-                iconColor: "text-amber-500",
-                countColor: "text-amber-700",
-                labelColor: "text-amber-600",
-              },
-              {
-                key: "up_to_date",
-                label: "Up to Date",
-                count: statusCounts.up_to_date,
-                Icon: CheckCircle2,
-                idle: "border-green-200 bg-green-50 hover:border-green-400",
-                active: "border-green-500 bg-green-100 ring-2 ring-green-400",
-                iconColor: "text-green-500",
-                countColor: "text-green-700",
-                labelColor: "text-green-600",
-              },
-            ] as const
-          ).map(
-            ({
-              key,
-              label,
-              count,
-              Icon,
-              idle,
-              active,
-              iconColor,
-              countColor,
-              labelColor,
-            }) => (
-              <button
-                className={`rounded-lg border p-4 text-left transition-all ${
-                  statusFilter === key ? active : idle
-                }`}
-                key={key}
-                onClick={() =>
-                  setStatusFilter(
-                    statusFilter === key
-                      ? null
-                      : (key as "never" | "overdue" | "due_soon" | "up_to_date")
-                  )
-                }
-                type="button"
-              >
-                <Icon className={`mb-2 h-5 w-5 ${iconColor}`} />
-                <p className={`font-bold text-2xl ${countColor}`}>{count}</p>
-                <p className={`text-xs ${labelColor}`}>{label}</p>
-              </button>
-            )
-          )}
-        </div>
-      )}
 
       {/* Player Stats & Info */}
       {selectedPlayer && selectedSportCode && (

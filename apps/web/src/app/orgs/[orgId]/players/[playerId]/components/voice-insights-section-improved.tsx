@@ -389,53 +389,81 @@ export function VoiceInsightsSectionImproved({
   // Loading state
   if (voiceNotes === undefined) {
     return (
-      <Card className="border-l-4 border-l-violet-500 shadow-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-violet-600" />
-            Voice Insights
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        </CardContent>
-      </Card>
+      <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
+        <Card className="border-l-4 border-l-violet-500 shadow-md">
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer transition-colors hover:bg-muted/50">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-violet-600" />
+                  Voice Insights
+                </CardTitle>
+                {isExpanded ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     );
   }
 
   // Empty state
   if (filteredNotes.length === 0) {
     return (
-      <Card className="border-l-4 border-l-violet-500 shadow-md hover:shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-violet-600" />
-            Voice Insights
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="py-8 text-center">
-            <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <p className="mt-2 text-muted-foreground text-sm">
-              {isParent
-                ? "No insights have been shared yet."
-                : "No insights recorded for this player yet."}
-            </p>
-            {isCoach && (
-              <Button
-                className="mt-4"
-                onClick={() => router.push(`/orgs/${orgId}/coach/voice-notes`)}
-                size="sm"
-                variant="outline"
-              >
-                Create Voice Note
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
+        <Card className="border-l-4 border-l-violet-500 shadow-md hover:shadow-lg">
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer transition-colors hover:bg-muted/50">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-violet-600" />
+                  Voice Insights
+                </CardTitle>
+                {isExpanded ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="py-8 text-center">
+                <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                <p className="mt-2 text-muted-foreground text-sm">
+                  {isParent
+                    ? "No insights have been shared yet."
+                    : "No insights recorded for this player yet."}
+                </p>
+                {isCoach && (
+                  <Button
+                    className="mt-4"
+                    onClick={() =>
+                      router.push(`/orgs/${orgId}/coach/voice-notes`)
+                    }
+                    size="sm"
+                    variant="outline"
+                  >
+                    Create Voice Note
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     );
   }
 

@@ -3,7 +3,8 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { format } from "date-fns";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, MapPin } from "lucide-react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -29,6 +30,8 @@ type Event = {
 };
 
 export function UpcomingEventsWidget({ teamId }: UpcomingEventsWidgetProps) {
+  const [expanded, setExpanded] = useState(true);
+
   const events = useQuery(api.models.teams.getUpcomingEvents, {
     teamId,
     limit: 3,
@@ -68,59 +71,74 @@ export function UpcomingEventsWidget({ teamId }: UpcomingEventsWidgetProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Upcoming Events
-        </CardTitle>
+        <button
+          className="flex w-full items-center justify-between"
+          onClick={() => setExpanded((prev) => !prev)}
+          type="button"
+        >
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Upcoming Events
+          </CardTitle>
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
       </CardHeader>
-      <CardContent>
-        {events.length === 0 ? (
-          <Empty className="py-8">
-            <EmptyMedia>
-              <Calendar className="h-12 w-12 text-muted-foreground" />
-            </EmptyMedia>
-            <EmptyContent>
-              <EmptyTitle>No Upcoming Events</EmptyTitle>
-              <EmptyDescription>
-                Schedule your first training session or game to see it here.
-              </EmptyDescription>
-            </EmptyContent>
-          </Empty>
-        ) : (
-          <div className="space-y-3">
-            {events.map((event) => (
-              <div
-                className="rounded-lg border border-border bg-card p-3"
-                key={event.eventId}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{event.title}</span>
-                      {getEventTypeBadge(event.type)}
-                    </div>
-                    <div className="flex items-center gap-4 text-muted-foreground text-xs">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        <span>
-                          {format(new Date(event.date), "MMM d, yyyy")}
+      {expanded && (
+        <CardContent>
+          {events.length === 0 ? (
+            <Empty className="py-8">
+              <EmptyMedia>
+                <Calendar className="h-12 w-12 text-muted-foreground" />
+              </EmptyMedia>
+              <EmptyContent>
+                <EmptyTitle>No Upcoming Events</EmptyTitle>
+                <EmptyDescription>
+                  Schedule your first training session or game to see it here.
+                </EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          ) : (
+            <div className="space-y-3">
+              {events.map((event) => (
+                <div
+                  className="rounded-lg border border-border bg-card p-3"
+                  key={event.eventId}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">
+                          {event.title}
                         </span>
+                        {getEventTypeBadge(event.type)}
                       </div>
-                      {event.time && <span>{event.time}</span>}
+                      <div className="flex items-center gap-4 text-muted-foreground text-xs">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          <span>
+                            {format(new Date(event.date), "MMM d, yyyy")}
+                          </span>
+                        </div>
+                        {event.time && <span>{event.time}</span>}
+                      </div>
+                      {event.location && (
+                        <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                          <MapPin className="h-3 w-3" />
+                          <span>{event.location}</span>
+                        </div>
+                      )}
                     </div>
-                    {event.location && (
-                      <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                        <MapPin className="h-3 w-3" />
-                        <span>{event.location}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }

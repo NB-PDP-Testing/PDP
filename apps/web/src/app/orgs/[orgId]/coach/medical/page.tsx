@@ -5,18 +5,18 @@ import { useQuery } from "convex/react";
 import {
   AlertCircle,
   AlertTriangle,
-  ArrowLeft,
+  ChevronDown,
   Eye,
   Heart,
+  HeartPulse,
   Loader2,
   Phone,
   Pill,
   Search,
   Shield,
-  User,
   Users,
 } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,14 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 // Privacy confirmation component for coaches
 function CoachPrivacyConfirmation({
@@ -244,14 +237,17 @@ function CoachMedicalView({
 // Main Coach Medical Page
 export default function CoachMedicalPage() {
   const params = useParams();
-  const router = useRouter();
   const orgId = params.orgId as string;
+  const currentUser = useCurrentUser();
+  const userId = currentUser?._id;
 
   // State
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAlert, setFilterAlert] = useState<
     "all" | "allergies" | "conditions"
   >("all");
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
+  const [teamsExpanded, setTeamsExpanded] = useState(true);
 
   // Privacy confirmation state
   const [pendingView, setPendingView] = useState<{
@@ -268,21 +264,116 @@ export default function CoachMedicalPage() {
   // Queries
   const allProfiles = useQuery(
     api.models.medicalProfiles.getAllForOrganization,
-    {
-      organizationId: orgId,
-    }
+    { organizationId: orgId }
   );
 
-  // Filter players - only show those with medical profiles
+  const coachAssignments = useQuery(
+    api.models.coaches.getCoachAssignmentsWithTeams,
+    userId && orgId ? { userId, organizationId: orgId } : "skip"
+  );
+
+  const teamPlayerLinks = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    orgId ? { organizationId: orgId, status: "active" } : "skip"
+  );
+
+  // Deduplicated coach teams list
+  const coachTeamsList = useMemo(() => {
+    if (!coachAssignments?.teams) {
+      return [];
+    }
+    const seen = new Set<string>();
+    return coachAssignments.teams.filter((t) => {
+      if (!t.teamId || t.teamId.includes("players")) {
+        return false;
+      }
+      if (seen.has(t.teamId)) {
+        return false;
+      }
+      seen.add(t.teamId);
+      return true;
+    });
+  }, [coachAssignments?.teams]);
+
+  // Player IDs grouped by team
+  const playerIdsByTeam = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    if (!teamPlayerLinks) {
+      return map;
+    }
+    for (const link of teamPlayerLinks) {
+      if (!map.has(link.teamId)) {
+        map.set(link.teamId, new Set());
+      }
+      map.get(link.teamId)?.add(link.playerIdentityId.toString());
+    }
+    return map;
+  }, [teamPlayerLinks]);
+
+  // Player count per team
+  const playerCountByTeam = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!teamPlayerLinks) {
+      return counts;
+    }
+    for (const link of teamPlayerLinks) {
+      counts.set(link.teamId, (counts.get(link.teamId) ?? 0) + 1);
+    }
+    return counts;
+  }, [teamPlayerLinks]);
+
+  // Medical alert counts per team
+  const medicalCountsByTeam = useMemo(() => {
+    const result = new Map<
+      string,
+      { allergies: number; conditions: number; medications: number }
+    >();
+    if (!allProfiles) {
+      return result;
+    }
+    for (const [teamId, playerIds] of playerIdsByTeam) {
+      let allergies = 0;
+      let conditions = 0;
+      let medications = 0;
+      for (const item of allProfiles) {
+        if (!item.hasProfile) {
+          continue;
+        }
+        if (!playerIds.has(item.player._id.toString())) {
+          continue;
+        }
+        if (item.hasAllergies) {
+          allergies += 1;
+        }
+        if (item.hasConditions) {
+          conditions += 1;
+        }
+        if (item.hasMedications) {
+          medications += 1;
+        }
+      }
+      result.set(teamId, { allergies, conditions, medications });
+    }
+    return result;
+  }, [allProfiles, playerIdsByTeam]);
+
+  // Filter players - apply team, search, and alert filters
   const filteredPlayers = useMemo(() => {
     if (!allProfiles) {
       return [];
     }
 
     return allProfiles.filter((item: NonNullable<typeof allProfiles>[0]) => {
-      // Only show players WITH medical profiles
       if (!item.hasProfile) {
         return false;
+      }
+
+      // Team filter
+      if (selectedTeamId !== "all") {
+        const teamPlayerIds = playerIdsByTeam.get(selectedTeamId);
+        if (!teamPlayerIds?.has(item.player._id.toString())) {
+          return false;
+        }
       }
 
       // Search filter
@@ -303,9 +394,9 @@ export default function CoachMedicalPage() {
 
       return true;
     });
-  }, [allProfiles, searchQuery, filterAlert]);
+  }, [allProfiles, searchQuery, filterAlert, selectedTeamId, playerIdsByTeam]);
 
-  // Count players with alerts
+  // Count players with alerts (across all / filtered scope)
   const alertCounts = useMemo(() => {
     if (!allProfiles) {
       return { allergies: 0, conditions: 0, medications: 0 };
@@ -352,92 +443,289 @@ export default function CoachMedicalPage() {
     (p: NonNullable<typeof allProfiles>[0]) => p.hasProfile
   ).length;
 
+  const hasActiveFilters =
+    selectedTeamId !== "all" || searchQuery || filterAlert !== "all";
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={() => router.push(`/orgs/${orgId}/coach`)}
-            size="sm"
-            variant="outline"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
+      <div className="rounded-lg bg-gradient-to-r from-red-500 to-red-600 p-4 text-white shadow-md md:p-6">
+        <div className="flex items-center gap-2 md:gap-3">
+          <HeartPulse className="h-7 w-7 flex-shrink-0" />
           <div>
-            <h1 className="font-bold text-2xl">Player Medical Info</h1>
-            <p className="text-muted-foreground text-sm">
-              View-only access for player safety
+            <h1 className="font-bold text-xl md:text-2xl">
+              Medical Information
+            </h1>
+            <p className="text-sm opacity-90">
+              Player health details and emergency contacts
             </p>
           </div>
         </div>
-        <Badge className="flex items-center gap-2" variant="outline">
-          <Eye className="h-4 w-4" />
-          View Only
-        </Badge>
       </div>
 
       {/* Alert Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <Users className="h-6 w-6 text-green-600" />
+            <div className="mb-2 flex items-center justify-between">
+              <Users className="text-green-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {playersWithProfiles}
               </div>
-              <div>
-                <p className="text-muted-foreground text-sm">
-                  Players with Profiles
-                </p>
-                <p className="font-bold text-2xl">{playersWithProfiles}</p>
-              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Players with Profiles
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div
+                className="h-1 rounded-full bg-green-600"
+                style={{
+                  width:
+                    allProfiles.length > 0
+                      ? `${(playersWithProfiles / allProfiles.length) * 100}%`
+                      : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
 
-        <Card className={alertCounts.allergies > 0 ? "border-orange-200" : ""}>
+        <Card className="border-orange-200 bg-orange-50 pt-0 transition-all duration-200 hover:shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
-                <AlertCircle className="h-6 w-6 text-orange-600" />
+            <div className="mb-2 flex items-center justify-between">
+              <AlertCircle className="text-orange-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {alertCounts.allergies}
               </div>
-              <div>
-                <p className="text-muted-foreground text-sm">With Allergies</p>
-                <p className="font-bold text-2xl">{alertCounts.allergies}</p>
-              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              With Allergies
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-orange-100">
+              <div
+                className="h-1 rounded-full bg-orange-600"
+                style={{
+                  width:
+                    playersWithProfiles > 0
+                      ? `${(alertCounts.allergies / playersWithProfiles) * 100}%`
+                      : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
 
-        <Card className={alertCounts.conditions > 0 ? "border-purple-200" : ""}>
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-                <AlertTriangle className="h-6 w-6 text-purple-600" />
+            <div className="mb-2 flex items-center justify-between">
+              <AlertTriangle className="text-purple-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {alertCounts.conditions}
               </div>
-              <div>
-                <p className="text-muted-foreground text-sm">With Conditions</p>
-                <p className="font-bold text-2xl">{alertCounts.conditions}</p>
-              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              With Conditions
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div
+                className="h-1 rounded-full bg-purple-600"
+                style={{
+                  width:
+                    playersWithProfiles > 0
+                      ? `${(alertCounts.conditions / playersWithProfiles) * 100}%`
+                      : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
 
-        <Card className={alertCounts.medications > 0 ? "border-blue-200" : ""}>
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-                <Pill className="h-6 w-6 text-blue-600" />
+            <div className="mb-2 flex items-center justify-between">
+              <Pill className="text-blue-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {alertCounts.medications}
               </div>
-              <div>
-                <p className="text-muted-foreground text-sm">On Medication</p>
-                <p className="font-bold text-2xl">{alertCounts.medications}</p>
-              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              On Medication
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div
+                className="h-1 rounded-full bg-blue-600"
+                style={{
+                  width:
+                    playersWithProfiles > 0
+                      ? `${(alertCounts.medications / playersWithProfiles) * 100}%`
+                      : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Team Filter */}
+      {coachTeamsList.length > 0 && (
+        <div className="space-y-3">
+          <button
+            className="flex w-full items-center justify-between rounded-lg border bg-card px-4 py-2.5 text-left shadow-sm transition-colors hover:bg-accent/50"
+            onClick={() => setTeamsExpanded((v) => !v)}
+            type="button"
+          >
+            <span className="font-medium text-sm">
+              {selectedTeamId === "all"
+                ? "All Teams"
+                : `${coachTeamsList.find((t) => t.teamId === selectedTeamId)?.teamName ?? "All Teams"} · selected`}
+            </span>
+            <div className="flex items-center gap-2">
+              <ChevronDown
+                className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
+                size={18}
+              />
+              {hasActiveFilters && (
+                <span
+                  className="rounded border border-gray-300 px-2 py-0.5 text-gray-500 text-xs transition-colors hover:border-gray-400 hover:text-gray-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedTeamId("all");
+                    setSearchQuery("");
+                    setFilterAlert("all");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.stopPropagation();
+                      setSelectedTeamId("all");
+                      setSearchQuery("");
+                      setFilterAlert("all");
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  Clear
+                </span>
+              )}
+            </div>
+          </button>
+          {teamsExpanded && (
+            <div
+              className={`grid gap-3 md:gap-4 ${coachTeamsList.length === 1 ? "max-w-xs grid-cols-1" : "grid-cols-2 md:grid-cols-4"}`}
+            >
+              {coachTeamsList.length > 1 && (
+                <Card
+                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${selectedTeamId === "all" ? "ring-2 ring-green-500" : ""}`}
+                  onClick={() => setSelectedTeamId("all")}
+                  style={{
+                    backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                    borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                  }}
+                >
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm leading-tight">
+                          All Teams
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          {coachTeamsList.length} teams
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800 text-lg leading-tight">
+                          {coachTeamsList.reduce(
+                            (sum, t) =>
+                              sum + (playerCountByTeam.get(t.teamId) ?? 0),
+                            0
+                          )}
+                        </p>
+                        <p className="text-gray-500 text-xs">players</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {coachTeamsList.map((team) => {
+                const isSelected = selectedTeamId === team.teamId;
+                const playerCount = playerCountByTeam.get(team.teamId) ?? 0;
+                const medCounts = medicalCountsByTeam.get(team.teamId);
+                const ageMeta = [team.ageGroup, team.gender]
+                  .filter(Boolean)
+                  .join(" • ");
+                return (
+                  <Card
+                    className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${isSelected ? "ring-2 ring-green-500" : ""}`}
+                    key={team.teamId}
+                    onClick={() => setSelectedTeamId(team.teamId)}
+                    style={{
+                      backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                      borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                    }}
+                  >
+                    <CardContent className="p-2.5">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="truncate font-semibold text-gray-800 text-sm leading-tight"
+                            title={team.teamName}
+                          >
+                            {team.teamName}
+                          </p>
+                          {ageMeta && (
+                            <p className="text-gray-500 text-xs">{ageMeta}</p>
+                          )}
+                        </div>
+                        <div className="ml-2 shrink-0 text-right">
+                          <p className="font-bold text-gray-800 text-sm leading-tight">
+                            {playerCount}
+                          </p>
+                          <p className="text-gray-500 text-xs">players</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {medCounts && medCounts.allergies > 0 && (
+                          <Badge
+                            className="bg-orange-100 text-orange-700"
+                            title="With Allergies"
+                          >
+                            <AlertCircle className="h-3 w-3" />
+                            <span className="ml-0.5">
+                              {medCounts.allergies}
+                            </span>
+                          </Badge>
+                        )}
+                        {medCounts && medCounts.conditions > 0 && (
+                          <Badge
+                            className="bg-purple-100 text-purple-700"
+                            title="With Conditions"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            <span className="ml-0.5">
+                              {medCounts.conditions}
+                            </span>
+                          </Badge>
+                        )}
+                        {medCounts && medCounts.medications > 0 && (
+                          <Badge
+                            className="bg-blue-100 text-blue-700"
+                            title="On Medication"
+                          >
+                            <Pill className="h-3 w-3" />
+                            <span className="ml-0.5">
+                              {medCounts.medications}
+                            </span>
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
@@ -471,45 +759,110 @@ export default function CoachMedicalPage() {
         </CardContent>
       </Card>
 
-      {/* Players Table */}
+      {/* Players Grid */}
       <Card>
         <CardHeader>
           <CardTitle>Player Medical Overview</CardTitle>
           <CardDescription>
             {filteredPlayers.length} players with medical profiles
+            {hasActiveFilters && (
+              <span className="ml-2 text-orange-500 text-xs">— Filtered</span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Player</TableHead>
-                <TableHead>Age Group</TableHead>
-                <TableHead>Alerts</TableHead>
-                <TableHead>Emergency Contact</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          {filteredPlayers.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-muted-foreground">
+                No players with medical profiles found
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {filteredPlayers.map(
-                (item: NonNullable<typeof allProfiles>[0]) => (
-                  <TableRow key={item.player._id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
-                          <User className="h-5 w-5 text-gray-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{item.player.name}</p>
-                          <p className="text-muted-foreground text-xs">
-                            {item.player.sport}
-                          </p>
-                        </div>
+                (item: NonNullable<typeof allProfiles>[0]) => {
+                  const sportCode = item.player.sport;
+                  const SPORT_NAMES: Record<string, string> = {
+                    gaa_gaelic_football: "GAA Football",
+                    gaa_football: "GAA Football",
+                    gaa_hurling: "Hurling",
+                    soccer: "Soccer",
+                    football: "Soccer",
+                    rugby: "Rugby",
+                    rugby_union: "Rugby Union",
+                    rugby_league: "Rugby League",
+                    basketball: "Basketball",
+                    hockey: "Hockey",
+                    field_hockey: "Field Hockey",
+                    athletics: "Athletics",
+                    cricket: "Cricket",
+                    tennis: "Tennis",
+                  };
+                  const sportName = sportCode
+                    ? (SPORT_NAMES[sportCode.toLowerCase()] ??
+                      sportCode
+                        .split("_")
+                        .map(
+                          (w: string) => w.charAt(0).toUpperCase() + w.slice(1)
+                        )
+                        .join(" "))
+                    : null;
+                  const icePhone = item.profile?.emergencyContact1Phone;
+                  return (
+                    <div
+                      className="cursor-pointer rounded-lg border p-3 transition-all duration-200 hover:shadow-md"
+                      key={item.player._id}
+                      onClick={() =>
+                        handleViewClick(item.player.name, item.profile)
+                      }
+                      style={{
+                        backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                        borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                      }}
+                    >
+                      {/* Name */}
+                      <p
+                        className="truncate font-semibold text-gray-900 text-sm"
+                        title={item.player.name}
+                      >
+                        {item.player.name}
+                      </p>
+
+                      {/* Age group */}
+                      {item.player.ageGroup && (
+                        <p className="truncate text-gray-500 text-xs">
+                          {item.player.ageGroup}
+                        </p>
+                      )}
+
+                      {/* Sport name */}
+                      {sportName && (
+                        <p className="truncate text-gray-400 text-xs">
+                          {sportName}
+                        </p>
+                      )}
+
+                      {/* ICE contact */}
+                      <div className="mt-2">
+                        {icePhone ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-red-100 px-1.5 py-0.5 font-bold text-[10px] text-red-600">
+                              <HeartPulse className="h-3 w-3" />
+                              ICE
+                            </span>
+                            <span className="truncate font-mono text-gray-600 text-xs">
+                              {icePhone}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">
+                            No ICE contact
+                          </span>
+                        )}
                       </div>
-                    </TableCell>
-                    <TableCell>{item.player.ageGroup}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
+
+                      {/* Alert badges */}
+                      <div className="mt-2 flex flex-wrap gap-1">
                         {item.hasAllergies && (
                           <Badge
                             className="bg-orange-100 text-orange-700"
@@ -544,38 +897,12 @@ export default function CoachMedicalPage() {
                           </Badge>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-mono text-sm">
-                        {item.profile?.emergencyContact1Phone || "Not set"}
-                      </p>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        onClick={() =>
-                          handleViewClick(item.player.name, item.profile)
-                        }
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Eye className="mr-1 h-4 w-4" />
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )
+                    </div>
+                  );
+                }
               )}
-              {filteredPlayers.length === 0 && (
-                <TableRow>
-                  <TableCell className="py-8 text-center" colSpan={5}>
-                    <p className="text-muted-foreground">
-                      No players with medical profiles found
-                    </p>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 

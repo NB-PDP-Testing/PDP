@@ -71,6 +71,12 @@ function PlayerPassportPageContent() {
     userEmail ? { email: userEmail.toLowerCase() } : "skip"
   );
 
+  // Scroll to top on mount — navigating from coach layout (overflow-y-auto div)
+  // means the window may not have been at 0, so force it here.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+
   // Track if we've already attempted redirect to prevent infinite loops
   const hasAttemptedRedirect = useRef(false);
 

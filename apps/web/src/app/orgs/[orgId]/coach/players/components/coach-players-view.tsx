@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronUp,
   Edit,
-  Eye,
   FileText,
   Search,
   Users,
@@ -16,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PlayerTeamBadges } from "@/app/orgs/[orgId]/coach/components/player-team-badges";
 import { PassportAvailabilityBadges } from "@/app/orgs/[orgId]/coach/players/components/passport-availability-badges";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -25,56 +25,53 @@ type CoachPlayersViewProps = {
   orgId: string;
 };
 
+const formatSportName = (code: string) =>
+  code
+    .split("_")
+    .map((w: string) => w.charAt(0) + w.slice(1).toLowerCase())
+    .join(" ");
+
 export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
   const router = useRouter();
   const currentUser = useCurrentUser();
   const { data: session } = authClient.useSession();
   const [searchTerm, setSearchTerm] = useState("");
-  const [teamFilter, setTeamFilter] = useState<string | null>(null);
-  const [ageGroupFilter, setAgeGroupFilter] = useState<string>("all");
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
+  const [teamsExpanded, setTeamsExpanded] = useState(true);
+  const [minAgeFilter, setMinAgeFilter] = useState<string>("");
+  const [maxAgeFilter, setMaxAgeFilter] = useState<string>("");
   const [sportFilter, setSportFilter] = useState<string>("all");
   const [genderFilter, setGenderFilter] = useState<string>("all");
-  const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [sortColumn, setSortColumn] = useState<
     "name" | "team" | "ageGroup" | "lastReview"
   >("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  // Fallback: use session user ID if Convex user query returns null
   const userId = currentUser?._id || session?.user?.id;
 
-  // Get coach assignments with enriched team data (Pattern B)
   const coachAssignments = useQuery(
     api.models.coaches.getCoachAssignmentsWithTeams,
-    userId && orgId
-      ? {
-          userId,
-          organizationId: orgId,
-        }
-      : "skip"
+    userId && orgId ? { userId, organizationId: orgId } : "skip"
   );
 
-  // Get all teams for the organization
   const teams = useQuery(
     api.models.teams.getTeamsByOrganization,
     orgId ? { organizationId: orgId } : "skip"
   );
 
-  // Get players for coach's assigned teams (server-side filtering)
-  // Performance: Uses getPlayersForCoachTeams which only returns players on coach's teams
   const enrolledPlayersData = useQuery(
     api.models.orgPlayerEnrollments.getPlayersForCoachTeams,
     userId && orgId ? { organizationId: orgId, coachUserId: userId } : "skip"
   );
 
-  // Transform identity-based players to legacy format for compatibility
   const allPlayers = useMemo(() => {
     if (!enrolledPlayersData) {
       return;
     }
     return enrolledPlayersData.map(
       ({ enrollment, player, sportCode }: any) => ({
-        _id: player._id, // playerIdentityId for navigation
+        _id: player._id,
         name: `${player.firstName} ${player.lastName}`,
         firstName: player.firstName,
         lastName: player.lastName,
@@ -91,40 +88,48 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
     );
   }, [enrolledPlayersData]);
 
-  // Get team-player links from new identity system
   const teamPlayerLinks = useQuery(
     api.models.teamPlayerIdentities.getTeamMembersForOrg,
-    orgId
-      ? {
-          organizationId: orgId,
-          status: "active",
-        }
-      : "skip"
+    orgId ? { organizationId: orgId, status: "active" } : "skip"
   );
 
-  // Get coach's assigned team IDs (Pattern B - already resolved server-side)
-  // Filter out corrupted team IDs (e.g., player IDs)
   const coachTeamIds = useMemo(() => {
     if (!coachAssignments?.teams) {
       return [];
     }
     return coachAssignments.teams
-      .filter((team) => {
-        if (!team.teamId) {
-          return false;
-        }
-        if (team.teamId.includes("players")) {
-          console.warn(
-            `[Players View] Skipping corrupted teamId: ${team.teamId}`
-          );
-          return false;
-        }
-        return true;
-      })
-      .map((team) => team.teamId);
+      .filter((t) => t.teamId && !t.teamId.includes("players"))
+      .map((t) => t.teamId);
   }, [coachAssignments?.teams]);
 
-  // Filter team-player links to only those for coach's assigned teams
+  const coachTeamsList = useMemo(() => {
+    if (!coachAssignments?.teams) {
+      return [];
+    }
+    const seen = new Set<string>();
+    return coachAssignments.teams.filter((t) => {
+      if (!t.teamId || t.teamId.includes("players")) {
+        return false;
+      }
+      if (seen.has(t.teamId)) {
+        return false;
+      }
+      seen.add(t.teamId);
+      return true;
+    });
+  }, [coachAssignments?.teams]);
+
+  const playerCountByTeam = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!teamPlayerLinks) {
+      return counts;
+    }
+    for (const link of teamPlayerLinks) {
+      counts.set(link.teamId, (counts.get(link.teamId) ?? 0) + 1);
+    }
+    return counts;
+  }, [teamPlayerLinks]);
+
   const coachTeamPlayerLinks = useMemo(() => {
     if (!teamPlayerLinks || coachTeamIds.length === 0) {
       return [];
@@ -134,7 +139,6 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
     );
   }, [teamPlayerLinks, coachTeamIds]);
 
-  // Get unique player IDs that belong to coach's teams
   const coachPlayerIds = useMemo(
     () =>
       new Set(
@@ -145,17 +149,13 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
     [coachTeamPlayerLinks]
   );
 
-  // Filter to only coach's players
   const coachPlayers = useMemo(() => {
     if (!allPlayers || coachPlayerIds.size === 0) {
       return [];
     }
-    return allPlayers.filter((player) =>
-      coachPlayerIds.has(player._id.toString())
-    );
+    return allPlayers.filter((p) => coachPlayerIds.has(p._id.toString()));
   }, [allPlayers, coachPlayerIds]);
 
-  // Get passport sharing availability for all players (bulk query)
   const passportAvailability = useQuery(
     api.models.passportSharing.checkPassportAvailabilityBulk,
     userId && coachPlayers.length > 0
@@ -167,7 +167,6 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
       : "skip"
   );
 
-  // Get team names for each player
   const getPlayerTeams = (player: any): string[] => {
     if (!teamPlayerLinks) {
       return [];
@@ -180,11 +179,10 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
         const team = teams?.find((t: any) => t._id === link.teamId);
         return team?.name;
       })
-      .filter((name): name is string => Boolean(name)); // Type guard to ensure only strings
-    return [...new Set(teamNames)]; // Deduplicate
+      .filter((name): name is string => Boolean(name));
+    return [...new Set(teamNames)];
   };
 
-  // Get core team name (team matching player's sport + ageGroup)
   const getCoreTeamName = (player: any) => {
     if (!(teamPlayerLinks && teams)) {
       return;
@@ -202,10 +200,8 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
         return team.name;
       }
     }
-    return;
   };
 
-  // Get passport availability for a specific player
   const getPassportAvailability = (player: any) => {
     if (!passportAvailability) {
       return null;
@@ -215,174 +211,292 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
     );
   };
 
-  // Get unique filter values
-  const uniqueAgeGroups = useMemo(() => {
-    const ageGroups = coachPlayers.map((p) => p.ageGroup).filter(Boolean);
-    return Array.from(new Set(ageGroups)).sort();
-  }, [coachPlayers]);
+  const uniqueSports = useMemo(
+    () =>
+      Array.from(
+        new Set(coachPlayers.map((p) => p.sport).filter(Boolean))
+      ).sort(),
+    [coachPlayers]
+  );
 
-  const uniqueSports = useMemo(() => {
-    const sports = coachPlayers.map((p) => p.sport).filter(Boolean);
-    return Array.from(new Set(sports)).sort();
-  }, [coachPlayers]);
+  const uniqueGenders = useMemo(
+    () =>
+      Array.from(
+        new Set(coachPlayers.map((p) => p.gender).filter(Boolean))
+      ).sort(),
+    [coachPlayers]
+  );
 
-  const uniqueGenders = useMemo(() => {
-    const genders = coachPlayers.map((p) => p.gender).filter(Boolean);
-    return Array.from(new Set(genders)).sort();
-  }, [coachPlayers]);
+  const calcAge = (dob: string) =>
+    Math.floor(
+      (Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+    );
 
-  const coachTeamNames = useMemo(() => {
-    if (!teams || coachTeamIds.length === 0) {
-      return [];
-    }
-    return teams
-      .filter((t: any) => coachTeamIds.includes(t._id))
-      .map((t: any) => t.name);
-  }, [teams, coachTeamIds]);
+  const filteredPlayers = useMemo(
+    () =>
+      coachPlayers.filter((player) => {
+        if (selectedTeamId !== "all") {
+          const playerTeamIds =
+            teamPlayerLinks
+              ?.filter(
+                (link: any) =>
+                  link.playerIdentityId.toString() === player._id.toString()
+              )
+              .map((link: any) => link.teamId) ?? [];
+          if (!playerTeamIds.includes(selectedTeamId)) {
+            return false;
+          }
+        }
 
-  // Apply filters
-  const filteredPlayers = useMemo(() => {
-    return coachPlayers.filter((player) => {
-      // Search filter
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        if (!player.name.toLowerCase().includes(searchLower)) {
+        if (searchTerm) {
+          const q = searchTerm.toLowerCase();
+          if (!player.name.toLowerCase().includes(q)) {
+            return false;
+          }
+        }
+
+        if (minAgeFilter || maxAgeFilter) {
+          if (!player.dateOfBirth) {
+            return false;
+          }
+          const age = calcAge(player.dateOfBirth);
+          if (minAgeFilter && age < Number(minAgeFilter)) {
+            return false;
+          }
+          if (maxAgeFilter && age > Number(maxAgeFilter)) {
+            return false;
+          }
+        }
+
+        if (sportFilter !== "all" && player.sport !== sportFilter) {
           return false;
         }
-      }
 
-      // Team filter
-      if (teamFilter) {
-        const playerTeams = getPlayerTeams(player);
-        if (!playerTeams.includes(teamFilter)) {
+        if (genderFilter !== "all" && player.gender !== genderFilter) {
           return false;
         }
-      }
 
-      // Age group filter
-      if (ageGroupFilter !== "all" && player.ageGroup !== ageGroupFilter) {
-        return false;
-      }
+        return true;
+      }),
+    [
+      coachPlayers,
+      selectedTeamId,
+      searchTerm,
+      minAgeFilter,
+      maxAgeFilter,
+      sportFilter,
+      genderFilter,
+      teamPlayerLinks,
+      calcAge,
+    ]
+  );
 
-      // Sport filter
-      if (sportFilter !== "all" && player.sport !== sportFilter) {
-        return false;
-      }
-
-      // Gender filter
-      if (genderFilter !== "all" && player.gender !== genderFilter) {
-        return false;
-      }
-
-      // Review status filter (standardized logic)
-      if (reviewStatusFilter === "overdue") {
-        // Overdue: reviewStatus is "Overdue" OR no reviewStatus OR no lastReviewDate
-        const isOverdue =
-          player.reviewStatus === "Overdue" ||
-          !player.reviewStatus ||
-          !player.lastReviewDate;
-        if (!isOverdue) {
-          return false;
+  const sortedPlayers = useMemo(
+    () =>
+      [...filteredPlayers].sort((a, b) => {
+        let comparison = 0;
+        if (sortColumn === "name") {
+          comparison = a.name.localeCompare(b.name);
+        } else if (sortColumn === "team") {
+          const aTeam = getPlayerTeams(a)[0] || "";
+          const bTeam = getPlayerTeams(b)[0] || "";
+          comparison = aTeam.localeCompare(bTeam);
+        } else if (sortColumn === "ageGroup") {
+          comparison = (a.ageGroup || "").localeCompare(b.ageGroup || "");
+        } else if (sortColumn === "lastReview") {
+          const aDate = a.lastReviewDate
+            ? new Date(a.lastReviewDate).getTime()
+            : 0;
+          const bDate = b.lastReviewDate
+            ? new Date(b.lastReviewDate).getTime()
+            : 0;
+          comparison = aDate - bDate;
         }
-      } else if (
-        reviewStatusFilter === "completed" &&
-        player.reviewStatus !== "Completed"
-      ) {
-        // Completed: reviewStatus is "Completed"
-        return false;
-      }
+        return sortDirection === "asc" ? comparison : -comparison;
+      }),
+    [filteredPlayers, sortColumn, sortDirection, getPlayerTeams]
+  );
 
-      return true;
-    });
-  }, [
-    coachPlayers,
-    searchTerm,
-    teamFilter,
-    ageGroupFilter,
-    sportFilter,
-    genderFilter,
-    reviewStatusFilter,
-    getPlayerTeams,
-  ]);
-
-  // Sort players
-  const sortedPlayers = useMemo(() => {
-    const sorted = [...filteredPlayers].sort((a, b) => {
-      let comparison = 0;
-
-      if (sortColumn === "name") {
-        comparison = a.name.localeCompare(b.name);
-      } else if (sortColumn === "team") {
-        const aTeams = getPlayerTeams(a);
-        const bTeams = getPlayerTeams(b);
-        const aTeam = aTeams[0] || "";
-        const bTeam = bTeams[0] || "";
-        comparison = aTeam.localeCompare(bTeam);
-      } else if (sortColumn === "ageGroup") {
-        comparison = (a.ageGroup || "").localeCompare(b.ageGroup || "");
-      } else if (sortColumn === "lastReview") {
-        const aDate = a.lastReviewDate
-          ? new Date(a.lastReviewDate).getTime()
-          : 0;
-        const bDate = b.lastReviewDate
-          ? new Date(b.lastReviewDate).getTime()
-          : 0;
-        comparison = aDate - bDate;
-      }
-
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
-
-    return sorted;
-  }, [filteredPlayers, sortColumn, sortDirection, getPlayerTeams]);
-
-  // Handle column sort
-  const handleSort = (column: "name" | "team" | "ageGroup" | "lastReview") => {
-    if (sortColumn === column) {
+  const handleSort = (col: "name" | "team" | "ageGroup" | "lastReview") => {
+    if (sortColumn === col) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
-      setSortColumn(column);
+      setSortColumn(col);
       setSortDirection("asc");
     }
   };
 
-  const handleViewPlayer = (player: any) => {
-    router.push(`/orgs/${orgId}/players/${player._id}`);
+  const selectedTeamName = useMemo(() => {
+    if (selectedTeamId === "all") {
+      return "All Teams";
+    }
+    return (
+      coachTeamsList.find((t) => t.teamId === selectedTeamId)?.teamName ??
+      "All Teams"
+    );
+  }, [selectedTeamId, coachTeamsList]);
+
+  const clearAllFilters = () => {
+    setSearchTerm("");
+    setMinAgeFilter("");
+    setMaxAgeFilter("");
+    setSportFilter("all");
+    setGenderFilter("all");
   };
 
-  const handleEditPlayer = (player: any) => {
-    router.push(`/orgs/${orgId}/players/${player._id}/edit`);
-  };
-
-  const handlePassportAvailabilityClick = () => {
-    // Navigate to passport sharing page
-    router.push(`/orgs/${orgId}/coach/shared-passports` as any);
-  };
+  const hasActiveFilters =
+    searchTerm ||
+    minAgeFilter ||
+    maxAgeFilter ||
+    sportFilter !== "all" ||
+    genderFilter !== "all";
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-bold text-2xl text-gray-900">My Players</h1>
-        <p className="text-gray-600 text-sm">
-          View and manage your team players
-        </p>
-      </div>
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        style={{ filter: "brightness(0.95)" }}
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          <Users className="h-7 w-7 flex-shrink-0" />
+          <div>
+            <h1 className="font-bold text-xl md:text-2xl">My Players</h1>
+            <p className="text-xs opacity-80 md:text-sm">
+              View and manage your team players
+            </p>
+          </div>
+        </div>
+      </OrgThemedGradient>
 
-      {/* Search and Filters */}
+      {/* Team Selector */}
+      {coachTeamsList.length > 0 && (
+        <div>
+          <button
+            className="mb-3 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-gray-50"
+            onClick={() => setTeamsExpanded((prev) => !prev)}
+            type="button"
+          >
+            <span className="font-semibold text-gray-700 text-sm">
+              {selectedTeamId === "all"
+                ? "All Teams"
+                : `${selectedTeamName} · selected`}
+            </span>
+            {teamsExpanded ? (
+              <ChevronUp className="text-gray-500" size={18} />
+            ) : (
+              <ChevronDown className="text-gray-500" size={18} />
+            )}
+          </button>
+          {teamsExpanded && (
+            <div
+              className={`grid gap-3 md:gap-4 ${coachTeamsList.length === 1 ? "max-w-xs grid-cols-1" : "grid-cols-2 md:grid-cols-4"}`}
+            >
+              {coachTeamsList.length > 1 && (
+                <Card
+                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${selectedTeamId === "all" ? "ring-2 ring-green-500" : ""}`}
+                  onClick={() => setSelectedTeamId("all")}
+                  style={{
+                    backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                    borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                  }}
+                >
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm leading-tight">
+                          All Teams
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          {coachTeamsList.length} teams
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800 text-sm leading-tight">
+                          {coachTeamsList.reduce(
+                            (sum, t) =>
+                              sum + (playerCountByTeam.get(t.teamId) ?? 0),
+                            0
+                          )}
+                        </p>
+                        <p className="text-gray-500 text-xs">players</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {coachTeamsList.map((team) => {
+                const isSelected = selectedTeamId === team.teamId;
+                const playerCount = playerCountByTeam.get(team.teamId) ?? 0;
+                const ageMeta = [team.ageGroup, team.gender]
+                  .filter(Boolean)
+                  .join(" • ");
+                return (
+                  <Card
+                    className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${isSelected ? "ring-2 ring-green-500" : ""}`}
+                    key={team.teamId}
+                    onClick={() => setSelectedTeamId(team.teamId)}
+                    style={{
+                      backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                      borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                    }}
+                  >
+                    <CardContent className="p-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="truncate font-semibold text-gray-800 text-sm leading-tight"
+                            title={team.teamName}
+                          >
+                            {team.teamName}
+                          </p>
+                          {ageMeta && (
+                            <p className="text-gray-500 text-xs">{ageMeta}</p>
+                          )}
+                        </div>
+                        <div className="ml-2 shrink-0 text-right">
+                          <p className="font-bold text-gray-800 text-sm leading-tight">
+                            {playerCount}
+                          </p>
+                          <p className="text-gray-500 text-xs">players</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filters */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col gap-4">
-            {/* Primary filters: Search and Team */}
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative flex-1">
+        <CardHeader>
+          <button
+            className="flex w-full items-center justify-between"
+            onClick={() => setFiltersExpanded((prev) => !prev)}
+            type="button"
+          >
+            <CardTitle className="text-base">Filters</CardTitle>
+            {filtersExpanded ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+        </CardHeader>
+        {filtersExpanded && (
+          <CardContent className="pt-0">
+            <div className="flex flex-col gap-2">
+              <div className="relative">
                 <Search
                   className="-translate-y-1/2 absolute top-1/2 left-3 text-gray-400"
-                  size={20}
+                  size={16}
                 />
                 <input
-                  className="w-full rounded-lg border-2 border-gray-300 py-3 pr-10 pl-10 text-lg focus:border-green-500 focus:ring-2 focus:ring-green-500"
+                  className="w-full rounded-lg border border-gray-300 py-2 pr-10 pl-9 text-sm focus:border-green-500 focus:ring-2 focus:ring-green-500"
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by player name..."
+                  placeholder="Filter by player name..."
                   type="text"
                   value={searchTerm}
                 />
@@ -391,110 +505,115 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                     className="-translate-y-1/2 absolute top-1/2 right-3 text-gray-400 transition-colors hover:text-gray-600"
                     onClick={() => setSearchTerm("")}
                   >
-                    <X size={20} />
+                    <X size={16} />
                   </button>
                 )}
               </div>
-              {coachTeamNames.length > 0 && (
-                <div className="relative sm:w-64">
+
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-green-500"
+                  max="100"
+                  min="0"
+                  onChange={(e) => setMinAgeFilter(e.target.value)}
+                  placeholder="Min age"
+                  type="number"
+                  value={minAgeFilter}
+                />
+                <input
+                  className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-green-500"
+                  max="100"
+                  min="0"
+                  onChange={(e) => setMaxAgeFilter(e.target.value)}
+                  placeholder="Max age"
+                  type="number"
+                  value={maxAgeFilter}
+                />
+                {uniqueSports.length > 0 && (
                   <select
-                    className={`w-full rounded-lg border-2 px-4 py-3 font-medium text-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-500 ${
-                      teamFilter
-                        ? "border-purple-500 bg-purple-50 text-purple-700"
-                        : "border-gray-300"
-                    }`}
-                    onChange={(e) =>
-                      setTeamFilter(
-                        e.target.value === "all" ? null : e.target.value
-                      )
-                    }
-                    value={teamFilter || "all"}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => setSportFilter(e.target.value)}
+                    value={sportFilter}
                   >
-                    <option value="all">🏆 All Teams</option>
-                    {coachTeamNames.map((team) => (
-                      <option key={team} value={team}>
-                        {team}
+                    <option value="all">All Sports</option>
+                    {uniqueSports.map((s) => (
+                      <option key={s} value={s}>
+                        {formatSportName(s)}
                       </option>
                     ))}
                   </select>
-                  {teamFilter && (
-                    <button
-                      className="-translate-y-1/2 absolute top-1/2 right-10 text-purple-600 transition-colors hover:text-purple-800"
-                      onClick={() => setTeamFilter(null)}
-                      title="Clear team filter"
-                    >
-                      <X size={18} />
-                    </button>
-                  )}
-                </div>
-              )}
+                )}
+                {uniqueGenders.length > 0 && (
+                  <select
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-green-500"
+                    onChange={(e) => setGenderFilter(e.target.value)}
+                    value={genderFilter}
+                  >
+                    <option value="all">All Genders</option>
+                    {uniqueGenders.map((g) => (
+                      <option key={g} value={g}>
+                        {g.charAt(0) + g.slice(1).toLowerCase()}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {hasActiveFilters && (
+                  <button
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-gray-500 text-sm transition-colors hover:border-gray-400 hover:text-gray-700"
+                    onClick={clearAllFilters}
+                    type="button"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
             </div>
-
-            {/* Secondary filters */}
-            <div className="flex flex-wrap gap-3">
-              {uniqueAgeGroups.length > 0 && (
-                <select
-                  className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
-                  onChange={(e) => setAgeGroupFilter(e.target.value)}
-                  value={ageGroupFilter}
-                >
-                  <option value="all">All Ages</option>
-                  {uniqueAgeGroups.map((ag) => (
-                    <option key={ag} value={ag}>
-                      {ag}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {uniqueSports.length > 0 && (
-                <select
-                  className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
-                  onChange={(e) => setSportFilter(e.target.value)}
-                  value={sportFilter}
-                >
-                  <option value="all">All Sports</option>
-                  {uniqueSports.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {uniqueGenders.length > 0 && (
-                <select
-                  className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
-                  onChange={(e) => setGenderFilter(e.target.value)}
-                  value={genderFilter}
-                >
-                  <option value="all">All Genders</option>
-                  {uniqueGenders.map((g) => (
-                    <option key={g} value={g}>
-                      {g.charAt(0) + g.slice(1).toLowerCase()}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <select
-                className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
-                onChange={(e) => setReviewStatusFilter(e.target.value)}
-                value={reviewStatusFilter}
-              >
-                <option value="all">All Reviews</option>
-                <option value="overdue">Overdue (90+ days)</option>
-                <option value="completed">Recently Reviewed</option>
-              </select>
-            </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
-      {/* Players Table */}
+      {/* Players Grid */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="text-green-600" size={20} />
-            Players ({sortedPlayers.length})
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="text-green-600" size={20} />
+                Players ({sortedPlayers.length})
+              </CardTitle>
+              {hasActiveFilters && (
+                <p className="mt-0.5 text-orange-500 text-xs">
+                  Filtered — not showing all players
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-gray-500 text-xs">
+              Sort by:
+              {(
+                [
+                  ["name", "Name"],
+                  ["team", "Team"],
+                  ["ageGroup", "Age"],
+                  ["lastReview", "Review"],
+                ] as const
+              ).map(([col, label]) => (
+                <button
+                  className={`flex items-center gap-0.5 rounded px-2 py-1 transition-colors hover:bg-gray-100 ${sortColumn === col ? "font-semibold text-green-600" : ""}`}
+                  key={col}
+                  onClick={() => handleSort(col)}
+                  type="button"
+                >
+                  {label}
+                  {sortColumn === col &&
+                    (sortDirection === "asc" ? (
+                      <ChevronUp size={12} />
+                    ) : (
+                      <ChevronDown size={12} />
+                    ))}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {sortedPlayers.length === 0 ? (
@@ -509,24 +628,9 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                   : "No players match your current filters. Try adjusting your search or filter criteria."}
               </p>
               <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
-                {(searchTerm ||
-                  teamFilter ||
-                  ageGroupFilter !== "all" ||
-                  sportFilter !== "all" ||
-                  genderFilter !== "all" ||
-                  reviewStatusFilter !== "all") && (
-                  <Button
-                    onClick={() => {
-                      setSearchTerm("");
-                      setTeamFilter(null);
-                      setAgeGroupFilter("all");
-                      setSportFilter("all");
-                      setGenderFilter("all");
-                      setReviewStatusFilter("all");
-                    }}
-                    variant="outline"
-                  >
-                    Clear All Filters
+                {(selectedTeamId !== "all" || hasActiveFilters) && (
+                  <Button onClick={clearAllFilters} variant="outline">
+                    Clear Filters
                   </Button>
                 )}
                 <Button
@@ -538,219 +642,147 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-gray-200 border-b">
-                    <th
-                      className="cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100"
-                      onClick={() => handleSort("name")}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {sortedPlayers.map((player) => {
+                const reviewDays = player.lastReviewDate
+                  ? Math.floor(
+                      (Date.now() - new Date(player.lastReviewDate).getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                  : null;
+                const reviewBadge =
+                  reviewDays === null
+                    ? {
+                        label: "Never reviewed",
+                        cls: "bg-gray-100 text-gray-500",
+                      }
+                    : reviewDays <= 60
+                      ? {
+                          label: `${reviewDays}d ago`,
+                          cls: "bg-green-100 text-green-700",
+                        }
+                      : reviewDays <= 90
+                        ? {
+                            label: `${reviewDays}d ago`,
+                            cls: "bg-orange-100 text-orange-700",
+                          }
+                        : {
+                            label: `${reviewDays}d ago`,
+                            cls: "bg-red-100 text-red-700",
+                          };
+                const availability = getPassportAvailability(player);
+                // biome-ignore lint/a11y/useSemanticElements: card layout uses div for complex nested content
+                return (
+                  <div
+                    className="group relative cursor-pointer rounded-lg border p-3 transition-all duration-200 hover:shadow-md"
+                    key={player._id}
+                    onClick={() =>
+                      router.push(`/orgs/${orgId}/players/${player._id}`)
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        router.push(`/orgs/${orgId}/players/${player._id}`);
+                      }
+                    }}
+                    role="button"
+                    style={{
+                      backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                      borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                    }}
+                    tabIndex={0}
+                  >
+                    {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation needed */}
+                    {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation needed */}
+                    <div
+                      className="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center gap-1">
-                        Name
-                        {sortColumn === "name" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100"
-                      onClick={() => handleSort("team")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Team(s)
-                        {sortColumn === "team" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="hidden cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100 md:table-cell"
-                      onClick={() => handleSort("ageGroup")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Age Group
-                        {sortColumn === "ageGroup" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="hidden cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100 lg:table-cell"
-                      onClick={() => handleSort("lastReview")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Last Review
-                        {sortColumn === "lastReview" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600 text-xs uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {sortedPlayers.map((player) => (
-                    <tr
-                      className="cursor-pointer transition-colors hover:bg-gray-50"
-                      key={player._id}
-                      onClick={() => handleViewPlayer(player)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100">
-                            <span className="font-medium text-green-600 text-xs">
-                              {(player.name || "U")
-                                .split(" ")
-                                .map((n: string) => n[0])
-                                .join("")
-                                .slice(0, 2)
-                                .toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {player.name || "Unnamed"}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <p className="text-gray-500 text-xs md:hidden">
-                                {player.ageGroup}
-                              </p>
-                              {player.coachNotes && (
-                                <span
-                                  className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700"
-                                  title={player.coachNotes}
-                                >
-                                  <FileText size={10} />
-                                  Notes
-                                </span>
-                              )}
-                              {/* Passport availability indicators */}
-                              {(() => {
-                                const availability =
-                                  getPassportAvailability(player);
-                                if (!availability) {
-                                  return null;
-                                }
-                                return (
-                                  <PassportAvailabilityBadges
-                                    activeCount={availability.activeShareCount}
-                                    hasActiveSharesToView={
-                                      availability.hasActiveSharesToView
-                                    }
-                                    hasPendingSharesToAccept={
-                                      availability.hasPendingSharesToAccept
-                                    }
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handlePassportAvailabilityClick();
-                                    }}
-                                    pendingCount={
-                                      availability.pendingShareCount
-                                    }
-                                    variant="compact"
-                                  />
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">
-                        <PlayerTeamBadges
-                          coreTeamName={getCoreTeamName(player)}
-                          teams={getPlayerTeams(player)}
-                        />
-                      </td>
-                      <td className="hidden px-4 py-3 text-gray-600 text-sm md:table-cell">
-                        {player.ageGroup}
-                      </td>
-                      <td className="hidden px-4 py-3 text-sm lg:table-cell">
-                        {player.lastReviewDate ? (
-                          <span
-                            className={`inline-flex items-center rounded px-2 py-0.5 font-medium text-xs ${(() => {
-                              const days = Math.floor(
-                                (Date.now() -
-                                  new Date(player.lastReviewDate).getTime()) /
-                                  (1000 * 60 * 60 * 24)
-                              );
-                              if (days <= 60) {
-                                return "bg-green-100 text-green-700";
-                              }
-                              if (days <= 90) {
-                                return "bg-orange-100 text-orange-700";
-                              }
-                              return "bg-red-100 text-red-700";
-                            })()}`}
-                          >
-                            {new Date(
-                              player.lastReviewDate
-                            ).toLocaleDateString()}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 text-xs">
-                            Not reviewed
-                          </span>
-                        )}
-                      </td>
-                      {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation needed for button clicks */}
-                      <td
-                        className="px-4 py-3 text-right"
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
+                      <Button
+                        className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                        onClick={() =>
+                          router.push(
+                            `/orgs/${orgId}/players/${player._id}/edit`
+                          )
+                        }
+                        size="icon"
+                        title="Edit Profile"
+                        variant="ghost"
                       >
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            className="h-8 w-8 rounded-lg p-0 text-blue-600 transition-colors hover:bg-blue-50"
-                            onClick={() => handleViewPlayer(player)}
-                            size="icon"
-                            title="View Passport"
-                            variant="ghost"
-                          >
-                            <Eye size={16} />
-                          </Button>
-                          <Button
-                            className="h-8 w-8 rounded-lg p-0 text-green-600 transition-colors hover:bg-green-50"
-                            onClick={() => handleEditPlayer(player)}
-                            size="icon"
-                            title="Edit Passport"
-                            variant="ghost"
-                          >
-                            <Edit size={16} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        <Edit size={12} />
+                      </Button>
+                    </div>
+
+                    <p
+                      className="truncate font-semibold text-gray-900 text-sm"
+                      title={player.name || "Unnamed"}
+                    >
+                      {player.name || "Unnamed"}
+                    </p>
+
+                    {player.dateOfBirth ? (
+                      <p className="truncate text-gray-500 text-xs">
+                        {calcAge(player.dateOfBirth) >= 18
+                          ? "Adult"
+                          : calcAge(player.dateOfBirth)}
+                      </p>
+                    ) : player.ageGroup ? (
+                      <p className="truncate text-gray-500 text-xs">
+                        {player.ageGroup}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-1.5">
+                      <PlayerTeamBadges
+                        coreTeamName={getCoreTeamName(player)}
+                        teams={getPlayerTeams(player)}
+                      />
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
+                      <span
+                        className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs ${reviewBadge.cls}`}
+                      >
+                        {reviewBadge.label}
+                      </span>
+                      {player.coachNotes && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700"
+                          title={player.coachNotes}
+                        >
+                          <FileText size={10} />
+                          Notes
+                        </span>
+                      )}
+                      {availability && (
+                        <PassportAvailabilityBadges
+                          activeCount={availability.activeShareCount}
+                          hasActiveSharesToView={
+                            availability.hasActiveSharesToView
+                          }
+                          hasPendingSharesToAccept={
+                            availability.hasPendingSharesToAccept
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(
+                              `/orgs/${orgId}/coach/shared-passports` as any
+                            );
+                          }}
+                          pendingCount={availability.pendingShareCount}
+                          variant="compact"
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
           {sortedPlayers.length > 0 && (
-            <div className="border-gray-200 border-t bg-gray-50 px-4 py-3 text-gray-600 text-sm">
+            <div className="mt-4 border-gray-200 border-t pt-3 text-gray-500 text-xs">
               {sortedPlayers.length} player
-              {sortedPlayers.length !== 1 ? "s" : ""} • Sorted by{" "}
-              {sortColumn === "name"
-                ? "name"
-                : sortColumn === "team"
-                  ? "team"
-                  : sortColumn === "ageGroup"
-                    ? "age group"
-                    : "last review"}
+              {sortedPlayers.length !== 1 ? "s" : ""}
             </div>
           )}
         </CardContent>

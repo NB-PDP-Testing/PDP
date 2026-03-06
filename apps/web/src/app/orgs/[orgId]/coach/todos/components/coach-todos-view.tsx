@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import Loader from "@/components/loader";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -409,66 +410,98 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="font-bold text-2xl text-gray-900">Action Center</h1>
-        <p className="text-gray-600 text-sm">
-          Your coaching tasks, action items, and insights
-        </p>
-      </div>
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        style={{ filter: "brightness(0.95)" }}
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          <CheckSquare className="h-7 w-7 flex-shrink-0" />
+          <div>
+            <h1 className="font-bold text-xl md:text-2xl">My Tasks</h1>
+            <p className="text-xs opacity-80 md:text-sm">
+              Your coaching tasks, action items, and insights
+            </p>
+          </div>
+        </div>
+      </OrgThemedGradient>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-3 sm:p-6">
-            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-orange-200 bg-orange-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
               <AlertCircle className="text-orange-600" size={20} />
-              <div className="text-center sm:text-left">
-                <p className="text-gray-600 text-xs sm:text-sm">Action Items</p>
-                <p className="font-bold text-xl sm:text-2xl">
-                  {totalActionItems}
-                </p>
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {totalActionItems}
               </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Action Items
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-orange-100">
+              <div
+                className="h-1 rounded-full bg-orange-600"
+                style={{ width: totalActionItems > 0 ? "100%" : "0%" }}
+              />
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-3 sm:p-6">
-            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
               <Clock className="text-blue-600" size={20} />
-              <div className="text-center sm:text-left">
-                <p className="text-gray-600 text-xs sm:text-sm">Reviews Due</p>
-                <p className="font-bold text-xl sm:text-2xl">
-                  {playersNeedingReview.length}
-                </p>
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {playersNeedingReview.length}
               </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Reviews Due
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div
+                className="h-1 rounded-full bg-blue-600"
+                style={{
+                  width: playersNeedingReview.length > 0 ? "100%" : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-3 sm:p-6">
-            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
               <Target className="text-purple-600" size={20} />
-              <div className="text-center sm:text-left">
-                <p className="text-gray-600 text-xs sm:text-sm">Active Goals</p>
-                <p className="font-bold text-xl sm:text-2xl">
-                  {activeGoals.length}
-                </p>
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {activeGoals.length}
               </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Active Goals
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div
+                className="h-1 rounded-full bg-purple-600"
+                style={{ width: activeGoals.length > 0 ? "100%" : "0%" }}
+              />
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-3 sm:p-6">
-            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <Card className="border-red-200 bg-red-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
               <AlertCircle className="text-red-600" size={20} />
-              <div className="text-center sm:text-left">
-                <p className="text-gray-600 text-xs sm:text-sm">
-                  Active Injuries
-                </p>
-                <p className="font-bold text-xl sm:text-2xl">
-                  {activeInjuries.length}
-                </p>
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {activeInjuries.length}
               </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Active Injuries
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-red-100">
+              <div
+                className="h-1 rounded-full bg-red-600"
+                style={{ width: activeInjuries.length > 0 ? "100%" : "0%" }}
+              />
             </div>
           </CardContent>
         </Card>

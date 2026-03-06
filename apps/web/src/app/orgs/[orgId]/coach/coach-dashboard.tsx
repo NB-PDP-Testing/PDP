@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   Edit,
-  Eye,
   Share2,
   Users,
 } from "lucide-react";
@@ -713,200 +712,153 @@ export function CoachDashboard() {
         selectedTeamData={selectedTeamData}
       />
 
-      {/* Player Roster Table */}
+      {/* Player Roster Cards */}
       {sortedPlayers.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="text-green-600" size={20} />
-              Players ({sortedPlayers.length})
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="text-green-600" size={20} />
+                Players ({sortedPlayers.length})
+              </CardTitle>
+              <div className="flex items-center gap-2 text-gray-500 text-xs">
+                Sort by:
+                {(
+                  [
+                    ["name", "Name"],
+                    ["team", "Team"],
+                    ["ageGroup", "Age"],
+                    ["lastReview", "Review"],
+                  ] as const
+                ).map(([col, label]) => (
+                  <button
+                    className={`flex items-center gap-0.5 rounded px-2 py-1 transition-colors hover:bg-gray-100 ${sortColumn === col ? "font-semibold text-green-600" : ""}`}
+                    key={col}
+                    onClick={() => handleSort(col)}
+                    type="button"
+                  >
+                    {label}
+                    {sortColumn === col &&
+                      (sortDirection === "asc" ? (
+                        <ChevronUp size={12} />
+                      ) : (
+                        <ChevronDown size={12} />
+                      ))}
+                  </button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-gray-200 border-b">
-                  <tr>
-                    <th
-                      className="cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100"
-                      onClick={() => handleSort("name")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Name
-                        {sortColumn === "name" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100"
-                      onClick={() => handleSort("team")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Team(s)
-                        {sortColumn === "team" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="hidden cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100 md:table-cell"
-                      onClick={() => handleSort("ageGroup")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Age Group
-                        {sortColumn === "ageGroup" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="hidden cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100 lg:table-cell"
-                      onClick={() => handleSort("lastReview")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Last Review
-                        {sortColumn === "lastReview" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600 text-xs uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {sortedPlayers.map((player) => (
-                    <tr
-                      className="cursor-pointer transition-colors hover:bg-gray-50"
-                      key={player._id}
-                      onClick={() =>
-                        router.push(`/orgs/${orgId}/players/${player._id}`)
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {sortedPlayers.map((player) => {
+                const reviewDays = player.lastReviewDate
+                  ? Math.floor(
+                      (Date.now() - new Date(player.lastReviewDate).getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                  : null;
+                const reviewBadge =
+                  reviewDays === null
+                    ? {
+                        label: "Never reviewed",
+                        cls: "bg-gray-100 text-gray-500",
                       }
+                    : reviewDays <= 60
+                      ? {
+                          label: `${reviewDays}d ago`,
+                          cls: "bg-green-100 text-green-700",
+                        }
+                      : reviewDays <= 90
+                        ? {
+                            label: `${reviewDays}d ago`,
+                            cls: "bg-orange-100 text-orange-700",
+                          }
+                        : {
+                            label: `${reviewDays}d ago`,
+                            cls: "bg-red-100 text-red-700",
+                          };
+                // biome-ignore lint/a11y/useSemanticElements: card layout uses div for complex nested content
+                return (
+                  <div
+                    className="group relative cursor-pointer rounded-lg border p-3 transition-all duration-200 hover:shadow-md"
+                    key={player._id}
+                    onClick={() =>
+                      router.push(`/orgs/${orgId}/players/${player._id}`)
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        router.push(`/orgs/${orgId}/players/${player._id}`);
+                      }
+                    }}
+                    role="button"
+                    style={{
+                      backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                      borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                    }}
+                    tabIndex={0}
+                  >
+                    {/* Edit action - absolutely positioned, no layout impact */}
+                    {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation needed */}
+                    {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation needed */}
+                    <div
+                      className="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
                     >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100">
-                            <span className="font-medium text-green-600 text-xs">
-                              {(player.name || "U")
-                                .split(" ")
-                                .map((n: string) => n[0])
-                                .join("")
-                                .slice(0, 2)
-                                .toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {player.name || "Unnamed"}
-                            </p>
-                            <p className="text-gray-500 text-xs md:hidden">
-                              {player.ageGroup}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">
-                        <PlayerTeamBadges
-                          coreTeamName={player.coreTeamName}
-                          teams={player.teams || []}
-                        />
-                      </td>
-                      <td className="hidden px-4 py-3 text-gray-600 text-sm md:table-cell">
-                        {player.ageGroup}
-                      </td>
-                      <td className="hidden px-4 py-3 text-sm lg:table-cell">
-                        {player.lastReviewDate ? (
-                          <span
-                            className={`inline-flex items-center rounded px-2 py-0.5 font-medium text-xs ${(() => {
-                              const days = Math.floor(
-                                (Date.now() -
-                                  new Date(player.lastReviewDate).getTime()) /
-                                  (1000 * 60 * 60 * 24)
-                              );
-                              if (days <= 60) {
-                                return "bg-green-100 text-green-700";
-                              }
-                              if (days <= 90) {
-                                return "bg-orange-100 text-orange-700";
-                              }
-                              return "bg-red-100 text-red-700";
-                            })()}`}
-                          >
-                            {new Date(
-                              player.lastReviewDate
-                            ).toLocaleDateString()}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 text-xs">
-                            Not reviewed
-                          </span>
-                        )}
-                      </td>
-                      {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation needed */}
-                      <td
-                        className="px-4 py-3 text-right"
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
+                      <Button
+                        className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                        onClick={() =>
+                          router.push(
+                            `/orgs/${orgId}/players/${player._id}/edit`
+                          )
+                        }
+                        size="icon"
+                        title="Edit Profile"
+                        variant="ghost"
                       >
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            className="h-8 w-8 rounded-lg p-0 text-blue-600 transition-colors hover:bg-blue-50"
-                            onClick={() =>
-                              router.push(
-                                `/orgs/${orgId}/players/${player._id}`
-                              )
-                            }
-                            size="icon"
-                            title="View Passport"
-                            variant="ghost"
-                          >
-                            <Eye size={16} />
-                          </Button>
-                          <Button
-                            className="h-8 w-8 rounded-lg p-0 text-green-600 transition-colors hover:bg-green-50"
-                            onClick={() =>
-                              router.push(
-                                `/orgs/${orgId}/players/${player._id}/edit`
-                              )
-                            }
-                            size="icon"
-                            title="Edit Passport"
-                            variant="ghost"
-                          >
-                            <Edit size={16} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        <Edit size={12} />
+                      </Button>
+                    </div>
+
+                    {/* Name */}
+                    <p
+                      className="truncate font-semibold text-gray-900 text-sm"
+                      title={player.name || "Unnamed"}
+                    >
+                      {player.name || "Unnamed"}
+                    </p>
+
+                    {/* Age group */}
+                    {player.ageGroup && (
+                      <p className="truncate text-gray-500 text-xs">
+                        {player.ageGroup}
+                      </p>
+                    )}
+
+                    {/* Team badges */}
+                    <div className="mt-1.5">
+                      <PlayerTeamBadges
+                        coreTeamName={player.coreTeamName}
+                        teams={player.teams || []}
+                      />
+                    </div>
+
+                    {/* Review status */}
+                    <div className="mt-2">
+                      <span
+                        className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs ${reviewBadge.cls}`}
+                      >
+                        {reviewBadge.label}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="border-gray-200 border-t bg-gray-50 px-4 py-3 text-gray-600 text-sm">
+            <div className="mt-4 border-gray-200 border-t pt-3 text-gray-500 text-xs">
               {sortedPlayers.length} player
-              {sortedPlayers.length !== 1 ? "s" : ""} • Sorted by{" "}
-              {
-                {
-                  name: "name",
-                  team: "team",
-                  ageGroup: "age group",
-                  lastReview: "last review",
-                }[sortColumn]
-              }
+              {sortedPlayers.length !== 1 ? "s" : ""}
             </div>
           </CardContent>
         </Card>

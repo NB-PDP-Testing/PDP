@@ -7,26 +7,32 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
-type QuickStatsPanelProps = {
-  teamId: string;
-  organizationId: string;
-};
+type QuickStatsPanelProps =
+  | { teamId: string; teamIds?: never; organizationId: string }
+  | { teamIds: string[]; teamId?: never; organizationId: string };
 
 export function QuickStatsPanel({
   teamId,
+  teamIds,
   organizationId,
 }: QuickStatsPanelProps) {
   const user = useCurrentUser();
 
-  const stats = useQuery(api.models.teams.getTeamOverviewStats, {
-    teamId,
-    organizationId,
-    userId: user?._id,
-  });
+  const singleStats = useQuery(
+    api.models.teams.getTeamOverviewStats,
+    teamId ? { teamId, organizationId, userId: user?._id } : "skip"
+  );
+
+  const multiStats = useQuery(
+    api.models.teams.getTeamOverviewStatsForTeams,
+    teamIds ? { teamIds, organizationId, userId: user?._id } : "skip"
+  );
+
+  const stats = teamIds ? multiStats : singleStats;
 
   if (!stats) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
             <CardContent className="p-6">
@@ -45,6 +51,7 @@ export function QuickStatsPanel({
       icon: Users,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
+      cardBg: "border-blue-200 bg-blue-50",
     },
     {
       title: "Active Injuries",
@@ -52,6 +59,7 @@ export function QuickStatsPanel({
       icon: AlertCircle,
       color: "text-red-500",
       bgColor: "bg-red-500/10",
+      cardBg: "border-red-200 bg-red-50",
     },
     {
       title: "Open Tasks",
@@ -61,6 +69,7 @@ export function QuickStatsPanel({
       icon: CheckSquare,
       color: "text-orange-500",
       bgColor: "bg-orange-500/10",
+      cardBg: "border-orange-200 bg-orange-50",
     },
     {
       title: "Unread Insights",
@@ -72,31 +81,39 @@ export function QuickStatsPanel({
       icon: Lightbulb,
       color: "text-purple-500",
       bgColor: "bg-purple-500/10",
+      cardBg: "border-purple-200 bg-purple-50",
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
       {statCards.map((stat) => {
         const Icon = stat.icon;
         return (
-          <Card key={stat.title}>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className={`rounded-full p-3 ${stat.bgColor}`}>
-                  <Icon className={`h-6 w-6 ${stat.color}`} />
+          <Card
+            className={`pt-0 transition-all duration-200 hover:shadow-lg ${stat.cardBg}`}
+            key={stat.title}
+          >
+            <CardContent className="pt-6">
+              <div className="mb-2 flex items-center justify-between">
+                <Icon className={stat.color} size={20} />
+                <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                  {stat.value}
                 </div>
-                <div className="flex-1">
-                  <div className="text-muted-foreground text-sm">
-                    {stat.title}
-                  </div>
-                  <div className="mt-1 font-bold text-2xl">{stat.value}</div>
-                  {"subtitle" in stat && stat.subtitle && (
-                    <div className="mt-1 text-muted-foreground text-xs">
-                      {stat.subtitle}
-                    </div>
-                  )}
+              </div>
+              <div className="font-medium text-gray-600 text-xs md:text-sm">
+                {stat.title}
+              </div>
+              {"subtitle" in stat && stat.subtitle && (
+                <div className="mt-1 text-gray-500 text-xs">
+                  {stat.subtitle}
                 </div>
+              )}
+              <div className={`mt-2 h-1 w-full rounded-full ${stat.bgColor}`}>
+                <div
+                  className={`h-1 rounded-full ${stat.color.replace("text-", "bg-")}`}
+                  style={{ width: stat.value > 0 ? "100%" : "0%" }}
+                />
               </div>
             </CardContent>
           </Card>

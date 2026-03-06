@@ -5,8 +5,11 @@ import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generat
 import { useQuery } from "convex/react";
 import {
   ActivitySquare,
+  AlertCircle,
   Calendar,
   CheckSquare,
+  ChevronDown,
+  ChevronUp,
   Heart,
   LayoutDashboard,
   Lightbulb,
@@ -15,7 +18,9 @@ import {
 } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Empty,
   EmptyContent,
@@ -31,7 +36,7 @@ import { InsightsTab } from "./components/insights-tab";
 import { OverviewTab } from "./components/overview-tab";
 import { PlanningTab } from "./components/planning-tab";
 import { PlayersTab } from "./components/players-tab";
-import { PresenceIndicators } from "./components/presence-indicators";
+import { QuickStatsPanel } from "./components/quick-stats-panel";
 import { TasksTab } from "./components/tasks-tab";
 import { WellnessTab } from "./components/wellness-tab";
 
@@ -52,7 +57,8 @@ export default function TeamHubPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [teamsExpanded, setTeamsExpanded] = useState(true);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
 
   // Get current tab from URL, default to "overview"
   const currentTab = (searchParams.get("tab") as TabValue) || "overview";
@@ -120,23 +126,43 @@ export default function TeamHubPage() {
     return counts;
   }, [teamPlayerLinks]);
 
-  // Auto-select first team when coachTeams loads (only if not already set)
+  // Auto-select single team when coachTeams loads with exactly 1 team
   useEffect(() => {
-    if (coachTeams.length > 0 && !selectedTeamId) {
+    if (coachTeams.length === 1) {
       setSelectedTeamId(coachTeams[0]._id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachTeams.length, selectedTeamId]);
+  }, [coachTeams.length, coachTeams[0]?._id]);
 
-  // Determine which team to show
+  // displayTeamId for tab content — always a specific team
   const displayTeamId =
-    coachTeams.length === 1
-      ? coachTeams[0]._id // Single team - always show it
-      : selectedTeamId
-        ? selectedTeamId
-        : coachTeams.length > 0
-          ? coachTeams[0]._id
-          : null;
+    selectedTeamId === "all"
+      ? (coachTeams[0]?._id ?? null)
+      : selectedTeamId || (coachTeams[0]?._id ?? null);
+
+  const allTeamIds = useMemo(() => coachTeams.map((t) => t._id), [coachTeams]);
+
+  // Per-team summary stats for card indicators
+  const teamSummaryStats = useQuery(
+    api.models.teams.getTeamSummaryStats,
+    userId && orgId && allTeamIds.length > 0
+      ? { teamIds: allTeamIds, organizationId: orgId, userId }
+      : "skip"
+  );
+
+  const statsByTeam = useMemo(() => {
+    const map = new Map<
+      string,
+      { activeInjuries: number; openTasks: number; unreadInsights: number }
+    >();
+    for (const s of teamSummaryStats ?? []) {
+      map.set(s.teamId, {
+        activeInjuries: s.activeInjuries,
+        openTasks: s.openTasks + s.inProgressTasks,
+        unreadInsights: s.unreadInsights,
+      });
+    }
+    return map;
+  }, [teamSummaryStats]);
 
   // Check if user is head coach
   const isHeadCoach = coachAssignments?.roles?.includes("head_coach") ?? false;
@@ -149,68 +175,164 @@ export default function TeamHubPage() {
   };
 
   return (
-    <div className="container mx-auto space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-bold text-3xl">Team Collaboration Hub</h1>
-          <p className="mt-2 text-muted-foreground">
-            Real-time collaboration and team management
-          </p>
+    <div className="space-y-6">
+      <OrgThemedGradient className="rounded-lg p-4 shadow-md md:p-6">
+        <div className="flex items-center gap-2 md:gap-3">
+          <Users className="h-7 w-7 flex-shrink-0" />
+          <div>
+            <h1 className="font-bold text-xl md:text-2xl">
+              Team Collaboration Hub
+            </h1>
+            <p className="text-sm opacity-90">
+              Real-time collaboration and team management
+            </p>
+          </div>
         </div>
-      </div>
+      </OrgThemedGradient>
+
+      {/* Quick stats */}
+      {orgId &&
+        coachTeams.length > 0 &&
+        (selectedTeamId === "all" && coachTeams.length > 1 ? (
+          <QuickStatsPanel organizationId={orgId} teamIds={allTeamIds} />
+        ) : displayTeamId ? (
+          <QuickStatsPanel organizationId={orgId} teamId={displayTeamId} />
+        ) : null)}
 
       {/* Team selector — clickable cards, one per team */}
       {coachTeams.length > 0 && (
-        <div
-          className={`grid gap-4 ${coachTeams.length === 1 ? "max-w-sm grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}
-        >
-          {coachTeams.map((team) => {
-            const isSelected = displayTeamId === team._id;
-            const playerCount = playerCountByTeam.get(team._id) ?? 0;
-            const meta = [team.ageGroup, team.gender, team.sportCode]
-              .filter(Boolean)
-              .join(" • ");
-            return (
-              <Card
-                className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
-                  isSelected ? "border-2 border-green-500 bg-green-50" : ""
-                }`}
-                key={team._id}
-                onClick={() => setSelectedTeamId(team._id)}
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0 flex-1">
-                      <CardTitle
-                        className="truncate text-lg md:text-xl"
-                        title={team.name}
-                      >
-                        {team.name}
-                      </CardTitle>
-                      <p className="text-gray-600 text-xs md:text-sm">
-                        {playerCount} Players
-                      </p>
-                    </div>
-                    <div className="ml-3 flex-shrink-0 text-right">
-                      {meta && (
-                        <p className="whitespace-nowrap text-gray-500 text-xs">
-                          {meta}
+        <div>
+          <button
+            className="mb-3 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-gray-50"
+            onClick={() => setTeamsExpanded((prev) => !prev)}
+            type="button"
+          >
+            <span className="font-semibold text-gray-700 text-sm">
+              {selectedTeamId === "all" || !selectedTeamId
+                ? "All Teams"
+                : `${coachTeams.find((t) => t._id === selectedTeamId)?.name ?? "All Teams"} · selected`}
+            </span>
+            {teamsExpanded ? (
+              <ChevronUp className="text-gray-500" size={18} />
+            ) : (
+              <ChevronDown className="text-gray-500" size={18} />
+            )}
+          </button>
+          {teamsExpanded && (
+            <div
+              className={`grid gap-3 md:gap-4 ${coachTeams.length === 1 ? "max-w-xs grid-cols-1" : "grid-cols-2 md:grid-cols-4"}`}
+            >
+              {coachTeams.length > 1 && (
+                <Card
+                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                    selectedTeamId === "all" ? "ring-2 ring-green-500" : ""
+                  }`}
+                  onClick={() => setSelectedTeamId("all")}
+                  style={{
+                    backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                    borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                  }}
+                >
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm leading-tight">
+                          All Teams
                         </p>
-                      )}
-                      {isSelected && displayTeamId && (
-                        <div className="mt-1">
-                          <PresenceIndicators
-                            organizationId={orgId}
-                            teamId={displayTeamId}
-                          />
-                        </div>
-                      )}
+                        <p className="text-gray-500 text-xs">
+                          {coachTeams.length} teams
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800 text-lg leading-tight">
+                          {coachTeams.reduce(
+                            (sum, t) =>
+                              sum + (playerCountByTeam.get(t._id) ?? 0),
+                            0
+                          )}
+                        </p>
+                        <p className="text-gray-500 text-xs">players</p>
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-              </Card>
-            );
-          })}
+                  </CardContent>
+                </Card>
+              )}
+              {coachTeams.map((team) => {
+                const isSelected = selectedTeamId === team._id;
+                const playerCount = playerCountByTeam.get(team._id) ?? 0;
+                const ageMeta = [team.ageGroup, team.gender]
+                  .filter(Boolean)
+                  .join(" • ");
+                return (
+                  <Card
+                    className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${isSelected ? "ring-2 ring-green-500" : ""}`}
+                    key={team._id}
+                    onClick={() => setSelectedTeamId(team._id)}
+                    style={{
+                      backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                      borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                    }}
+                  >
+                    <CardContent className="p-2.5">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="truncate font-semibold text-gray-800 text-sm leading-tight"
+                            title={team.name}
+                          >
+                            {team.name}
+                          </p>
+                          {ageMeta && (
+                            <p className="text-gray-500 text-xs">{ageMeta}</p>
+                          )}
+                        </div>
+                        <div className="ml-2 shrink-0 text-right">
+                          <p className="font-bold text-gray-800 text-sm leading-tight">
+                            {playerCount}
+                          </p>
+                          <p className="text-gray-500 text-xs">players</p>
+                        </div>
+                      </div>
+                      {(() => {
+                        const s = statsByTeam.get(team._id);
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            <Badge
+                              className="bg-red-100 text-red-700"
+                              title="Active Injuries"
+                            >
+                              <AlertCircle className="h-3 w-3" />
+                              <span className="ml-0.5">
+                                {s?.activeInjuries ?? 0}
+                              </span>
+                            </Badge>
+                            <Badge
+                              className="bg-orange-100 text-orange-700"
+                              title="Open Tasks"
+                            >
+                              <CheckSquare className="h-3 w-3" />
+                              <span className="ml-0.5">
+                                {s?.openTasks ?? 0}
+                              </span>
+                            </Badge>
+                            <Badge
+                              className="bg-purple-100 text-purple-700"
+                              title="Unread Insights"
+                            >
+                              <Lightbulb className="h-3 w-3" />
+                              <span className="ml-0.5">
+                                {s?.unreadInsights ?? 0}
+                              </span>
+                            </Badge>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

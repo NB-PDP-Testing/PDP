@@ -903,6 +903,123 @@ export const getTeamOverviewStats = query({
 });
 
 /**
+ * Aggregate overview stats across multiple teams (for "All Teams" mode)
+ */
+export const getTeamOverviewStatsForTeams = query({
+  args: {
+    teamIds: v.array(v.string()),
+    organizationId: v.string(),
+    userId: v.optional(v.string()),
+  },
+  returns: v.object({
+    totalPlayers: v.number(),
+    activeInjuries: v.number(),
+    attendancePercent: v.union(v.number(), v.null()),
+    upcomingEventsCount: v.number(),
+    openTasks: v.number(),
+    overdueCount: v.number(),
+    unreadInsights: v.number(),
+    highPriorityInsights: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    if (args.teamIds.length === 0) {
+      return {
+        totalPlayers: 0,
+        activeInjuries: 0,
+        attendancePercent: null,
+        upcomingEventsCount: 0,
+        openTasks: 0,
+        overdueCount: 0,
+        unreadInsights: 0,
+        highPriorityInsights: 0,
+      };
+    }
+
+    let totalPlayers = 0;
+    let activeInjuriesCount = 0;
+    let openTasks = 0;
+    let overdueCount = 0;
+    let unreadInsights = 0;
+    let highPriorityInsights = 0;
+    const seenPlayerIds = new Set<string>();
+    const now = Date.now();
+
+    for (const teamId of args.teamIds) {
+      const teamMembers = await ctx.db
+        .query("teamPlayerIdentities")
+        .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
+        .collect();
+      const activePlayers = teamMembers.filter((m) => m.status === "active");
+      totalPlayers += activePlayers.length;
+
+      for (const member of activePlayers) {
+        const playerId = member.playerIdentityId;
+        if (seenPlayerIds.has(playerId)) {
+          continue;
+        }
+        seenPlayerIds.add(playerId);
+
+        const injuries = await ctx.db
+          .query("playerInjuries")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerId)
+          )
+          .collect();
+        activeInjuriesCount += injuries.filter((injury) => {
+          if (injury.status === "healed" || injury.status === "cleared") {
+            return false;
+          }
+          if (injury.isVisibleToAllOrgs) {
+            return true;
+          }
+          if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
+            return true;
+          }
+          if (injury.occurredAtOrgId === args.organizationId) {
+            return true;
+          }
+          return false;
+        }).length;
+      }
+
+      const tasks = await ctx.db
+        .query("coachTasks")
+        .withIndex("by_team_and_org", (q) =>
+          q.eq("teamId", teamId).eq("organizationId", args.organizationId)
+        )
+        .collect();
+      openTasks += tasks.filter((t) => t.status !== "done").length;
+      overdueCount += tasks.filter(
+        (t) => t.status !== "done" && t.dueDate && t.dueDate < now
+      ).length;
+
+      const insights = await ctx.db
+        .query("teamInsights")
+        .withIndex("by_team", (q) => q.eq("teamId", teamId))
+        .collect();
+      unreadInsights += args.userId
+        ? insights.filter((i) => !i.readBy.includes(args.userId as string))
+            .length
+        : insights.length;
+      highPriorityInsights += insights.filter(
+        (i) => i.priority === "high"
+      ).length;
+    }
+
+    return {
+      totalPlayers,
+      activeInjuries: activeInjuriesCount,
+      attendancePercent: null,
+      upcomingEventsCount: 0,
+      openTasks,
+      overdueCount,
+      unreadInsights,
+      highPriorityInsights,
+    };
+  },
+});
+
+/**
  * Get upcoming events for team (sessions, games, practices)
  * Returns next 3 scheduled events with details
  */
@@ -1226,6 +1343,172 @@ export const getTeamTasks = query({
     });
 
     return enrichedTasks;
+  },
+});
+
+// Get insight counts across multiple teams (for "All Teams" view)
+export const getInsightsCountForTeams = query({
+  args: {
+    teamIds: v.array(v.string()),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    total: v.number(),
+    voiceNote: v.number(),
+    aiGenerated: v.number(),
+    manual: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    let total = 0;
+    let voiceNote = 0;
+    let aiGenerated = 0;
+    let manual = 0;
+    for (const teamId of args.teamIds) {
+      const insights = await ctx.db
+        .query("teamInsights")
+        .withIndex("by_team_and_date", (q) => q.eq("teamId", teamId))
+        .collect();
+      for (const insight of insights) {
+        total += 1;
+        if (insight.type === "voice-note") {
+          voiceNote += 1;
+        } else if (insight.type === "ai-generated") {
+          aiGenerated += 1;
+        } else if (insight.type === "manual") {
+          manual += 1;
+        }
+      }
+    }
+    return { total, voiceNote, aiGenerated, manual };
+  },
+});
+
+// Get per-team summary stats for team selector cards (tasks + unread insights)
+export const getTeamSummaryStats = query({
+  args: {
+    teamIds: v.array(v.string()),
+    organizationId: v.string(),
+    userId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      teamId: v.string(),
+      activeInjuries: v.number(),
+      openTasks: v.number(),
+      inProgressTasks: v.number(),
+      unreadInsights: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const results = [];
+    for (const teamId of args.teamIds) {
+      // Team members → player IDs for injury lookup
+      const members = await ctx.db
+        .query("teamPlayerIdentities")
+        .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
+        .collect();
+      const activePlayerIds = [
+        ...new Set(
+          members
+            .filter((m) => m.status === "active")
+            .map((m) => m.playerIdentityId)
+        ),
+      ];
+
+      // Active injuries across team players
+      let activeInjuries = 0;
+      for (const playerId of activePlayerIds) {
+        const injuries = await ctx.db
+          .query("playerInjuries")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerId)
+          )
+          .collect();
+        activeInjuries += injuries.filter(
+          (inj) =>
+            (inj.status === "active" || inj.status === "recovering") &&
+            (inj.isVisibleToAllOrgs ||
+              inj.restrictedToOrgIds?.includes(args.organizationId) ||
+              inj.occurredAtOrgId === args.organizationId)
+        ).length;
+      }
+
+      // Tasks
+      const tasks = await ctx.db
+        .query("coachTasks")
+        .withIndex("by_team_and_org", (q) =>
+          q.eq("teamId", teamId).eq("organizationId", args.organizationId)
+        )
+        .collect();
+      const openTasks = tasks.filter((t) => t.status === "open").length;
+      const inProgressTasks = tasks.filter(
+        (t) => t.status === "in-progress"
+      ).length;
+
+      // Insights — count those not yet read by this user
+      const insights = await ctx.db
+        .query("teamInsights")
+        .withIndex("by_team_and_date", (q) => q.eq("teamId", teamId))
+        .collect();
+      const unreadInsights = insights.filter(
+        (i) => !i.readBy.includes(args.userId)
+      ).length;
+
+      results.push({
+        teamId,
+        activeInjuries,
+        openTasks,
+        inProgressTasks,
+        unreadInsights,
+      });
+    }
+    return results;
+  },
+});
+
+// Get insight counts broken down per team (for team selector cards)
+export const getInsightsCountByTeam = query({
+  args: {
+    teamIds: v.array(v.string()),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      teamId: v.string(),
+      total: v.number(),
+      voiceNote: v.number(),
+      aiGenerated: v.number(),
+      manual: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const results = [];
+    for (const teamId of args.teamIds) {
+      const insights = await ctx.db
+        .query("teamInsights")
+        .withIndex("by_team_and_date", (q) => q.eq("teamId", teamId))
+        .collect();
+      let voiceNote = 0;
+      let aiGenerated = 0;
+      let manual = 0;
+      for (const insight of insights) {
+        if (insight.type === "voice-note") {
+          voiceNote += 1;
+        } else if (insight.type === "ai-generated") {
+          aiGenerated += 1;
+        } else if (insight.type === "manual") {
+          manual += 1;
+        }
+      }
+      results.push({
+        teamId,
+        total: insights.length,
+        voiceNote,
+        aiGenerated,
+        manual,
+      });
+    }
+    return results;
   },
 });
 

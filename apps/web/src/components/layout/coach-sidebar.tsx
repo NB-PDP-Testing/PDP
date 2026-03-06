@@ -52,7 +52,7 @@ type CoachNav = {
 
 /**
  * Generate coach navigation structure for an organization.
- * Overview, Team Hub, Team Insights, and Match Day sit at the root
+ * Overview, My Tasks, Messages, Voice Notes, Team Hub, Team Insights, and Match Day sit at the root
  * (above all collapsible groups).
  */
 export function getCoachNav(orgId: string): CoachNav {
@@ -62,6 +62,21 @@ export function getCoachNav(orgId: string): CoachNav {
         href: `/orgs/${orgId}/coach`,
         label: "Overview",
         icon: Home,
+      },
+      {
+        href: `/orgs/${orgId}/coach/todos`,
+        label: "My Tasks",
+        icon: CheckSquare,
+      },
+      {
+        href: `/orgs/${orgId}/coach/messages`,
+        label: "Messages",
+        icon: MessageSquare,
+      },
+      {
+        href: `/orgs/${orgId}/coach/voice-notes`,
+        label: "Voice Notes",
+        icon: Mic,
       },
       {
         href: `/orgs/${orgId}/coach/team-hub`,
@@ -111,24 +126,9 @@ export function getCoachNav(orgId: string): CoachNav {
             icon: TrendingUp,
           },
           {
-            href: `/orgs/${orgId}/coach/todos`,
-            label: "My Tasks",
-            icon: CheckSquare,
-          },
-          {
-            href: `/orgs/${orgId}/coach/voice-notes`,
-            label: "Voice Notes",
-            icon: Mic,
-          },
-          {
             href: `/orgs/${orgId}/coach/notes`,
             label: "Development Notes",
             icon: FileText,
-          },
-          {
-            href: `/orgs/${orgId}/coach/messages`,
-            label: "Messages",
-            icon: MessageSquare,
           },
           {
             href: `/orgs/${orgId}/coach/session-plans`,
@@ -204,7 +204,7 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
   return (
     <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-muted/30">
       <div className="flex h-full flex-col overflow-y-auto py-4">
-        {/* Root nav items — Overview, Team Hub, Team Insights, Match Day */}
+        {/* Root nav items — Overview, My Tasks, Team Hub, Team Insights, Match Day */}
         <nav className="px-3 pb-1">
           {rootItems.map((item) => {
             const ItemIcon = item.icon;
@@ -377,7 +377,7 @@ export function CoachMobileNav({
         </SheetHeader>
 
         <div className="flex flex-col overflow-y-auto py-4">
-          {/* Root nav items — Overview, Team Hub, Team Insights, Match Day */}
+          {/* Root nav items — Overview, My Tasks, Team Hub, Team Insights, Match Day */}
           <nav className="px-3 pb-1">
             {rootItems.map((item) => {
               const ItemIcon = item.icon;

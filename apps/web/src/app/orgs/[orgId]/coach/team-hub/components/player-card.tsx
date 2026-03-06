@@ -67,7 +67,13 @@ export function PlayerCard({
 
   return (
     <Link href={`/orgs/${organizationId}/coach/players/${playerId}`}>
-      <Card className="group cursor-pointer transition-all hover:border-primary hover:shadow-md">
+      <Card
+        className="group cursor-pointer transition-all hover:shadow-md"
+        style={{
+          backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+          borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+        }}
+      >
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             {/* Photo or Initials */}

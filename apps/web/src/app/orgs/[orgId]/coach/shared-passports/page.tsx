@@ -15,10 +15,8 @@ export default async function SharedPassportsPage({
   const { orgId } = await params;
 
   return (
-    <div className="container mx-auto p-6">
-      <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-        <SharedPassportsView orgId={orgId} />
-      </Suspense>
-    </div>
+    <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+      <SharedPassportsView orgId={orgId} />
+    </Suspense>
   );
 }

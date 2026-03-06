@@ -4,12 +4,22 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { FileText, Lightbulb, Mic, Sparkles, Users } from "lucide-react";
+import {
+  Brain,
+  ChevronDown,
+  ChevronUp,
+  Lightbulb,
+  Mic,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Empty,
   EmptyContent,
@@ -48,6 +58,123 @@ type Insight = {
 
 type TypeFilter = "all" | "voice-note" | "ai-generated" | "manual";
 
+type InsightStatsProps = {
+  totalCount: number;
+  voiceNoteCount: number;
+  aiCount: number;
+  typeFilter: TypeFilter;
+  onTypeFilterChange: (f: TypeFilter) => void;
+};
+
+function InsightStats({
+  totalCount,
+  voiceNoteCount,
+  aiCount,
+  typeFilter,
+  onTypeFilterChange,
+}: InsightStatsProps) {
+  return (
+    <div className="grid grid-cols-2 gap-3 md:gap-4">
+      <Card
+        className={`cursor-pointer pt-0 transition-all duration-200 hover:shadow-lg ${typeFilter === "all" ? "ring-2 ring-blue-400" : "border-blue-200 bg-blue-50"}`}
+        onClick={() => onTypeFilterChange("all")}
+        style={
+          typeFilter === "all"
+            ? {
+                backgroundColor: "rgb(219 234 254)",
+                borderColor: "rgb(147 197 253)",
+              }
+            : {}
+        }
+      >
+        <CardContent className="pt-6">
+          <div className="mb-2 flex items-center justify-between">
+            <Lightbulb className="text-blue-500" size={20} />
+            <div className="font-bold text-gray-800 text-xl md:text-2xl">
+              {totalCount}
+            </div>
+          </div>
+          <div className="font-medium text-gray-600 text-xs md:text-sm">
+            Total Insights
+          </div>
+          <div className="mt-2 h-1 w-full rounded-full bg-blue-500/20">
+            <div
+              className="h-1 rounded-full bg-blue-500"
+              style={{ width: totalCount > 0 ? "100%" : "0%" }}
+            />
+          </div>
+        </CardContent>
+      </Card>
+      <Card
+        className={`cursor-pointer pt-0 transition-all duration-200 hover:shadow-lg ${typeFilter === "voice-note" ? "ring-2 ring-purple-400" : "border-purple-200 bg-purple-50"}`}
+        onClick={() =>
+          onTypeFilterChange(typeFilter === "voice-note" ? "all" : "voice-note")
+        }
+        style={
+          typeFilter === "voice-note"
+            ? {
+                backgroundColor: "rgb(233 213 255)",
+                borderColor: "rgb(192 132 252)",
+              }
+            : {}
+        }
+      >
+        <CardContent className="pt-6">
+          <div className="mb-2 flex items-center justify-between">
+            <Mic className="text-purple-500" size={20} />
+            <div className="font-bold text-gray-800 text-xl md:text-2xl">
+              {voiceNoteCount}
+            </div>
+          </div>
+          <div className="font-medium text-gray-600 text-xs md:text-sm">
+            Voice Notes
+          </div>
+          <div className="mt-2 h-1 w-full rounded-full bg-purple-500/20">
+            <div
+              className="h-1 rounded-full bg-purple-500"
+              style={{ width: voiceNoteCount > 0 ? "100%" : "0%" }}
+            />
+          </div>
+        </CardContent>
+      </Card>
+      <Card
+        className={`cursor-pointer pt-0 transition-all duration-200 hover:shadow-lg ${typeFilter === "ai-generated" ? "ring-2 ring-green-400" : "border-green-200 bg-green-50"}`}
+        onClick={() =>
+          onTypeFilterChange(
+            typeFilter === "ai-generated" ? "all" : "ai-generated"
+          )
+        }
+        style={
+          typeFilter === "ai-generated"
+            ? {
+                backgroundColor: "rgb(187 247 208)",
+                borderColor: "rgb(74 222 128)",
+              }
+            : {}
+        }
+      >
+        <CardContent className="pt-6">
+          <div className="mb-2 flex items-center justify-between">
+            <Brain className="text-green-500" size={20} />
+            <div className="font-bold text-gray-800 text-xl md:text-2xl">
+              {aiCount}
+            </div>
+          </div>
+          <div className="font-medium text-gray-600 text-xs md:text-sm">
+            AI Generated
+          </div>
+          <div className="mt-2 h-1 w-full rounded-full bg-green-500/20">
+            <div
+              className="h-1 rounded-full bg-green-500"
+              style={{ width: aiCount > 0 ? "100%" : "0%" }}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 type InsightControlsProps = {
   totalCount: number;
   voiceNoteCount: number;
@@ -58,11 +185,11 @@ type InsightControlsProps = {
   onGenerate: () => void;
 };
 
-function InsightControls({
+function _InsightControls({
   totalCount,
   voiceNoteCount,
   aiCount,
-  manualCount,
+  manualCount: _manualCount,
   typeFilter,
   onTypeFilterChange,
   onGenerate,
@@ -86,48 +213,10 @@ function InsightControls({
       icon: Sparkles,
       count: aiCount,
     },
-    {
-      key: "manual" as TypeFilter,
-      label: "Manual",
-      icon: FileText,
-      count: manualCount,
-    },
   ] as const;
 
   return (
     <>
-      {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="font-medium text-sm">
-              Total Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">{totalCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="font-medium text-sm">
-              From Voice Notes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">{voiceNoteCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="font-medium text-sm">AI Generated</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">{aiCount}</div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Type filter cards + Generate button */}
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex flex-wrap gap-2">
@@ -192,6 +281,10 @@ type TeamSelectorProps = {
   coachTeams: CoachTeam[];
   effectiveSelectedTeam: string;
   playerCountByTeam: Map<string, number>;
+  insightsByTeam: Map<
+    string,
+    { total: number; voiceNote: number; aiGenerated: number }
+  >;
   onSelect: (teamId: string) => void;
 };
 
@@ -199,77 +292,179 @@ function TeamSelector({
   coachTeams,
   effectiveSelectedTeam,
   playerCountByTeam,
+  insightsByTeam,
   onSelect,
 }: TeamSelectorProps) {
+  const [teamsExpanded, setTeamsExpanded] = useState(true);
   if (coachTeams.length === 0) {
     return null;
   }
-  const gridClass =
-    coachTeams.length === 1
-      ? "max-w-sm grid-cols-1"
-      : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
 
   return (
-    <div className={`grid gap-4 ${gridClass}`}>
-      {coachTeams.length > 1 && (
-        <Card
-          className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
-            effectiveSelectedTeam === "all"
-              ? "border-2 border-green-500 bg-green-50"
-              : ""
-          }`}
-          onClick={() => onSelect("all")}
+    <div>
+      <button
+        className="mb-3 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-gray-50"
+        onClick={() => setTeamsExpanded((prev) => !prev)}
+        type="button"
+      >
+        <span className="font-semibold text-gray-700 text-sm">
+          {effectiveSelectedTeam === "all" || !effectiveSelectedTeam
+            ? "All Teams"
+            : `${coachTeams.find((t) => t.teamId === effectiveSelectedTeam)?.teamName ?? "All Teams"} · selected`}
+        </span>
+        {teamsExpanded ? (
+          <ChevronUp className="text-gray-500" size={18} />
+        ) : (
+          <ChevronDown className="text-gray-500" size={18} />
+        )}
+      </button>
+      {teamsExpanded && (
+        <div
+          className={`grid gap-3 md:gap-4 ${coachTeams.length === 1 ? "max-w-xs grid-cols-1" : "grid-cols-2 md:grid-cols-4"}`}
         >
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="min-w-0 flex-1">
-                <CardTitle className="text-lg md:text-xl">All Teams</CardTitle>
-                <p className="text-gray-600 text-xs md:text-sm">
+          {coachTeams.length > 1 && (
+            <Card
+              className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                effectiveSelectedTeam === "all" ? "ring-2 ring-green-500" : ""
+              }`}
+              onClick={() => onSelect("all")}
+              style={{
+                backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+              }}
+            >
+              <CardContent className="p-2.5">
+                <div className="flex items-start justify-between">
+                  <p className="font-semibold text-gray-800 text-sm leading-tight">
+                    All Teams
+                  </p>
+                  <div className="ml-2 shrink-0 text-right">
+                    <p className="font-bold text-gray-800 text-sm leading-tight">
+                      {coachTeams.reduce(
+                        (sum, t) =>
+                          sum + (playerCountByTeam.get(t.teamId) ?? 0),
+                        0
+                      )}
+                    </p>
+                    <p className="text-gray-500 text-xs">players</p>
+                  </div>
+                </div>
+                <p className="mb-1.5 text-gray-500 text-xs">
                   {coachTeams.length} teams
                 </p>
-              </div>
-              <Lightbulb className="ml-3 h-6 w-6 flex-shrink-0 text-green-600" />
-            </div>
-          </CardHeader>
-        </Card>
-      )}
-      {coachTeams.map((team) => {
-        const isSelected = effectiveSelectedTeam === team.teamId;
-        const playerCount = playerCountByTeam.get(team.teamId) ?? 0;
-        const meta = [team.ageGroup, team.gender, team.sportCode]
-          .filter(Boolean)
-          .join(" • ");
-        return (
-          <Card
-            className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
-              isSelected ? "border-2 border-green-500 bg-green-50" : ""
-            }`}
-            key={team.teamId}
-            onClick={() => onSelect(team.teamId)}
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="min-w-0 flex-1">
-                  <CardTitle
-                    className="truncate text-lg md:text-xl"
-                    title={team.teamName}
+                <div className="flex flex-wrap gap-1">
+                  <Badge
+                    className="bg-blue-100 text-blue-700"
+                    title="Total Insights"
                   >
-                    {team.teamName}
-                  </CardTitle>
-                  <p className="text-gray-600 text-xs md:text-sm">
-                    {playerCount} Players
-                  </p>
+                    <Lightbulb className="h-3 w-3" />
+                    <span className="ml-0.5">
+                      {Array.from(insightsByTeam.values()).reduce(
+                        (s, v) => s + v.total,
+                        0
+                      )}
+                    </span>
+                  </Badge>
+                  <Badge
+                    className="bg-purple-100 text-purple-700"
+                    title="Voice Notes"
+                  >
+                    <Mic className="h-3 w-3" />
+                    <span className="ml-0.5">
+                      {Array.from(insightsByTeam.values()).reduce(
+                        (s, v) => s + v.voiceNote,
+                        0
+                      )}
+                    </span>
+                  </Badge>
+                  <Badge
+                    className="bg-green-100 text-green-700"
+                    title="AI Generated"
+                  >
+                    <Brain className="h-3 w-3" />
+                    <span className="ml-0.5">
+                      {Array.from(insightsByTeam.values()).reduce(
+                        (s, v) => s + v.aiGenerated,
+                        0
+                      )}
+                    </span>
+                  </Badge>
                 </div>
-                {meta && (
-                  <p className="ml-3 flex-shrink-0 whitespace-nowrap text-gray-500 text-xs">
-                    {meta}
-                  </p>
-                )}
-              </div>
-            </CardHeader>
-          </Card>
-        );
-      })}
+              </CardContent>
+            </Card>
+          )}
+          {coachTeams.map((team) => {
+            const isSelected = effectiveSelectedTeam === team.teamId;
+            const playerCount = playerCountByTeam.get(team.teamId) ?? 0;
+            const ageMeta = [team.ageGroup, team.gender]
+              .filter(Boolean)
+              .join(" • ");
+            const ins = insightsByTeam.get(team.teamId) ?? {
+              total: 0,
+              voiceNote: 0,
+              aiGenerated: 0,
+            };
+            return (
+              <Card
+                className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                  isSelected ? "ring-2 ring-green-500" : ""
+                }`}
+                key={team.teamId}
+                onClick={() => onSelect(team.teamId)}
+                style={{
+                  backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                  borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                }}
+              >
+                <CardContent className="p-2.5">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="truncate font-semibold text-gray-800 text-sm leading-tight"
+                        title={team.teamName}
+                      >
+                        {team.teamName}
+                      </p>
+                      {ageMeta && (
+                        <p className="text-gray-500 text-xs">{ageMeta}</p>
+                      )}
+                    </div>
+                    <div className="ml-2 shrink-0 text-right">
+                      <p className="font-bold text-gray-800 text-sm leading-tight">
+                        {playerCount}
+                      </p>
+                      <p className="text-gray-500 text-xs">players</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge
+                      className="bg-blue-100 text-blue-700"
+                      title="Total Insights"
+                    >
+                      <Lightbulb className="h-3 w-3" />
+                      <span className="ml-0.5">{ins.total}</span>
+                    </Badge>
+                    <Badge
+                      className="bg-purple-100 text-purple-700"
+                      title="Voice Notes"
+                    >
+                      <Mic className="h-3 w-3" />
+                      <span className="ml-0.5">{ins.voiceNote}</span>
+                    </Badge>
+                    <Badge
+                      className="bg-green-100 text-green-700"
+                      title="AI Generated"
+                    >
+                      <Brain className="h-3 w-3" />
+                      <span className="ml-0.5">{ins.aiGenerated}</span>
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -439,6 +634,34 @@ export default function TeamInsightsPage() {
     return counts;
   }, [teamPlayerLinks]);
 
+  // Insight counts per team for card badges
+  const allTeamIds = useMemo(
+    () => coachTeams.map((t) => t.teamId),
+    [coachTeams]
+  );
+
+  const insightCountsRaw = useQuery(
+    api.models.teams.getInsightsCountByTeam,
+    orgId && allTeamIds.length > 0
+      ? { teamIds: allTeamIds, organizationId: orgId }
+      : "skip"
+  );
+
+  const insightsByTeam = useMemo(() => {
+    const map = new Map<
+      string,
+      { total: number; voiceNote: number; aiGenerated: number }
+    >();
+    for (const row of insightCountsRaw ?? []) {
+      map.set(row.teamId, {
+        total: row.total,
+        voiceNote: row.voiceNote,
+        aiGenerated: row.aiGenerated,
+      });
+    }
+    return map;
+  }, [insightCountsRaw]);
+
   // Determine if we have a specific team selected
   const activeTeamId =
     effectiveSelectedTeam !== "all" ? effectiveSelectedTeam : null;
@@ -559,7 +782,7 @@ export default function TeamInsightsPage() {
   const aiCount = paginatedInsights.filter(
     (i) => i.type === "ai-generated"
   ).length;
-  const manualCount = paginatedInsights.filter(
+  const _manualCount = paginatedInsights.filter(
     (i) => i.type === "manual"
   ).length;
 
@@ -578,22 +801,47 @@ export default function TeamInsightsPage() {
   }
 
   return (
-    <div className="container mx-auto space-y-6 py-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="flex items-center gap-2 font-bold text-2xl tracking-tight sm:text-3xl">
-          <Users className="h-7 w-7" />
-          Team Insights
-        </h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          AI-generated, voice note, and manual insights for your teams
-        </p>
-      </div>
+      <OrgThemedGradient className="rounded-lg p-4 shadow-md md:p-6">
+        <div className="flex items-center justify-between gap-2 md:gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Lightbulb className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">Team Insights</h1>
+              <p className="text-sm opacity-90">
+                AI-generated and voice note insights for your teams
+              </p>
+            </div>
+          </div>
+          {activeTeamId && (
+            <Button
+              className="shrink-0 bg-white/20 text-white hover:bg-white/30"
+              onClick={handleGenerateInsights}
+              size="sm"
+              variant="ghost"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Generate
+            </Button>
+          )}
+        </div>
+      </OrgThemedGradient>
+
+      {/* Insight stat cards */}
+      <InsightStats
+        aiCount={aiCount}
+        onTypeFilterChange={setTypeFilter}
+        totalCount={paginatedInsights.length}
+        typeFilter={typeFilter}
+        voiceNoteCount={voiceNoteCount}
+      />
 
       {/* Team selector cards */}
       <TeamSelector
         coachTeams={coachTeams}
         effectiveSelectedTeam={effectiveSelectedTeam}
+        insightsByTeam={insightsByTeam}
         onSelect={setSelectedTeam}
         playerCountByTeam={playerCountByTeam}
       />
@@ -620,16 +868,6 @@ export default function TeamInsightsPage() {
       {/* Content for selected team */}
       {activeTeamId && (
         <>
-          <InsightControls
-            aiCount={aiCount}
-            manualCount={manualCount}
-            onGenerate={handleGenerateInsights}
-            onTypeFilterChange={setTypeFilter}
-            totalCount={paginatedInsights.length}
-            typeFilter={typeFilter}
-            voiceNoteCount={voiceNoteCount}
-          />
-
           {/* Insights list */}
           <InsightsList
             filteredInsights={filteredInsights}

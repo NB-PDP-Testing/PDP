@@ -5,6 +5,8 @@ import {
   BarChart3,
   Brain,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
   Edit,
   FileText,
   Target,
@@ -101,6 +103,7 @@ export function SmartCoachDashboard({
   isClubView = false,
 }: SmartCoachDashboardProps) {
   const [teamAnalytics, setTeamAnalytics] = useState<TeamAnalytics[]>([]);
+  const [teamsExpanded, setTeamsExpanded] = useState(true);
   const [insights, setInsights] = useState<CorrelationInsight[]>([]);
   const [aiRecommendations, setAIRecommendations] = useState<
     AIRecommendation[]
@@ -575,7 +578,7 @@ export function SmartCoachDashboard({
         return (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             <Card
-              className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-blue-50 hover:shadow-lg"
+              className="cursor-pointer border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:scale-105 hover:shadow-lg"
               onClick={() => onFilterAllPlayers?.()}
             >
               <CardContent className="pt-6">
@@ -601,7 +604,7 @@ export function SmartCoachDashboard({
             </Card>
 
             <Card
-              className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-green-50 hover:shadow-lg"
+              className="cursor-pointer border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:scale-105 hover:shadow-lg"
               onClick={() => onFilterCompletedReviews?.()}
             >
               <CardContent className="pt-6">
@@ -627,7 +630,7 @@ export function SmartCoachDashboard({
             </Card>
 
             <Card
-              className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-red-50 hover:shadow-lg"
+              className="cursor-pointer border-red-200 bg-red-50 pt-0 transition-all duration-200 hover:scale-105 hover:shadow-lg"
               onClick={() => onFilterOverdueReviews?.()}
             >
               <CardContent className="pt-6">
@@ -652,7 +655,7 @@ export function SmartCoachDashboard({
               </CardContent>
             </Card>
 
-            <Card className="transition-shadow duration-200 hover:shadow-lg">
+            <Card className="border-purple-200 bg-purple-50 pt-0 transition-shadow duration-200 hover:shadow-lg">
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <TrendingUp className="text-purple-600" size={20} />
@@ -711,198 +714,228 @@ export function SmartCoachDashboard({
       )}
 
       {/* Team Cards */}
-      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
-        {teamAnalytics
-          .filter((team) => !selectedTeam || team.teamName === selectedTeam)
-          .map((team, _idx) => (
-            <Card
-              className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
-                selectedTeam === team.teamName
-                  ? "border-2 border-green-500 bg-green-50"
-                  : ""
-              }`}
-              key={team.teamId}
-              onClick={() => onViewTeam?.(team.teamName)}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0 flex-1">
-                    <CardTitle
-                      className="truncate text-lg md:text-xl"
-                      title={team.teamName}
-                    >
-                      {team.teamName}
-                    </CardTitle>
-                    <p className="text-gray-600 text-xs md:text-sm">
-                      {team.playerCount} Players
-                    </p>
-                  </div>
-                  <div className="ml-3 flex-shrink-0 text-right">
-                    <div className="font-bold text-2xl text-green-600 md:text-3xl">
-                      {team.avgSkillLevel.toFixed(1)}
-                    </div>
-                    <div className="whitespace-nowrap text-gray-500 text-xs">
-                      Avg Skill
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Skill Level Progress Bar */}
-                <div>
-                  <div className="mb-1 flex justify-between text-gray-600 text-xs">
-                    <span>Team Skill Level</span>
-                    <span>{team.avgSkillLevel.toFixed(1)}/5.0</span>
-                  </div>
-                  <div className="h-2.5 w-full rounded-full bg-gray-200">
-                    <div
-                      className={`h-2.5 rounded-full transition-all ${
-                        team.avgSkillLevel >= 4
-                          ? "bg-green-600"
-                          : team.avgSkillLevel >= 3
-                            ? "bg-yellow-500"
-                            : "bg-orange-500"
-                      }`}
-                      style={{ width: `${(team.avgSkillLevel / 5) * 100}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Strengths */}
-                {team.strengths.length > 0 && (
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-                    <div className="flex items-start gap-2">
-                      <TrendingUp
-                        className="mt-0.5 flex-shrink-0 text-green-600"
-                        size={16}
-                      />
+      <div>
+        <button
+          className="mb-3 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-gray-50"
+          onClick={() => setTeamsExpanded((prev) => !prev)}
+          type="button"
+        >
+          <span className="font-semibold text-gray-700 text-sm">
+            My Teams (
+            {
+              teamAnalytics.filter(
+                (team) => !selectedTeam || team.teamName === selectedTeam
+              ).length
+            }
+            )
+          </span>
+          {teamsExpanded ? (
+            <ChevronUp className="text-gray-500" size={18} />
+          ) : (
+            <ChevronDown className="text-gray-500" size={18} />
+          )}
+        </button>
+        {teamsExpanded && (
+          <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
+            {teamAnalytics
+              .filter((team) => !selectedTeam || team.teamName === selectedTeam)
+              .map((team, _idx) => (
+                <Card
+                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                    selectedTeam === team.teamName
+                      ? "border-2 border-green-500 bg-green-50"
+                      : ""
+                  }`}
+                  key={team.teamId}
+                  onClick={() => onViewTeam?.(team.teamName)}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
-                        <div className="mb-1 font-semibold text-green-800 text-xs md:text-sm">
-                          Top Strengths
+                        <CardTitle
+                          className="truncate text-lg md:text-xl"
+                          title={team.teamName}
+                        >
+                          {team.teamName}
+                        </CardTitle>
+                        <p className="text-gray-600 text-xs md:text-sm">
+                          {team.playerCount} Players
+                        </p>
+                      </div>
+                      <div className="ml-3 flex-shrink-0 text-right">
+                        <div className="font-bold text-2xl text-green-600 md:text-3xl">
+                          {team.avgSkillLevel.toFixed(1)}
                         </div>
-                        <div className="space-y-1">
-                          {team.strengths.map((s) => (
-                            <div
-                              className="flex items-center gap-2"
-                              key={s.skill}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-gray-700 text-xs">
-                                  {s.skill}
-                                </div>
-                                <div className="mt-0.5 h-1.5 w-full rounded-full bg-green-200">
-                                  <div
-                                    className="h-1.5 rounded-full bg-green-600"
-                                    style={{ width: `${(s.avg / 5) * 100}%` }}
-                                  />
-                                </div>
-                              </div>
-                              <span className="flex-shrink-0 font-semibold text-green-700 text-xs">
-                                {s.avg.toFixed(1)}
-                              </span>
-                            </div>
-                          ))}
+                        <div className="whitespace-nowrap text-gray-500 text-xs">
+                          Avg Skill
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
-
-                {/* Weaknesses */}
-                {team.weaknesses.length > 0 && (
-                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
-                    <div className="flex items-start gap-2">
-                      <TrendingDown
-                        className="mt-0.5 flex-shrink-0 text-orange-600"
-                        size={16}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1 font-semibold text-orange-800 text-xs md:text-sm">
-                          Areas to Improve
-                        </div>
-                        <div className="space-y-1">
-                          {team.weaknesses.map((w) => (
-                            <div
-                              className="flex items-center gap-2"
-                              key={w.skill}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-gray-700 text-xs">
-                                  {w.skill}
-                                </div>
-                                <div className="mt-0.5 h-1.5 w-full rounded-full bg-orange-200">
-                                  <div
-                                    className="h-1.5 rounded-full bg-orange-600"
-                                    style={{ width: `${(w.avg / 5) * 100}%` }}
-                                  />
-                                </div>
-                              </div>
-                              <span className="flex-shrink-0 font-semibold text-orange-700 text-xs">
-                                {w.avg.toFixed(1)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Skill Level Progress Bar */}
+                    <div>
+                      <div className="mb-1 flex justify-between text-gray-600 text-xs">
+                        <span>Team Skill Level</span>
+                        <span>{team.avgSkillLevel.toFixed(1)}/5.0</span>
+                      </div>
+                      <div className="h-2.5 w-full rounded-full bg-gray-200">
+                        <div
+                          className={`h-2.5 rounded-full transition-all ${
+                            team.avgSkillLevel >= 4
+                              ? "bg-green-600"
+                              : team.avgSkillLevel >= 3
+                                ? "bg-yellow-500"
+                                : "bg-orange-500"
+                          }`}
+                          style={{
+                            width: `${(team.avgSkillLevel / 5) * 100}%`,
+                          }}
+                        />
                       </div>
                     </div>
-                  </div>
-                )}
 
-                {/* Alerts */}
-                {(team.overdueReviews > 0 || team.attendanceIssues > 0) && (
-                  <div className="flex flex-col gap-2">
-                    {team.overdueReviews > 0 && (
-                      <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-red-600 text-xs md:text-sm">
-                        <AlertCircle className="flex-shrink-0" size={14} />
-                        <span className="truncate">
-                          {team.overdueReviews} overdue review
-                          {team.overdueReviews > 1 ? "s" : ""}
-                        </span>
+                    {/* Strengths */}
+                    {team.strengths.length > 0 && (
+                      <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                        <div className="flex items-start gap-2">
+                          <TrendingUp
+                            className="mt-0.5 flex-shrink-0 text-green-600"
+                            size={16}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 font-semibold text-green-800 text-xs md:text-sm">
+                              Top Strengths
+                            </div>
+                            <div className="space-y-1">
+                              {team.strengths.map((s) => (
+                                <div
+                                  className="flex items-center gap-2"
+                                  key={s.skill}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate text-gray-700 text-xs">
+                                      {s.skill}
+                                    </div>
+                                    <div className="mt-0.5 h-1.5 w-full rounded-full bg-green-200">
+                                      <div
+                                        className="h-1.5 rounded-full bg-green-600"
+                                        style={{
+                                          width: `${(s.avg / 5) * 100}%`,
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <span className="flex-shrink-0 font-semibold text-green-700 text-xs">
+                                    {s.avg.toFixed(1)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
-                    {team.attendanceIssues > 0 && (
-                      <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2 text-orange-600 text-xs md:text-sm">
-                        <AlertCircle className="flex-shrink-0" size={14} />
-                        <span className="truncate">
-                          {team.attendanceIssues} player
-                          {team.attendanceIssues > 1 ? "s" : ""} with low
-                          attendance
-                        </span>
+
+                    {/* Weaknesses */}
+                    {team.weaknesses.length > 0 && (
+                      <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                        <div className="flex items-start gap-2">
+                          <TrendingDown
+                            className="mt-0.5 flex-shrink-0 text-orange-600"
+                            size={16}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 font-semibold text-orange-800 text-xs md:text-sm">
+                              Areas to Improve
+                            </div>
+                            <div className="space-y-1">
+                              {team.weaknesses.map((w) => (
+                                <div
+                                  className="flex items-center gap-2"
+                                  key={w.skill}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate text-gray-700 text-xs">
+                                      {w.skill}
+                                    </div>
+                                    <div className="mt-0.5 h-1.5 w-full rounded-full bg-orange-200">
+                                      <div
+                                        className="h-1.5 rounded-full bg-orange-600"
+                                        style={{
+                                          width: `${(w.avg / 5) * 100}%`,
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <span className="flex-shrink-0 font-semibold text-orange-700 text-xs">
+                                    {w.avg.toFixed(1)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
-                  </div>
-                )}
 
-                {/* Actions */}
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button
-                    className={`flex-1 font-medium transition-colors ${
-                      selectedTeam === team.teamName
-                        ? "bg-blue-700 hover:bg-blue-800"
-                        : "bg-blue-600 hover:bg-blue-700"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewTeam?.(team.teamName);
-                    }}
-                  >
-                    {selectedTeam === team.teamName
-                      ? "Viewing Team"
-                      : "View Team"}
-                  </Button>
-                  <Button
-                    className="flex-1 bg-green-600 font-medium transition-colors hover:bg-green-700"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewAnalytics?.(team.teamName);
-                    }}
-                  >
-                    Analytics
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    {/* Alerts */}
+                    {(team.overdueReviews > 0 || team.attendanceIssues > 0) && (
+                      <div className="flex flex-col gap-2">
+                        {team.overdueReviews > 0 && (
+                          <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-red-600 text-xs md:text-sm">
+                            <AlertCircle className="flex-shrink-0" size={14} />
+                            <span className="truncate">
+                              {team.overdueReviews} overdue review
+                              {team.overdueReviews > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                        )}
+                        {team.attendanceIssues > 0 && (
+                          <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2 text-orange-600 text-xs md:text-sm">
+                            <AlertCircle className="flex-shrink-0" size={14} />
+                            <span className="truncate">
+                              {team.attendanceIssues} player
+                              {team.attendanceIssues > 1 ? "s" : ""} with low
+                              attendance
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        className={`flex-1 font-medium transition-colors ${
+                          selectedTeam === team.teamName
+                            ? "bg-blue-700 hover:bg-blue-800"
+                            : "bg-blue-600 hover:bg-blue-700"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewTeam?.(team.teamName);
+                        }}
+                      >
+                        {selectedTeam === team.teamName
+                          ? "Viewing Team"
+                          : "View Team"}
+                      </Button>
+                      <Button
+                        className="flex-1 bg-green-600 font-medium transition-colors hover:bg-green-700"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewAnalytics?.(team.teamName);
+                        }}
+                      >
+                        Analytics
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* Data Insights - Always show, even if empty */}

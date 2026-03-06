@@ -7,6 +7,7 @@ import { AlertCircle, Clock, Share2 } from "lucide-react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -159,13 +160,23 @@ export function SharedPassportsView({ orgId }: SharedPassportsProps) {
   return (
     <>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-bold text-2xl">Shared Passports</h1>
-          <p className="text-muted-foreground">
-            Manage player passport sharing and request access to players at
-            other organizations
-          </p>
-        </div>
+        <OrgThemedGradient
+          className="rounded-lg p-4 shadow-md md:p-6"
+          style={{ filter: "brightness(0.95)" }}
+        >
+          <div className="flex items-center gap-2 md:gap-3">
+            <Share2 className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">
+                Shared Passports
+              </h1>
+              <p className="text-xs opacity-80 md:text-sm">
+                Manage player passport sharing and request access to players at
+                other organizations
+              </p>
+            </div>
+          </div>
+        </OrgThemedGradient>
 
         <Tabs className="w-full" defaultValue="my-players">
           <TabsList className="grid w-full grid-cols-4">

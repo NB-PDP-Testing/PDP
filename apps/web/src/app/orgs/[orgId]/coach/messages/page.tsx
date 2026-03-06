@@ -8,6 +8,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,22 +74,30 @@ export default function CoachMessagesPage() {
 
   return (
     <div className="container mx-auto py-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="font-bold text-3xl">Messages</h1>
-          <p className="text-muted-foreground">
-            View and manage messages sent to parents
-          </p>
+      <OrgThemedGradient
+        className="mb-6 rounded-lg p-4 shadow-md md:p-6"
+        style={{ filter: "brightness(0.95)" }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-3">
+            <MessageSquare className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">Messages</h1>
+              <p className="text-xs opacity-80 md:text-sm">
+                View and manage messages sent to parents
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="secondary">
+            <Link
+              href={`/orgs/${orgId as string}/coach/messages/compose` as Route}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Message
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link
-            href={`/orgs/${orgId as string}/coach/messages/compose` as Route}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Message
-          </Link>
-        </Button>
-      </div>
+      </OrgThemedGradient>
 
       {/* Status Filter */}
       <div className="mb-6">

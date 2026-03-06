@@ -13,12 +13,14 @@ import {
   Search,
   Target,
   Trash2,
+  TrendingUp,
   Undo2,
   Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -156,6 +158,8 @@ export default function GoalsDashboardPage() {
   const userId = currentUser?._id || session?.user?.id;
 
   // State
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
+  const [teamsExpanded, setTeamsExpanded] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("active");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -209,9 +213,9 @@ export default function GoalsDashboardPage() {
   );
 
   // Get coach's teams
-  const _coachAssignments = useQuery(
+  const coachAssignments = useQuery(
     api.models.coaches.getCoachAssignmentsWithTeams,
-    { userId: "", organizationId: orgId } // Will need current user
+    userId && orgId ? { userId, organizationId: orgId } : "skip"
   );
 
   // Get teams for bulk creation
@@ -266,9 +270,50 @@ export default function GoalsDashboardPage() {
     }
   }, [goalsWithPlayers, selectedGoal]);
 
+  // Deduplicated team list for selector
+  const coachTeamsList = useMemo(() => {
+    if (!coachAssignments?.teams) {
+      return [];
+    }
+    const seen = new Set<string>();
+    return coachAssignments.teams.filter((t) => {
+      if (!t.teamId || t.teamId.includes("players")) {
+        return false;
+      }
+      if (seen.has(t.teamId)) {
+        return false;
+      }
+      seen.add(t.teamId);
+      return true;
+    });
+  }, [coachAssignments?.teams]);
+
+  // Player IDs per team
+  const playerIdsByTeam = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    if (!teamPlayerLinks) {
+      return map;
+    }
+    for (const link of teamPlayerLinks) {
+      if (!map.has(link.teamId)) {
+        map.set(link.teamId, new Set());
+      }
+      map.get(link.teamId)?.add(link.playerIdentityId.toString());
+    }
+    return map;
+  }, [teamPlayerLinks]);
+
   // Filter and sort goals
   const filteredGoals = useMemo(() => {
     let result = goalsWithPlayers;
+
+    // Team filter
+    if (selectedTeamId !== "all") {
+      const playerIds = playerIdsByTeam.get(selectedTeamId) ?? new Set();
+      result = result.filter((g) =>
+        playerIds.has(g.playerIdentityId.toString())
+      );
+    }
 
     // Status filter
     if (statusFilter === "active") {
@@ -306,7 +351,14 @@ export default function GoalsDashboardPage() {
       }
       return b.progress - a.progress;
     });
-  }, [goalsWithPlayers, statusFilter, categoryFilter, searchTerm]);
+  }, [
+    goalsWithPlayers,
+    selectedTeamId,
+    playerIdsByTeam,
+    statusFilter,
+    categoryFilter,
+    searchTerm,
+  ]);
 
   // Stats
   const stats = useMemo(() => {
@@ -327,6 +379,35 @@ export default function GoalsDashboardPage() {
 
     return { total, inProgress, completed, avgProgress };
   }, [goalsWithPlayers]);
+
+  // Goal stats per team
+  const goalStatsByTeam = useMemo(() => {
+    const map = new Map<
+      string,
+      { inProgress: number; completed: number; avgProgress: number }
+    >();
+    for (const team of coachTeamsList) {
+      const playerIds = playerIdsByTeam.get(team.teamId) ?? new Set();
+      const teamGoals = goalsWithPlayers.filter((g) =>
+        playerIds.has(g.playerIdentityId.toString())
+      );
+      const inProgress = teamGoals.filter(
+        (g) => g.status === "in_progress"
+      ).length;
+      const completed = teamGoals.filter(
+        (g) => g.status === "completed"
+      ).length;
+      const avgProgress =
+        teamGoals.length > 0
+          ? Math.round(
+              teamGoals.reduce((sum, g) => sum + g.progress, 0) /
+                teamGoals.length
+            )
+          : 0;
+      map.set(team.teamId, { inProgress, completed, avgProgress });
+    }
+    return map;
+  }, [coachTeamsList, goalsWithPlayers, playerIdsByTeam]);
 
   // Handle milestone completion
   const handleCompleteMilestone = async (
@@ -430,71 +511,266 @@ export default function GoalsDashboardPage() {
     );
   }
 
+  const hasActiveFilters =
+    selectedTeamId !== "all" ||
+    searchTerm !== "" ||
+    statusFilter !== "active" ||
+    categoryFilter !== "all";
+
+  const clearAllFilters = () => {
+    setSelectedTeamId("all");
+    setSearchTerm("");
+    setStatusFilter("active");
+    setCategoryFilter("all");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Target className="h-8 w-8 text-blue-600" />
-          <div>
-            <h1 className="font-bold text-3xl tracking-tight">
-              Development Goals
-            </h1>
-            <p className="text-muted-foreground">
-              Track and manage player development goals
-            </p>
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        style={{ filter: "brightness(0.95)" }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Target className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">
+                Development Goals
+              </h1>
+              <p className="text-xs opacity-80 md:text-sm">
+                Track and manage player development goals
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowBulkCreateDialog(true)}
+              variant="secondary"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Team Goals
+            </Button>
+            <Button
+              onClick={() => setShowCreateDialog(true)}
+              variant="secondary"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Goal
+            </Button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => setShowBulkCreateDialog(true)}
-            variant="outline"
-          >
-            <Users className="mr-2 h-4 w-4" />
-            Team Goals
-          </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Goal
-          </Button>
-        </div>
-      </div>
+      </OrgThemedGradient>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="font-bold text-3xl text-gray-800">
-              {stats.total}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Target className="text-blue-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.total}
+              </div>
             </div>
-            <div className="text-muted-foreground text-sm">Total Goals</div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Total Goals
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div
+                className="h-1 rounded-full bg-blue-600"
+                style={{ width: "100%" }}
+              />
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="font-bold text-3xl text-blue-600">
-              {stats.inProgress}
+        <Card className="border-amber-200 bg-amber-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Pencil className="text-amber-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.inProgress}
+              </div>
             </div>
-            <div className="text-muted-foreground text-sm">In Progress</div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              In Progress
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-amber-100">
+              <div
+                className="h-1 rounded-full bg-amber-600"
+                style={{
+                  width:
+                    stats.total > 0
+                      ? `${(stats.inProgress / stats.total) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="font-bold text-3xl text-green-600">
-              {stats.completed}
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <CheckCircle className="text-green-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.completed}
+              </div>
             </div>
-            <div className="text-muted-foreground text-sm">Completed</div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Completed
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div
+                className="h-1 rounded-full bg-green-600"
+                style={{
+                  width:
+                    stats.total > 0
+                      ? `${(stats.completed / stats.total) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="font-bold text-3xl text-purple-600">
-              {stats.avgProgress}%
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <TrendingUp className="text-purple-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.avgProgress}%
+              </div>
             </div>
-            <div className="text-muted-foreground text-sm">Avg Progress</div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Avg Progress
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div
+                className="h-1 rounded-full bg-purple-600"
+                style={{ width: `${stats.avgProgress}%` }}
+              />
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Team Selector */}
+      {coachTeamsList.length > 0 && (
+        <div>
+          <button
+            className="mb-3 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-gray-50"
+            onClick={() => setTeamsExpanded((prev) => !prev)}
+            type="button"
+          >
+            <span className="font-semibold text-gray-700 text-sm">
+              {selectedTeamId === "all"
+                ? "All Teams"
+                : `${
+                    coachTeamsList.find((t) => t.teamId === selectedTeamId)
+                      ?.teamName ?? "All Teams"
+                  } · selected`}
+            </span>
+            <ChevronDown
+              className={`text-gray-500 transition-transform ${teamsExpanded ? "rotate-180" : ""}`}
+              size={18}
+            />
+          </button>
+          {teamsExpanded && (
+            <div
+              className={`grid gap-3 md:gap-4 ${coachTeamsList.length === 1 ? "max-w-xs grid-cols-1" : "grid-cols-2 md:grid-cols-4"}`}
+            >
+              {coachTeamsList.length > 1 && (
+                <Card
+                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${selectedTeamId === "all" ? "ring-2 ring-green-500" : ""}`}
+                  onClick={() => setSelectedTeamId("all")}
+                  style={{
+                    backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                    borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                  }}
+                >
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm leading-tight">
+                          All Teams
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          {coachTeamsList.length} teams
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800 text-sm leading-tight">
+                          {stats.total}
+                        </p>
+                        <p className="text-gray-500 text-xs">goals</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {coachTeamsList.map((team) => {
+                const isSelected = selectedTeamId === team.teamId;
+                const ageMeta = [team.ageGroup, team.gender]
+                  .filter(Boolean)
+                  .join(" • ");
+                const ts = goalStatsByTeam.get(team.teamId) ?? {
+                  inProgress: 0,
+                  completed: 0,
+                  avgProgress: 0,
+                };
+                return (
+                  <Card
+                    className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${isSelected ? "ring-2 ring-green-500" : ""}`}
+                    key={team.teamId}
+                    onClick={() => setSelectedTeamId(team.teamId)}
+                    style={{
+                      backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                      borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                    }}
+                  >
+                    <CardContent className="p-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="truncate font-semibold text-gray-800 text-sm leading-tight"
+                            title={team.teamName}
+                          >
+                            {team.teamName}
+                          </p>
+                          {ageMeta && (
+                            <p className="text-gray-500 text-xs">{ageMeta}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center gap-3 text-xs">
+                        <span
+                          className="flex items-center gap-1 text-amber-600"
+                          title="In Progress"
+                        >
+                          <Pencil size={10} />
+                          {ts.inProgress}
+                        </span>
+                        <span
+                          className="flex items-center gap-1 text-green-600"
+                          title="Completed"
+                        >
+                          <CheckCircle size={10} />
+                          {ts.completed}
+                        </span>
+                        <span
+                          className="flex items-center gap-1 text-purple-600"
+                          title="Avg Progress"
+                        >
+                          <TrendingUp size={10} />
+                          {ts.avgProgress}%
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
@@ -540,9 +816,25 @@ export default function GoalsDashboardPage() {
                 <SelectItem value="social">Social</SelectItem>
               </SelectContent>
             </Select>
+            {hasActiveFilters && (
+              <button
+                className="rounded-lg border border-gray-300 px-3 py-2 text-gray-500 text-sm transition-colors hover:border-gray-400 hover:text-gray-700"
+                onClick={clearAllFilters}
+                type="button"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         </CardContent>
       </Card>
+
+      {/* Filtered indicator */}
+      {hasActiveFilters && (
+        <p className="text-orange-500 text-xs">
+          Filtered — not showing all goals
+        </p>
+      )}
 
       {/* Goals Grid */}
       {filteredGoals.length > 0 ? (

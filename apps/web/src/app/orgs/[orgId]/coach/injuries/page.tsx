@@ -4,8 +4,8 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
+  Activity,
   AlertTriangle,
-  ArrowLeft,
   Calendar,
   Eye,
   Heart,
@@ -14,7 +14,7 @@ import {
   Plus,
   User,
 } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { InjuryDetailModal } from "@/components/injuries/injury-detail-modal";
@@ -130,7 +130,6 @@ const INJURY_TYPES = [
 
 export default function InjuryTrackingPage() {
   const params = useParams();
-  const router = useRouter();
   const orgId = params.orgId as string;
   const currentUser = useCurrentUser();
   const { data: session } = authClient.useSession();
@@ -460,18 +459,26 @@ export default function InjuryTrackingPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button onClick={() => router.back()} size="sm" variant="outline">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          <div>
-            <h1 className="font-bold text-2xl">Injury Tracking</h1>
-            <p className="text-muted-foreground text-sm">
-              Track and manage player injuries across your organization
-            </p>
+      <div className="rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 p-4 text-white shadow-md md:p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Activity className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">Injury Tracking</h1>
+              <p className="text-amber-100 text-xs md:text-sm">
+                Track and manage player injuries across your teams
+              </p>
+            </div>
           </div>
+          <Button
+            className="bg-white/20 text-white hover:bg-white/30 hover:text-white"
+            onClick={() => setShowAddDialog(true)}
+            size="sm"
+            variant="ghost"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Injury
+          </Button>
         </div>
       </div>
 

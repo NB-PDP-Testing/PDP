@@ -1125,7 +1125,7 @@ export const getSharedPassportData = query({
             organizationName: org?.name || "Unknown Organization",
             createdAt: goal.createdAt,
             updatedAt: goal.updatedAt,
-            isShareable: goal.isShareable,
+            isShareable: goal.isShareable ?? false,
           };
         })
       );

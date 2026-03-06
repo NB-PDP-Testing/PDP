@@ -5,18 +5,17 @@ import { useQuery } from "convex/react";
 import {
   AlertCircle,
   AlertTriangle,
-  ArrowLeft,
   Eye,
   Heart,
+  HeartPulse,
   Loader2,
   Phone,
   Pill,
   Search,
   Shield,
-  User,
   Users,
 } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,14 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 // Privacy confirmation component for coaches
 function CoachPrivacyConfirmation({
@@ -244,7 +235,6 @@ function CoachMedicalView({
 // Main Coach Medical Page
 export default function CoachMedicalPage() {
   const params = useParams();
-  const router = useRouter();
   const orgId = params.orgId as string;
 
   // State
@@ -355,85 +345,118 @@ export default function CoachMedicalPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={() => router.push(`/orgs/${orgId}/coach`)}
-            size="sm"
-            variant="outline"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
+      <div className="rounded-lg bg-gradient-to-r from-red-500 to-red-600 p-4 text-white shadow-md md:p-6">
+        <div className="flex items-center gap-2 md:gap-3">
+          <HeartPulse className="h-7 w-7 flex-shrink-0" />
           <div>
-            <h1 className="font-bold text-2xl">Player Medical Info</h1>
-            <p className="text-muted-foreground text-sm">
-              View-only access for player safety
+            <h1 className="font-bold text-xl md:text-2xl">
+              Medical Information
+            </h1>
+            <p className="text-sm opacity-90">
+              Player health details and emergency contacts
             </p>
           </div>
         </div>
-        <Badge className="flex items-center gap-2" variant="outline">
-          <Eye className="h-4 w-4" />
-          View Only
-        </Badge>
       </div>
 
       {/* Alert Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <Users className="h-6 w-6 text-green-600" />
+            <div className="mb-2 flex items-center justify-between">
+              <Users className="text-green-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {playersWithProfiles}
               </div>
-              <div>
-                <p className="text-muted-foreground text-sm">
-                  Players with Profiles
-                </p>
-                <p className="font-bold text-2xl">{playersWithProfiles}</p>
-              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Players with Profiles
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div
+                className="h-1 rounded-full bg-green-600"
+                style={{
+                  width:
+                    allProfiles.length > 0
+                      ? `${(playersWithProfiles / allProfiles.length) * 100}%`
+                      : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
 
-        <Card className={alertCounts.allergies > 0 ? "border-orange-200" : ""}>
+        <Card className="border-orange-200 bg-orange-50 pt-0 transition-all duration-200 hover:shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
-                <AlertCircle className="h-6 w-6 text-orange-600" />
+            <div className="mb-2 flex items-center justify-between">
+              <AlertCircle className="text-orange-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {alertCounts.allergies}
               </div>
-              <div>
-                <p className="text-muted-foreground text-sm">With Allergies</p>
-                <p className="font-bold text-2xl">{alertCounts.allergies}</p>
-              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              With Allergies
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-orange-100">
+              <div
+                className="h-1 rounded-full bg-orange-600"
+                style={{
+                  width:
+                    playersWithProfiles > 0
+                      ? `${(alertCounts.allergies / playersWithProfiles) * 100}%`
+                      : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
 
-        <Card className={alertCounts.conditions > 0 ? "border-purple-200" : ""}>
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-                <AlertTriangle className="h-6 w-6 text-purple-600" />
+            <div className="mb-2 flex items-center justify-between">
+              <AlertTriangle className="text-purple-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {alertCounts.conditions}
               </div>
-              <div>
-                <p className="text-muted-foreground text-sm">With Conditions</p>
-                <p className="font-bold text-2xl">{alertCounts.conditions}</p>
-              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              With Conditions
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div
+                className="h-1 rounded-full bg-purple-600"
+                style={{
+                  width:
+                    playersWithProfiles > 0
+                      ? `${(alertCounts.conditions / playersWithProfiles) * 100}%`
+                      : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
 
-        <Card className={alertCounts.medications > 0 ? "border-blue-200" : ""}>
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-                <Pill className="h-6 w-6 text-blue-600" />
+            <div className="mb-2 flex items-center justify-between">
+              <Pill className="text-blue-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {alertCounts.medications}
               </div>
-              <div>
-                <p className="text-muted-foreground text-sm">On Medication</p>
-                <p className="font-bold text-2xl">{alertCounts.medications}</p>
-              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              On Medication
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div
+                className="h-1 rounded-full bg-blue-600"
+                style={{
+                  width:
+                    playersWithProfiles > 0
+                      ? `${(alertCounts.medications / playersWithProfiles) * 100}%`
+                      : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
@@ -471,7 +494,7 @@ export default function CoachMedicalPage() {
         </CardContent>
       </Card>
 
-      {/* Players Table */}
+      {/* Players Grid */}
       <Card>
         <CardHeader>
           <CardTitle>Player Medical Overview</CardTitle>
@@ -480,36 +503,98 @@ export default function CoachMedicalPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Player</TableHead>
-                <TableHead>Age Group</TableHead>
-                <TableHead>Alerts</TableHead>
-                <TableHead>Emergency Contact</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          {filteredPlayers.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-muted-foreground">
+                No players with medical profiles found
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {filteredPlayers.map(
-                (item: NonNullable<typeof allProfiles>[0]) => (
-                  <TableRow key={item.player._id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
-                          <User className="h-5 w-5 text-gray-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{item.player.name}</p>
-                          <p className="text-muted-foreground text-xs">
-                            {item.player.sport}
-                          </p>
-                        </div>
+                (item: NonNullable<typeof allProfiles>[0]) => {
+                  const sportCode = item.player.sport;
+                  const SPORT_NAMES: Record<string, string> = {
+                    gaa_gaelic_football: "GAA Football",
+                    gaa_football: "GAA Football",
+                    gaa_hurling: "Hurling",
+                    soccer: "Soccer",
+                    football: "Soccer",
+                    rugby: "Rugby",
+                    rugby_union: "Rugby Union",
+                    rugby_league: "Rugby League",
+                    basketball: "Basketball",
+                    hockey: "Hockey",
+                    field_hockey: "Field Hockey",
+                    athletics: "Athletics",
+                    cricket: "Cricket",
+                    tennis: "Tennis",
+                  };
+                  const sportName = sportCode
+                    ? (SPORT_NAMES[sportCode.toLowerCase()] ??
+                      sportCode
+                        .split("_")
+                        .map(
+                          (w: string) => w.charAt(0).toUpperCase() + w.slice(1)
+                        )
+                        .join(" "))
+                    : null;
+                  const icePhone = item.profile?.emergencyContact1Phone;
+                  return (
+                    <div
+                      className="cursor-pointer rounded-lg border p-3 transition-all duration-200 hover:shadow-md"
+                      key={item.player._id}
+                      onClick={() =>
+                        handleViewClick(item.player.name, item.profile)
+                      }
+                      style={{
+                        backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                        borderColor: "rgba(var(--org-primary-rgb), 0.25)",
+                      }}
+                    >
+                      {/* Name */}
+                      <p
+                        className="truncate font-semibold text-gray-900 text-sm"
+                        title={item.player.name}
+                      >
+                        {item.player.name}
+                      </p>
+
+                      {/* Age group */}
+                      {item.player.ageGroup && (
+                        <p className="truncate text-gray-500 text-xs">
+                          {item.player.ageGroup}
+                        </p>
+                      )}
+
+                      {/* Sport name */}
+                      {sportName && (
+                        <p className="truncate text-gray-400 text-xs">
+                          {sportName}
+                        </p>
+                      )}
+
+                      {/* ICE contact */}
+                      <div className="mt-2">
+                        {icePhone ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-red-100 px-1.5 py-0.5 font-bold text-[10px] text-red-600">
+                              <HeartPulse className="h-3 w-3" />
+                              ICE
+                            </span>
+                            <span className="truncate font-mono text-gray-600 text-xs">
+                              {icePhone}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">
+                            No ICE contact
+                          </span>
+                        )}
                       </div>
-                    </TableCell>
-                    <TableCell>{item.player.ageGroup}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
+
+                      {/* Alert badges */}
+                      <div className="mt-2 flex flex-wrap gap-1">
                         {item.hasAllergies && (
                           <Badge
                             className="bg-orange-100 text-orange-700"
@@ -544,38 +629,12 @@ export default function CoachMedicalPage() {
                           </Badge>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-mono text-sm">
-                        {item.profile?.emergencyContact1Phone || "Not set"}
-                      </p>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        onClick={() =>
-                          handleViewClick(item.player.name, item.profile)
-                        }
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Eye className="mr-1 h-4 w-4" />
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )
+                    </div>
+                  );
+                }
               )}
-              {filteredPlayers.length === 0 && (
-                <TableRow>
-                  <TableCell className="py-8 text-center" colSpan={5}>
-                    <p className="text-muted-foreground">
-                      No players with medical profiles found
-                    </p>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 

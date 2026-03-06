@@ -3,19 +3,11 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import {
-  ArrowLeft,
-  Edit2,
-  FileText,
-  Loader2,
-  Save,
-  User,
-  Users,
-  X,
-} from "lucide-react";
+import { Edit2, FileText, Loader2, Save, User, Users, X } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -287,26 +279,28 @@ export default function CoachNotesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button
-          onClick={() => router.push(`/orgs/${orgId}/coach`)}
-          size="sm"
-          variant="outline"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-        <div className="flex-1">
-          <h1 className="font-bold text-2xl">Development Notes</h1>
-          <p className="text-muted-foreground text-sm">
-            View and edit coach notes for your players
-          </p>
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        style={{ filter: "brightness(0.95)" }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-3">
+            <FileText className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">
+                Development Notes
+              </h1>
+              <p className="text-xs opacity-80 md:text-sm">
+                View and edit coach notes for your players
+              </p>
+            </div>
+          </div>
+          <Badge className="border-white/30 bg-white/20 text-white">
+            {playersWithNotes.length} player
+            {playersWithNotes.length !== 1 ? "s" : ""} with notes
+          </Badge>
         </div>
-        <Badge className="text-sm" variant="secondary">
-          {playersWithNotes.length} player
-          {playersWithNotes.length !== 1 ? "s" : ""} with notes
-        </Badge>
-      </div>
+      </OrgThemedGradient>
 
       {/* Notes List */}
       {playersWithNotes.length === 0 ? (

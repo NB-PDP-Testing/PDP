@@ -9,6 +9,7 @@ import {
   Home,
   LayoutDashboard,
   Menu,
+  MessageSquare,
   Mic,
   Stethoscope,
   Target,
@@ -340,10 +341,16 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
       href: `/orgs/${orgId}/coach`,
     },
     {
-      id: "players",
-      icon: Users,
-      label: "Players",
-      href: `/orgs/${orgId}/coach/players`,
+      id: "todos",
+      icon: CheckSquare,
+      label: "Tasks",
+      href: `/orgs/${orgId}/coach/todos`,
+    },
+    {
+      id: "messages",
+      icon: MessageSquare,
+      label: "Messages",
+      href: `/orgs/${orgId}/coach/messages`,
     },
     {
       id: "voice",
@@ -357,12 +364,6 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
       icon: LayoutDashboard,
       label: "Hub",
       href: `/orgs/${orgId}/coach/team-hub`,
-    },
-    {
-      id: "todos",
-      icon: CheckSquare,
-      label: "Tasks",
-      href: `/orgs/${orgId}/coach/todos`,
     },
   ];
 

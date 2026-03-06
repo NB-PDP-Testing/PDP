@@ -158,6 +158,22 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/orgs/**/coach/**", "**/orgs/**/players/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noNoninteractiveElementInteractions": "off",
+            "noStaticElementInteractions": "off",
+            "useSemanticElements": "off",
+            "useKeyWithClickEvents": "off"
+          },
+          "nursery": {
+            "noIncrementDecrement": "off"
+          }
+        }
+      }
     }
   ]
 }

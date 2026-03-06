@@ -2690,3 +2690,251 @@ Not performed — no dev browser session active. The frontend wiring is confirme
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Auto Quality Check - 2026-03-06 08:39:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/emergencyContacts.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 08:52:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-06 08:52:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 08:52:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-03-06 12:37:52
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-06 12:37:52
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 12:37:52
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-03-06 12:38:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-06 12:38:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 12:38:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-03-06 12:38:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-06 12:38:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 12:38:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-03-06 12:42:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-06 12:42:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 12:42:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-03-06 12:42:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-06 12:42:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 12:42:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-03-06 12:47:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-06 12:47:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 12:47:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-03-06 12:48:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-06 12:48:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 12:48:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-03-06 13:16:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-06 13:16:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 13:16:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-03-06 13:16:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-06 13:16:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-06 13:16:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+

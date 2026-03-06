@@ -4,7 +4,6 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import {
-  ArrowLeft,
   Brain,
   Calendar,
   CheckCircle,
@@ -28,6 +27,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Masonry from "react-masonry-css";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -587,90 +587,119 @@ export default function SessionPlansPage() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Header */}
         <div className="min-w-0 border-b bg-background p-4 sm:p-6">
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="mb-2 flex items-center gap-3">
-                <Button
-                  className="shrink-0"
-                  onClick={() => router.push(`/orgs/${orgId}/coach`)}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <ClipboardList className="h-8 w-8 text-primary" />
-                <h1 className="font-bold text-3xl tracking-tight">
-                  Session Plans
-                </h1>
+          <OrgThemedGradient
+            className="mb-6 rounded-lg p-4 shadow-md md:p-6"
+            style={{ filter: "brightness(0.95)" }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 md:gap-3">
+                <Calendar className="h-7 w-7 flex-shrink-0" />
+                <div>
+                  <h1 className="font-bold text-xl md:text-2xl">
+                    Session Plans
+                  </h1>
+                  <p className="text-xs opacity-80 md:text-sm">
+                    AI-powered training session plans for your teams
+                  </p>
+                </div>
               </div>
-              <p className="ml-16 text-muted-foreground">
-                AI-powered training session plans for your teams
-              </p>
+              <Link href={`/orgs/${orgId}/coach/session-plans/new`}>
+                <Button variant="secondary">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Plan
+                </Button>
+              </Link>
             </div>
-            <Link href={`/orgs/${orgId}/coach/session-plans/new`}>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Generate New Plan
-              </Button>
-            </Link>
-          </div>
+          </OrgThemedGradient>
 
           {/* Stats Bar */}
           {stats && activeTab === "my-plans" && (
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-muted-foreground text-sm">
-                        Total Plans
-                      </p>
-                      <p className="font-bold text-2xl">{stats.totalPlans}</p>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+              <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+                <CardContent className="pt-6">
+                  <div className="mb-2 flex items-center justify-between">
+                    <ClipboardList className="text-blue-600" size={20} />
+                    <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                      {stats.totalPlans}
                     </div>
-                    <ClipboardList className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div className="font-medium text-gray-600 text-xs md:text-sm">
+                    Total Plans
+                  </div>
+                  <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+                    <div
+                      className="h-1 rounded-full bg-blue-600"
+                      style={{ width: "100%" }}
+                    />
                   </div>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-muted-foreground text-sm">
-                        Used Plans
-                      </p>
-                      <p className="font-bold text-2xl text-green-600">
-                        {stats.usedPlans}
-                      </p>
+              <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+                <CardContent className="pt-6">
+                  <div className="mb-2 flex items-center justify-between">
+                    <CheckCircle className="text-green-600" size={20} />
+                    <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                      {stats.usedPlans}
                     </div>
-                    <CheckCircle className="h-8 w-8 text-green-600" />
+                  </div>
+                  <div className="font-medium text-gray-600 text-xs md:text-sm">
+                    Used Plans
+                  </div>
+                  <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+                    <div
+                      className="h-1 rounded-full bg-green-600"
+                      style={{
+                        width:
+                          stats.totalPlans > 0
+                            ? `${Math.round((stats.usedPlans / stats.totalPlans) * 100)}%`
+                            : "0%",
+                      }}
+                    />
                   </div>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-muted-foreground text-sm">
-                        Success Rate
-                      </p>
-                      <p className="font-bold text-2xl">
-                        {stats.avgSuccessRate?.toFixed(0) ?? 0}%
-                      </p>
+              <Card className="border-amber-200 bg-amber-50 pt-0 transition-all duration-200 hover:shadow-lg">
+                <CardContent className="pt-6">
+                  <div className="mb-2 flex items-center justify-between">
+                    <TrendingUp className="text-amber-600" size={20} />
+                    <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                      {stats.avgSuccessRate?.toFixed(0) ?? 0}%
                     </div>
-                    <TrendingUp className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div className="font-medium text-gray-600 text-xs md:text-sm">
+                    Success Rate
+                  </div>
+                  <div className="mt-2 h-1 w-full rounded-full bg-amber-100">
+                    <div
+                      className="h-1 rounded-full bg-amber-600"
+                      style={{
+                        width: `${stats.avgSuccessRate?.toFixed(0) ?? 0}%`,
+                      }}
+                    />
                   </div>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-muted-foreground text-sm">
-                        This Month
-                      </p>
-                      <p className="font-bold text-2xl">{stats.recentPlans}</p>
+              <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+                <CardContent className="pt-6">
+                  <div className="mb-2 flex items-center justify-between">
+                    <Calendar className="text-purple-600" size={20} />
+                    <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                      {stats.recentPlans}
                     </div>
-                    <Calendar className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div className="font-medium text-gray-600 text-xs md:text-sm">
+                    This Month
+                  </div>
+                  <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+                    <div
+                      className="h-1 rounded-full bg-purple-600"
+                      style={{
+                        width:
+                          stats.totalPlans > 0
+                            ? `${Math.round((stats.recentPlans / stats.totalPlans) * 100)}%`
+                            : "0%",
+                      }}
+                    />
                   </div>
                 </CardContent>
               </Card>

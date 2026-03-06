@@ -5,7 +5,6 @@ import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generat
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
-  ArrowLeft,
   BarChart3,
   ChevronDown,
   Clock,
@@ -19,12 +18,13 @@ import {
   Send,
   Users,
 } from "lucide-react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DegradationBanner } from "@/components/coach/degradation-banner";
 import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
 import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { CoachAIHelpDialog } from "@/components/profile/coach-ai-help-dialog";
 import {
   AlertDialog,
@@ -37,7 +37,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,7 +75,6 @@ type TabId =
 
 export function VoiceNotesDashboard() {
   const params = useParams();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const orgId = params.orgId as BetterAuthId<"organization">;
   const { data: session } = useSession();
@@ -540,26 +538,21 @@ export function VoiceNotesDashboard() {
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
       {/* Header */}
       <div className="mb-4 flex flex-col gap-4 sm:mb-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Button
-              className="h-8 w-8 p-0 sm:h-9 sm:w-9"
-              onClick={() => router.push(`/orgs/${orgId}/coach`)}
-              size="sm"
-              variant="ghost"
-            >
-              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
-            <Mic className="h-6 w-6 text-green-600 sm:h-8 sm:w-8" />
+        <OrgThemedGradient
+          className="rounded-lg p-4 shadow-md md:p-6"
+          style={{ filter: "brightness(0.95)" }}
+        >
+          <div className="flex items-center gap-2 md:gap-3">
+            <Mic className="h-7 w-7 flex-shrink-0" />
             <div>
-              <h1 className="font-bold text-foreground text-xl sm:text-3xl">
-                Voice Notes
-              </h1>
-              <p className="hidden text-gray-600 text-sm sm:block">
-                Record and analyze training observations
+              <h1 className="font-bold text-xl md:text-2xl">Voice Notes</h1>
+              <p className="text-xs opacity-80 md:text-sm">
+                Record and manage AI-powered coaching observations
               </p>
             </div>
           </div>
+        </OrgThemedGradient>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center justify-end gap-2 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="text-center">

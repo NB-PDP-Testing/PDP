@@ -8,6 +8,7 @@ import {
   Edit2,
   FileText,
   Loader2,
+  Plus,
   Save,
   Search,
   User,
@@ -27,7 +28,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -40,6 +57,181 @@ type PlayerWithNotes = {
   coachNotes: string;
   lastUpdated?: number;
 };
+
+type AllPlayer = {
+  enrollmentId: Id<"orgPlayerEnrollments">;
+  playerIdentityId: Id<"playerIdentities">;
+  playerName: string;
+  ageGroup: string;
+  coachNotes: string;
+};
+
+type CoachTeam = {
+  teamId: string;
+  teamName: string;
+  ageGroup?: string;
+  gender?: string;
+};
+
+type AddNoteDialogProps = {
+  open: boolean;
+  onClose: () => void;
+  coachTeamsList: CoachTeam[];
+  allPlayers: AllPlayer[];
+  playerIdsByTeam: Map<string, Set<string>>;
+  onSave: (
+    enrollmentId: Id<"orgPlayerEnrollments">,
+    note: string
+  ) => Promise<void>;
+};
+
+function AddNoteDialog({
+  open,
+  onClose,
+  coachTeamsList,
+  allPlayers,
+  playerIdsByTeam,
+  onSave,
+}: AddNoteDialogProps) {
+  const [dialogTeamId, setDialogTeamId] = useState<string>("all");
+  const [enrollmentId, setEnrollmentId] = useState<string>("");
+  const [noteText, setNoteText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const availablePlayers = useMemo(() => {
+    if (dialogTeamId === "all") {
+      return allPlayers;
+    }
+    const teamPlayerIds = playerIdsByTeam.get(dialogTeamId);
+    return allPlayers.filter((p) =>
+      teamPlayerIds?.has(p.playerIdentityId.toString())
+    );
+  }, [allPlayers, dialogTeamId, playerIdsByTeam]);
+
+  const selectedPlayer = useMemo(
+    () => allPlayers.find((p) => p.enrollmentId === enrollmentId),
+    [allPlayers, enrollmentId]
+  );
+
+  const handleClose = () => {
+    setDialogTeamId("all");
+    setEnrollmentId("");
+    setNoteText("");
+    onClose();
+  };
+
+  const handleTeamChange = (value: string) => {
+    setDialogTeamId(value);
+    setEnrollmentId("");
+  };
+
+  const handleSave = async () => {
+    if (!(enrollmentId && noteText.trim())) {
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const existingNotes = selectedPlayer?.coachNotes?.trim() ?? "";
+      const combined = existingNotes
+        ? `${existingNotes}\n\n---\n\n${noteText.trim()}`
+        : noteText.trim();
+      await onSave(enrollmentId as Id<"orgPlayerEnrollments">, combined);
+      handleClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog onOpenChange={(v) => !v && handleClose()} open={open}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add Development Note</DialogTitle>
+          <DialogDescription>
+            Select a team and player, then enter your note.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          {coachTeamsList.length > 1 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="dialog-team">Team</Label>
+              <Select onValueChange={handleTeamChange} value={dialogTeamId}>
+                <SelectTrigger id="dialog-team">
+                  <SelectValue placeholder="All Teams" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Teams</SelectItem>
+                  {coachTeamsList.map((t) => (
+                    <SelectItem key={t.teamId} value={t.teamId}>
+                      {t.teamName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="dialog-player">Player</Label>
+            <Select
+              disabled={availablePlayers.length === 0}
+              onValueChange={setEnrollmentId}
+              value={enrollmentId}
+            >
+              <SelectTrigger id="dialog-player">
+                <SelectValue placeholder="Select a player..." />
+              </SelectTrigger>
+              <SelectContent>
+                {availablePlayers.map((p) => (
+                  <SelectItem key={p.enrollmentId} value={p.enrollmentId}>
+                    {p.playerName}
+                    {p.ageGroup ? ` (${p.ageGroup})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedPlayer?.coachNotes?.trim() && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+              <p className="mb-1 font-medium text-amber-700 text-xs">
+                Existing notes (your new note will be appended):
+              </p>
+              <p className="line-clamp-3 text-amber-800 text-xs">
+                {selectedPlayer.coachNotes}
+              </p>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="dialog-note">Note</Label>
+            <Textarea
+              id="dialog-note"
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Enter development note..."
+              rows={5}
+              value={noteText}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={handleClose} type="button" variant="outline">
+            Cancel
+          </Button>
+          <Button
+            disabled={!(enrollmentId && noteText.trim()) || submitting}
+            onClick={handleSave}
+            type="button"
+          >
+            {submitting ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-1 h-4 w-4" />
+            )}
+            Save Note
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function CoachNotesPage() {
   const params = useParams();
@@ -54,6 +246,7 @@ export default function CoachNotesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingNotes, setEditingNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [showAddNoteDialog, setShowAddNoteDialog] = useState(false);
 
   // Team filter state
   const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
@@ -223,11 +416,6 @@ export default function CoachNotesPage() {
     );
   }, [enrolledPlayersData, passportByPlayerId]);
 
-  const playersWithoutNotes = useMemo(
-    () => allPlayers.filter((p) => !p.coachNotes?.trim()),
-    [allPlayers]
-  );
-
   // Deduplicated coach team list for the team selector
   const coachTeamsList = useMemo(() => {
     if (!coachAssignments?.teams) {
@@ -359,6 +547,18 @@ export default function CoachNotesPage() {
     }
   };
 
+  const handleAddNoteSave = async (
+    enrollmentId: Id<"orgPlayerEnrollments">,
+    note: string
+  ) => {
+    await updateEnrollment({
+      enrollmentId,
+      coachNotes: note,
+      confirmed: true,
+    });
+    toast.success("Note added successfully");
+  };
+
   const handleClearNotes = async (enrollmentId: Id<"orgPlayerEnrollments">) => {
     // biome-ignore lint/suspicious/noAlert: Simple confirmation is appropriate for destructive action
     const confirmed = confirm(
@@ -419,10 +619,21 @@ export default function CoachNotesPage() {
               </p>
             </div>
           </div>
-          <Badge className="border-white/30 bg-white/20 text-white">
-            {playersWithNotes.length} player
-            {playersWithNotes.length !== 1 ? "s" : ""} with notes
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              className="border-white/30 bg-white/20 text-white hover:bg-white/30"
+              onClick={() => setShowAddNoteDialog(true)}
+              size="sm"
+              variant="outline"
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Add Notes
+            </Button>
+            <Badge className="border-white/30 bg-white/20 text-white">
+              {playersWithNotes.length} player
+              {playersWithNotes.length !== 1 ? "s" : ""} with notes
+            </Badge>
+          </div>
         </div>
       </OrgThemedGradient>
 
@@ -714,33 +925,15 @@ export default function CoachNotesPage() {
         </div>
       )}
 
-      {/* Players Without Notes */}
-      {playersWithoutNotes.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Add Notes to Other Players
-            </CardTitle>
-            <CardDescription>
-              Click on a player to view their profile and add notes
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {playersWithoutNotes.map((player) => (
-                <Button
-                  key={player.enrollmentId}
-                  onClick={() => handleViewPlayer(player.playerIdentityId)}
-                  size="sm"
-                  variant="outline"
-                >
-                  {player.playerName}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Add Note Dialog */}
+      <AddNoteDialog
+        allPlayers={allPlayers}
+        coachTeamsList={coachTeamsList}
+        onClose={() => setShowAddNoteDialog(false)}
+        onSave={handleAddNoteSave}
+        open={showAddNoteDialog}
+        playerIdsByTeam={playerIdsByTeam}
+      />
     </div>
   );
 }

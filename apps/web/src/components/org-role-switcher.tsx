@@ -168,15 +168,6 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     useState<FunctionalRole | null>(null);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
-  // Deep link role context prompt (US-P6-006)
-  // Shows when user navigates to a URL whose role segment doesn't match activeFunctionalRole
-  const [deepLinkPrompt, setDeepLinkPrompt] = useState<{
-    role: FunctionalRole;
-    orgId: string;
-  } | null>(null);
-  // Track dismissed pathname to prevent re-prompting on the same URL
-  const dismissedPromptPathnameRef = useRef<string | null>(null);
-
   const { data: _session } = authClient.useSession();
   const { data: organizations, isPending: isLoadingOrgs } =
     authClient.useListOrganizations();
@@ -268,16 +259,13 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
       const needsSync = urlRole !== currentRole;
 
       if (hasRole && needsSync) {
-        // Deep link role context prompt (US-P6-006):
-        // Instead of silently auto-switching, prompt the user to confirm.
-        // Skip if the user already dismissed the prompt on this same pathname.
-        if (dismissedPromptPathnameRef.current === pathname) {
-          return; // Already dismissed for this URL — don't re-prompt
-        }
-        console.log(
-          `[Role Sync] Prompting role switch for URL: ${urlRole} (was: ${currentRole})`
-        );
-        setDeepLinkPrompt({ role: urlRole, orgId: urlOrgId });
+        // Auto-switch role to match the URL — no prompt
+        switchActiveRole({
+          organizationId: urlOrgId,
+          functionalRole: urlRole,
+        }).catch((err) => {
+          console.error("[Role Sync] Failed to auto-sync role from URL:", err);
+        });
       }
     };
 
@@ -364,24 +352,6 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     } finally {
       setSwitching(false);
     }
-  };
-
-  // Deep link prompt handlers (US-P6-006)
-  const handleDeepLinkSwitch = async () => {
-    if (!(deepLinkPrompt && urlOrgId)) {
-      return;
-    }
-    const { role, orgId } = deepLinkPrompt;
-    setDeepLinkPrompt(null);
-    dismissedPromptPathnameRef.current = null;
-    // Use existing handleSwitchRole which updates activeFunctionalRole and navigates
-    await handleSwitchRole(orgId, role);
-  };
-
-  const handleDeepLinkStay = () => {
-    // Record the dismissed pathname so we don't re-prompt on the same URL
-    dismissedPromptPathnameRef.current = pathname;
-    setDeepLinkPrompt(null);
   };
 
   const handleOpenRequestDialog = () => {
@@ -870,57 +840,6 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
             )}
           </CommandList>
         </Command>
-      </ResponsiveDialog>
-
-      {/* Deep Link Role Context Prompt (US-P6-006) */}
-      {/* Shows when user navigates to a URL whose role doesn't match activeFunctionalRole */}
-      {/* Mobile: bottom sheet via ResponsiveDialog; Desktop: centered dialog */}
-      <ResponsiveDialog
-        contentClassName="sm:max-w-sm"
-        description={`This page is for your ${deepLinkPrompt ? getRoleLabel(deepLinkPrompt.role) : ""} context. Would you like to switch?`}
-        footer={
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button
-              className="sm:order-1"
-              onClick={handleDeepLinkStay}
-              variant="outline"
-            >
-              Stay as{" "}
-              {currentMembership?.activeFunctionalRole
-                ? getRoleLabel(currentMembership.activeFunctionalRole)
-                : "current role"}
-            </Button>
-            <Button onClick={handleDeepLinkSwitch}>
-              Switch to{" "}
-              {deepLinkPrompt ? getRoleLabel(deepLinkPrompt.role) : ""}
-            </Button>
-          </div>
-        }
-        onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            handleDeepLinkStay();
-          }
-        }}
-        open={!!deepLinkPrompt}
-        title={`Switch to ${deepLinkPrompt ? getRoleLabel(deepLinkPrompt.role) : ""}?`}
-      >
-        <div className="py-2 text-muted-foreground text-sm">
-          {deepLinkPrompt && (
-            <div className="flex items-center gap-2">
-              {getRoleIcon(deepLinkPrompt.role)}
-              <span>
-                You are currently acting as{" "}
-                <strong>
-                  {currentMembership?.activeFunctionalRole
-                    ? getRoleLabel(currentMembership.activeFunctionalRole)
-                    : "a member"}
-                </strong>
-                . This page belongs to your{" "}
-                <strong>{getRoleLabel(deepLinkPrompt.role)}</strong> context.
-              </span>
-            </div>
-          )}
-        </div>
       </ResponsiveDialog>
 
       {/* Request Role Dialog */}

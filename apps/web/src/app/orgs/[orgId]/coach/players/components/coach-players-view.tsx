@@ -7,7 +7,9 @@ import {
   ChevronUp,
   Edit,
   FileText,
+  Mic,
   Search,
+  Target,
   Users,
   X,
 } from "lucide-react";
@@ -166,6 +168,47 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
         }
       : "skip"
   );
+
+  // Applied voice insights for coach's players (org-scoped, aggregated client-side)
+  const appliedInsights = useQuery(
+    api.models.voiceNoteInsights.getPendingInsights,
+    userId && orgId ? { organizationId: orgId, status: "applied" } : "skip"
+  );
+
+  // Active development goals for org (aggregated client-side by player)
+  const activeGoals = useQuery(
+    api.models.passportGoals.getGoalsForOrg,
+    orgId ? { organizationId: orgId, status: "in_progress" } : "skip"
+  );
+
+  // Map of playerIdentityId -> applied insight count
+  const insightCountByPlayer = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!appliedInsights) {
+      return map;
+    }
+    for (const insight of appliedInsights) {
+      if (!insight.playerIdentityId) {
+        continue;
+      }
+      const pid = insight.playerIdentityId.toString();
+      map.set(pid, (map.get(pid) ?? 0) + 1);
+    }
+    return map;
+  }, [appliedInsights]);
+
+  // Map of playerIdentityId -> active goal count
+  const goalCountByPlayer = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!activeGoals) {
+      return map;
+    }
+    for (const goal of activeGoals) {
+      const pid = goal.playerIdentityId.toString();
+      map.set(pid, (map.get(pid) ?? 0) + 1);
+    }
+    return map;
+  }, [activeGoals]);
 
   const getPlayerTeams = (player: any): string[] => {
     if (!teamPlayerLinks) {
@@ -651,12 +694,8 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                     )
                   : null;
                 const reviewBadge =
-                  reviewDays === null
-                    ? {
-                        label: "Never reviewed",
-                        cls: "bg-gray-100 text-gray-500",
-                      }
-                    : reviewDays <= 60
+                  reviewDays !== null
+                    ? reviewDays <= 60
                       ? {
                           label: `${reviewDays}d ago`,
                           cls: "bg-green-100 text-green-700",
@@ -669,8 +708,14 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                         : {
                             label: `${reviewDays}d ago`,
                             cls: "bg-red-100 text-red-700",
-                          };
+                          }
+                    : null;
                 const availability = getPassportAvailability(player);
+                const insightCount =
+                  insightCountByPlayer.get(player._id.toString()) ?? 0;
+                const goalCount =
+                  goalCountByPlayer.get(player._id.toString()) ?? 0;
+                const hasNotes = Boolean(player.coachNotes?.trim());
                 // biome-ignore lint/a11y/useSemanticElements: card layout uses div for complex nested content
                 return (
                   <div
@@ -724,7 +769,7 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                       <p className="truncate text-gray-500 text-xs">
                         {calcAge(player.dateOfBirth) >= 18
                           ? "Adult"
-                          : calcAge(player.dateOfBirth)}
+                          : `Age ${calcAge(player.dateOfBirth)}`}
                       </p>
                     ) : player.ageGroup ? (
                       <p className="truncate text-gray-500 text-xs">
@@ -740,18 +785,37 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center gap-1">
-                      <span
-                        className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs ${reviewBadge.cls}`}
-                      >
-                        {reviewBadge.label}
-                      </span>
-                      {player.coachNotes && (
+                      {reviewBadge && (
                         <span
-                          className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700"
-                          title={player.coachNotes}
+                          className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs ${reviewBadge.cls}`}
                         >
-                          <FileText size={10} />
-                          Notes
+                          {reviewBadge.label}
+                        </span>
+                      )}
+                      {insightCount > 0 && (
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-700"
+                          title="Voice insights applied"
+                        >
+                          <Mic size={10} />
+                          {insightCount}
+                        </span>
+                      )}
+                      {goalCount > 0 && (
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700"
+                          title="Active development goals"
+                        >
+                          <Target size={10} />
+                          {goalCount}
+                        </span>
+                      )}
+                      {hasNotes && (
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700"
+                          title="Has development notes"
+                        >
+                          <FileText size={10} />1
                         </span>
                       )}
                       {availability && (

@@ -605,12 +605,6 @@ export default function CoachNotesPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {hasActiveFilters && (
-            <p className="text-muted-foreground text-sm">
-              Showing {filteredNotes.length} of {playersWithNotes.length}{" "}
-              players
-            </p>
-          )}
           {filteredNotes.map((player) => (
             <Card className="overflow-hidden" key={player.enrollmentId}>
               <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 pb-3">

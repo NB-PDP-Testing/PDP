@@ -80,7 +80,7 @@ function TeamTrend({ trend }: { trend: { date: string; score: number }[] }) {
     );
   }
   const first = trend[0].score;
-  const last = trend.at(-1).score;
+  const last = (trend.at(-1) ?? trend[0]).score;
   const delta = last - first;
   const TrendIcon = delta >= 0 ? TrendingUp : TrendingDown;
   const trendColor =

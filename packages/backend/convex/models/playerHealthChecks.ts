@@ -252,6 +252,40 @@ export const getWellnessForCoach = query({
       return [];
     }
 
+    // Fetch team records from Better Auth to filter to adult/senior teams only
+    type BetterAuthTeamForCoach = { _id: string; ageGroup?: string };
+    const coachTeamsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: { cursor: null, numItems: 1000 },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+    const coachAllTeams = (
+      coachTeamsResult as { page: BetterAuthTeamForCoach[] }
+    ).page;
+    const coachTeamAgeGroupMap = new Map(
+      coachAllTeams.map((t) => [
+        String(t._id),
+        (t.ageGroup ?? "").toLowerCase(),
+      ])
+    );
+    const ADULT_GROUPS = new Set(["adult", "senior"]);
+    const adultOnlyTeamIds = assignment.teams.filter((teamId) =>
+      ADULT_GROUPS.has(coachTeamAgeGroupMap.get(teamId) ?? "")
+    );
+
+    if (adultOnlyTeamIds.length === 0) {
+      return [];
+    }
+
     // Get all revoked/disabled access records for this coach in this org
     const accessRecords = await ctx.db
       .query("wellnessCoachAccess")
@@ -271,12 +305,12 @@ export const getWellnessForCoach = query({
       accessRecords.map((r) => [String(r.playerIdentityId), r])
     );
 
-    // Collect all active players across all coach's teams (deduplicated)
+    // Collect all active players across adult/senior teams only (deduplicated)
     const seenPlayerIds = new Set<string>();
     const sharingMembers: Array<{ playerIdentityId: Id<"playerIdentities"> }> =
       [];
 
-    for (const teamId of assignment.teams) {
+    for (const teamId of adultOnlyTeamIds) {
       const teamMembers = await ctx.db
         .query("teamPlayerIdentities")
         .withIndex("by_teamId_and_status", (q) =>
@@ -1749,6 +1783,35 @@ export const getTeamWellnessSummary = query({
       return [];
     }
 
+    // Fetch team records from Better Auth to check ageGroup — only show adult/senior teams
+    type BetterAuthTeam = { _id: string; ageGroup?: string };
+    const teamsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: { cursor: null, numItems: 1000 },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+    const allTeams = (teamsResult as { page: BetterAuthTeam[] }).page;
+    const teamAgeGroupMap = new Map(
+      allTeams.map((t) => [String(t._id), (t.ageGroup ?? "").toLowerCase()])
+    );
+    const ADULT_AGE_GROUPS = new Set(["adult", "senior"]);
+    const adultTeamIds = assignment.teams.filter((teamId) =>
+      ADULT_AGE_GROUPS.has(teamAgeGroupMap.get(teamId) ?? "")
+    );
+
+    if (adultTeamIds.length === 0) {
+      return [];
+    }
+
     const today = new Date().toISOString().split("T")[0];
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -1791,7 +1854,7 @@ export const getTeamWellnessSummary = query({
 
     const result = [];
 
-    for (const teamId of assignment.teams) {
+    for (const teamId of adultTeamIds) {
       const teamMembers = await ctx.db
         .query("teamPlayerIdentities")
         .withIndex("by_teamId_and_status", (q) =>

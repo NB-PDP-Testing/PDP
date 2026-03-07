@@ -132,6 +132,28 @@ export default function PlayerDashboardPage() {
   );
 
   // Derived values
+  const dobDisplay = (() => {
+    const dob = playerIdentity?.dateOfBirth;
+    if (!dob) {
+      return null;
+    }
+    const d = new Date(dob);
+    const now = new Date();
+    let age = now.getFullYear() - d.getFullYear();
+    if (
+      now.getMonth() < d.getMonth() ||
+      (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())
+    ) {
+      age -= 1;
+    }
+    const formatted = d.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    return `${formatted} (${age})`;
+  })();
+
   const teamNamesDisplay =
     playerTeams && playerTeams.length > 0
       ? playerTeams.map((t) => t.teamName).join(", ")
@@ -408,9 +430,7 @@ export default function PlayerDashboardPage() {
         <p className="mt-1 text-sm opacity-80">
           {activeOrganization?.name}
           {teamNamesDisplay ? ` · ${teamNamesDisplay}` : ""}
-          {(passportSummary as any)?.ageGroup
-            ? ` · ${(passportSummary as any).ageGroup}`
-            : ""}
+          {dobDisplay ? ` · ${dobDisplay}` : ""}
         </p>
       </div>
 

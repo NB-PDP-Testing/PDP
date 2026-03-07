@@ -25,6 +25,31 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { GrantChildAccessSection } from "./grant-child-access-section";
 
+function calcAge(dob: string): number {
+  const d = new Date(dob);
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  if (
+    now.getMonth() < d.getMonth() ||
+    (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())
+  ) {
+    age -= 1;
+  }
+  return age;
+}
+
+function formatDobWithAge(dob?: string): string | null {
+  if (!dob) {
+    return null;
+  }
+  const formatted = new Date(dob).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  return `${formatted} (${calcAge(dob)})`;
+}
+
 function isEighteenOrOver(dateOfBirth?: string): boolean {
   if (!dateOfBirth) {
     return false;
@@ -421,9 +446,9 @@ export function ChildCard({ child, orgId, bulkData }: ChildCardProps) {
                 )}
               </div>
             </div>
-            {enrollment?.ageGroup && (
+            {formatDobWithAge(player.dateOfBirth) && (
               <p className="mt-0.5 text-blue-100 text-sm">
-                {enrollment.ageGroup.toUpperCase()}
+                {formatDobWithAge(player.dateOfBirth)}
               </p>
             )}
             {/* Sport Badges with Emojis */}

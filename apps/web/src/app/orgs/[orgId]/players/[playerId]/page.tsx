@@ -292,6 +292,7 @@ function PlayerPassportPageContent() {
       <PassportHero
         activeSports={activeSports}
         ageGroup={(playerData as any).ageGroup}
+        dateOfBirth={(playerData as any).dateOfBirth}
         goals={(playerData as any).goals}
         isMultiSport={showCrossSportTab}
         overallScore={(playerData as any).overallScore}

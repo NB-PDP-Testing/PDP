@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ClipboardList,
   FileText,
+  Heart,
   HeartPulse,
   Home,
   LayoutDashboard,
@@ -138,7 +139,7 @@ export function getCoachNav(orgId: string): CoachNav {
         ],
       },
       {
-        label: "Health & Attendance",
+        label: "Health & Fitness",
         icon: HeartPulse,
         items: [
           {
@@ -150,6 +151,11 @@ export function getCoachNav(orgId: string): CoachNav {
             href: `/orgs/${orgId}/coach/medical`,
             label: "Medical Info",
             icon: HeartPulse,
+          },
+          {
+            href: `/orgs/${orgId}/coach/wellness`,
+            label: "Player Wellness",
+            icon: Heart,
           },
         ],
       },

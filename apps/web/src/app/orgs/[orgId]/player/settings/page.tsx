@@ -310,10 +310,12 @@ export default function PlayerSettingsPage() {
     userEmail ? { email: userEmail.toLowerCase() } : "skip"
   );
 
-  // Wellness coach access list
-  const coachAccessList = useQuery(
-    api.models.playerHealthChecks.getWellnessCoachAccessList,
-    playerIdentity?._id ? { playerIdentityId: playerIdentity._id } : "skip"
+  // Coaches on player's teams — opt-out model (access on by default, player can disable)
+  const teamCoaches = useQuery(
+    api.models.playerHealthChecks.getCoachesForPlayerTeams,
+    playerIdentity?._id && orgId
+      ? { playerIdentityId: playerIdentity._id, organizationId: orgId }
+      : "skip"
   );
 
   // Cycle tracking consent
@@ -323,11 +325,11 @@ export default function PlayerSettingsPage() {
   );
 
   // Mutations
-  const respondAccess = useMutation(
-    api.models.playerHealthChecks.respondWellnessAccess
+  const disableAccess = useMutation(
+    api.models.playerHealthChecks.disableCoachWellnessAccess
   );
-  const revokeAccess = useMutation(
-    api.models.playerHealthChecks.revokeWellnessAccess
+  const enableAccess = useMutation(
+    api.models.playerHealthChecks.enableCoachWellnessAccess
   );
   const withdrawConsent = useMutation(
     api.models.playerHealthChecks.withdrawCycleTrackingConsent
@@ -345,10 +347,11 @@ export default function PlayerSettingsPage() {
     isChildAccount ? { organizationId: orgId } : "skip"
   );
 
-  // Revoke coach access confirmation dialog state
-  const [revokeTarget, setRevokeTarget] = useState<{
-    id: Id<"wellnessCoachAccess">;
+  // Disable coach wellness access confirmation dialog state
+  const [disableTarget, setDisableTarget] = useState<{
+    coachUserId: string;
     coachName: string;
+    accessId: Id<"wellnessCoachAccess"> | null;
   } | null>(null);
 
   // Revoke cycle consent confirmation dialog
@@ -369,35 +372,31 @@ export default function PlayerSettingsPage() {
   const [erasureConfirmText, setErasureConfirmText] = useState("");
   const [isRequestingErasure, setIsRequestingErasure] = useState(false);
 
-  const handleApprove = async (accessId: Id<"wellnessCoachAccess">) => {
-    try {
-      await respondAccess({ accessId, decision: "approved" });
-      toast.success("Access approved");
-    } catch {
-      toast.error("Failed to approve access");
-    }
-  };
-
-  const handleDeny = async (accessId: Id<"wellnessCoachAccess">) => {
-    try {
-      await respondAccess({ accessId, decision: "denied" });
-      toast.success("Access denied");
-    } catch {
-      toast.error("Failed to deny access");
-    }
-  };
-
-  const handleRevokeConfirm = async () => {
-    if (!revokeTarget) {
+  const handleDisableConfirm = async () => {
+    if (!(disableTarget && playerIdentity?._id)) {
       return;
     }
     try {
-      await revokeAccess({ accessId: revokeTarget.id });
-      toast.success("Access revoked");
+      await disableAccess({
+        playerIdentityId: playerIdentity._id,
+        coachUserId: disableTarget.coachUserId,
+        coachName: disableTarget.coachName,
+        organizationId: orgId,
+      });
+      toast.success("Wellness sharing disabled for this coach");
     } catch {
-      toast.error("Failed to revoke access");
+      toast.error("Failed to disable sharing");
     } finally {
-      setRevokeTarget(null);
+      setDisableTarget(null);
+    }
+  };
+
+  const handleEnableAccess = async (accessId: Id<"wellnessCoachAccess">) => {
+    try {
+      await enableAccess({ accessId });
+      toast.success("Wellness sharing re-enabled");
+    } catch {
+      toast.error("Failed to re-enable sharing");
     }
   };
 
@@ -471,30 +470,31 @@ export default function PlayerSettingsPage() {
   return (
     <div className="container mx-auto max-w-3xl space-y-6 p-4 md:p-8">
       <MyRolesSection />
-      {/* Revoke confirmation dialog */}
+      {/* Disable wellness sharing confirmation dialog */}
       <AlertDialog
         onOpenChange={(open) => {
           if (!open) {
-            setRevokeTarget(null);
+            setDisableTarget(null);
           }
         }}
-        open={revokeTarget !== null}
+        open={disableTarget !== null}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke Wellness Access</AlertDialogTitle>
+            <AlertDialogTitle>Disable Wellness Sharing</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove {revokeTarget?.coachName}&apos;s access to your wellness
-              data? They will no longer see your wellness trends.
+              Stop sharing your wellness data with {disableTarget?.coachName}?
+              They will no longer see your wellness trends. You can re-enable
+              this at any time.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleRevokeConfirm}
+              onClick={handleDisableConfirm}
             >
-              Revoke Access
+              Disable Sharing
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -553,78 +553,75 @@ export default function PlayerSettingsPage() {
         />
       )}
 
-      {/* Wellness Access Card */}
+      {/* Wellness Access Card — opt-out model */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5" />
-            Coaches with access to your wellness trends
+            Coach Wellness Access
           </CardTitle>
           <CardDescription>
-            Coaches can only see your aggregate wellness score — never
-            individual dimensions or cycle phase data.
+            Your coaches can see your aggregate wellness score by default —
+            never individual dimensions or cycle phase data. You can disable
+            sharing with any coach at any time.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!coachAccessList || coachAccessList.length === 0 ? (
+          {teamCoaches === undefined ? (
             <p className="py-4 text-center text-muted-foreground text-sm">
-              No coaches have requested access to your wellness data yet.
+              Loading…
+            </p>
+          ) : teamCoaches.length === 0 ? (
+            <p className="py-4 text-center text-muted-foreground text-sm">
+              You are not currently assigned to any teams.
             </p>
           ) : (
             <div className="space-y-2">
-              {coachAccessList.map((access) => (
+              {teamCoaches.map((coach) => (
                 <div
                   className="flex min-h-[44px] items-center gap-3 rounded-lg border px-4 py-3"
-                  key={access._id}
+                  key={coach.coachUserId}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm">{access.coachName}</p>
+                    <p className="font-medium text-sm">{coach.coachName}</p>
                   </div>
 
-                  {access.status === "pending" && (
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        onClick={() => handleDeny(access._id)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        Deny
-                      </Button>
-                      <Button
-                        onClick={() => handleApprove(access._id)}
-                        size="sm"
-                      >
-                        Approve
-                      </Button>
+                  {coach.isRevoked ? (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Badge variant="secondary">Sharing off</Badge>
+                      {coach.accessId && (
+                        <Button
+                          onClick={() =>
+                            handleEnableAccess(
+                              coach.accessId as Id<"wellnessCoachAccess">
+                            )
+                          }
+                          size="sm"
+                          variant="outline"
+                        >
+                          Re-enable
+                        </Button>
+                      )}
                     </div>
-                  )}
-
-                  {access.status === "approved" && (
+                  ) : (
                     <div className="flex shrink-0 items-center gap-2">
                       <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                        Approved
+                        Sharing
                       </Badge>
                       <Button
                         onClick={() =>
-                          setRevokeTarget({
-                            id: access._id,
-                            coachName: access.coachName,
+                          setDisableTarget({
+                            coachUserId: coach.coachUserId,
+                            coachName: coach.coachName,
+                            accessId: coach.accessId,
                           })
                         }
                         size="sm"
                         variant="outline"
                       >
-                        Revoke
+                        Disable
                       </Button>
                     </div>
-                  )}
-
-                  {access.status === "denied" && (
-                    <Badge variant="secondary">Denied</Badge>
-                  )}
-
-                  {access.status === "revoked" && (
-                    <Badge variant="secondary">Revoked</Badge>
                   )}
                 </div>
               ))}

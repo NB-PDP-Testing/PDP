@@ -2049,9 +2049,6 @@ export const getTeamWellnessHistory = query({
       mood: v.union(v.number(), v.null()),
       physicalFeeling: v.union(v.number(), v.null()),
       motivation: v.union(v.number(), v.null()),
-      foodIntake: v.union(v.number(), v.null()),
-      waterIntake: v.union(v.number(), v.null()),
-      muscleRecovery: v.union(v.number(), v.null()),
     })
   ),
   handler: async (ctx, args) => {
@@ -2117,24 +2114,19 @@ export const getTeamWellnessHistory = query({
       )
     );
 
+    // Only the 5 core dimensions are active in the check-in form
     type DimKey =
       | "sleepQuality"
       | "energyLevel"
       | "mood"
       | "physicalFeeling"
-      | "motivation"
-      | "foodIntake"
-      | "waterIntake"
-      | "muscleRecovery";
+      | "motivation";
     const ALL_DIMS: DimKey[] = [
       "sleepQuality",
       "energyLevel",
       "mood",
       "physicalFeeling",
       "motivation",
-      "foodIntake",
-      "waterIntake",
-      "muscleRecovery",
     ];
 
     // Aggregate per day: map date → per-dimension totals + counts
@@ -2160,9 +2152,6 @@ export const getTeamWellnessHistory = query({
             mood: 0,
             physicalFeeling: 0,
             motivation: 0,
-            foodIntake: 0,
-            waterIntake: 0,
-            muscleRecovery: 0,
           },
           dimCounts: {
             sleepQuality: 0,
@@ -2170,9 +2159,6 @@ export const getTeamWellnessHistory = query({
             mood: 0,
             physicalFeeling: 0,
             motivation: 0,
-            foodIntake: 0,
-            waterIntake: 0,
-            muscleRecovery: 0,
           },
         };
         entry.checkedInCount += 1;
@@ -2197,9 +2183,6 @@ export const getTeamWellnessHistory = query({
           mood: null,
           physicalFeeling: null,
           motivation: null,
-          foodIntake: null,
-          waterIntake: null,
-          muscleRecovery: null,
         };
         const overallValues: number[] = [];
         for (const dim of ALL_DIMS) {

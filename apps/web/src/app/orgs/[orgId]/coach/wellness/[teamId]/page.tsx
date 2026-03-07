@@ -38,11 +38,9 @@ const DIMENSION_LABELS: Record<string, string> = {
   mood: "Mood",
   physicalFeeling: "Physical Feeling",
   motivation: "Motivation",
-  foodIntake: "Food Intake",
-  waterIntake: "Water Intake",
-  muscleRecovery: "Muscle Recovery",
 };
 
+// Only the 5 core dimensions are active in the check-in form
 const ALL_DIMENSIONS = Object.keys(DIMENSION_LABELS);
 
 const SCORE_COLORS: Record<number, string> = {

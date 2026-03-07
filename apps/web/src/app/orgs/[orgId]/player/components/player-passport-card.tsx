@@ -91,7 +91,7 @@ const getAssessmentBadge = (
 type PlayerPassportCardProps = {
   orgId: string;
   playerIdentityId: Id<"playerIdentities">;
-  ageGroup?: string;
+  teamName?: string;
   trainingAttendance?: number;
   matchAttendance?: number;
 };
@@ -99,7 +99,7 @@ type PlayerPassportCardProps = {
 export function PlayerPassportCard({
   orgId,
   playerIdentityId,
-  ageGroup,
+  teamName,
   trainingAttendance = 0,
   matchAttendance = 0,
 }: PlayerPassportCardProps) {
@@ -202,10 +202,8 @@ export function PlayerPassportCard({
                 )}
               </div>
             </div>
-            {ageGroup && (
-              <p className="mt-0.5 text-blue-100 text-sm">
-                {ageGroup.toUpperCase()}
-              </p>
+            {teamName && (
+              <p className="mt-0.5 text-blue-100 text-sm">{teamName}</p>
             )}
             {/* Sport badges */}
             <div className="mt-1.5 flex flex-wrap gap-1.5">

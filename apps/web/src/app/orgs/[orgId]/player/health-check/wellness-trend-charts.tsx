@@ -123,7 +123,7 @@ function DimensionChart({
   const color = seriesColor(data);
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm">{title}</CardTitle>
       </CardHeader>

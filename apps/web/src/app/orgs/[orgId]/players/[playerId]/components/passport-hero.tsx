@@ -125,6 +125,7 @@ type PassportHeroProps = {
   playerName: string;
   sportCode?: string;
   ageGroup?: string;
+  dateOfBirth?: string;
   activeSports?: ActiveSport[];
   isMultiSport?: boolean;
   skills?: Record<string, number>;
@@ -133,10 +134,24 @@ type PassportHeroProps = {
   trainingAttendance?: number;
 };
 
+function calcAge(dob: string): number {
+  const d = new Date(dob);
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  if (
+    now.getMonth() < d.getMonth() ||
+    (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())
+  ) {
+    age -= 1;
+  }
+  return age;
+}
+
 export function PassportHero({
   playerName,
   sportCode,
   ageGroup,
+  dateOfBirth,
   activeSports,
   isMultiSport,
   skills,
@@ -182,11 +197,20 @@ export function PassportHero({
             <h1 className="truncate font-bold text-2xl text-white leading-tight sm:text-3xl">
               {playerName}
             </h1>
-            {ageGroup && (
+            {dateOfBirth ? (
+              <p className="mt-0.5 font-medium text-blue-100 text-sm">
+                {new Date(dateOfBirth).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}{" "}
+                ({calcAge(dateOfBirth)})
+              </p>
+            ) : ageGroup ? (
               <p className="mt-0.5 font-medium text-blue-100 text-sm uppercase tracking-wide">
                 {ageGroup}
               </p>
-            )}
+            ) : null}
             <div className="mt-2 flex flex-wrap gap-1.5">
               <SportBadges
                 activeSports={activeSports}

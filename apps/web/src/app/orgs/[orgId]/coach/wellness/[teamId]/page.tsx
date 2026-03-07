@@ -147,12 +147,9 @@ function TeamDimensionChart({
               />
               <Tooltip
                 contentStyle={{ fontSize: 12 }}
-                formatter={(value, _name, props) => {
+                formatter={(value) => {
                   const num = typeof value === "number" ? value : null;
-                  const count = (props.payload as ChartDataPoint)?.count ?? 0;
-                  return num !== null
-                    ? [`${num.toFixed(1)} (${count} players)`, title]
-                    : ["—", title];
+                  return num !== null ? [num.toFixed(1), title] : ["—", title];
                 }}
                 labelFormatter={(label) => label}
               />

@@ -2069,22 +2069,6 @@ export const getTeamWellnessHistory = query({
       return [];
     }
 
-    // Verify team is adult/senior
-    type BetterAuthTeamDetail = { _id: string; ageGroup?: string };
-    const teamResult = await ctx.runQuery(
-      components.betterAuth.adapter.findOne,
-      {
-        model: "team",
-        where: [{ field: "id", value: args.teamId, operator: "eq" }],
-      }
-    );
-    const team = teamResult as BetterAuthTeamDetail | null;
-    const ageGroup = (team?.ageGroup ?? "").toLowerCase();
-    const ADULT_AGE_GROUPS = new Set(["adult", "senior"]);
-    if (!ADULT_AGE_GROUPS.has(ageGroup)) {
-      return [];
-    }
-
     // Get all players on this team
     const teamMembers = await ctx.db
       .query("teamPlayerIdentities")

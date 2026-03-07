@@ -186,10 +186,10 @@ export function MyRolesSection() {
           const isSettingThis = settingPrimary === role;
           return (
             <div
-              className="flex items-center justify-between rounded-lg border p-3"
+              className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
               key={role}
             >
-              <div className="space-y-0.5">
+              <div className="min-w-0 space-y-0.5">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">
                     {getRoleLabel(role)}
@@ -204,7 +204,7 @@ export function MyRolesSection() {
                 <div className="text-muted-foreground text-xs">
                   {getRoleDescription(role)}
                 </div>
-                <div className="text-muted-foreground text-xs">
+                <div className="truncate text-muted-foreground text-xs">
                   Dashboard:{" "}
                   <span className="font-mono">
                     {getRoleDashboardPath(orgId, role)}
@@ -213,6 +213,7 @@ export function MyRolesSection() {
               </div>
               {!isPrimary && (
                 <Button
+                  className="w-full sm:w-auto"
                   disabled={isSettingThis || settingPrimary !== null}
                   onClick={() => handleSetPrimary(role)}
                   size="sm"

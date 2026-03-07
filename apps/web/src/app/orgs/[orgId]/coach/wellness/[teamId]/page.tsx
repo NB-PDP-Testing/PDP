@@ -175,7 +175,7 @@ export default function TeamWellnessDetailPage() {
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
 
-  const [timeRange, setTimeRange] = useState<TimeRange>(30);
+  const [timeRange, setTimeRange] = useState<TimeRange>(7);
 
   const history = useQuery(
     api.models.playerHealthChecks.getTeamWellnessHistory,

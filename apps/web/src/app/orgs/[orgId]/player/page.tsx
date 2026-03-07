@@ -628,10 +628,10 @@ export default function PlayerDashboardPage() {
       {/* 9. My Passport Card — constrained width to match child-card size on parent page */}
       <div className="sm:max-w-sm">
         <PlayerPassportCard
-          ageGroup={(passportSummary as any)?.ageGroup}
           matchAttendance={(passportSummary as any)?.matchAttendance}
           orgId={orgId}
           playerIdentityId={playerIdentity._id as Id<"playerIdentities">}
+          teamName={playerTeams?.[0]?.teamName}
           trainingAttendance={(passportSummary as any)?.trainingAttendance}
         />
       </div>

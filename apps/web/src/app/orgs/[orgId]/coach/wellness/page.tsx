@@ -9,6 +9,8 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
@@ -136,56 +138,62 @@ type TeamSummary = {
 function TeamWellnessCard({
   summary,
   teamName,
+  href,
 }: {
   summary: TeamSummary;
   teamName: string;
+  href: Route;
 }) {
   const hasAlerts = summary.alertCount > 0;
 
   return (
-    <Card
-      className="transition-shadow hover:shadow-md"
-      style={
-        hasAlerts
-          ? { borderColor: "#f59e0b", backgroundColor: "#fffbeb" }
-          : undefined
-      }
-    >
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between gap-2 text-base">
-          <span className="truncate">{teamName}</span>
-          {hasAlerts && (
-            <Badge className="shrink-0 bg-amber-100 text-amber-700">
-              <AlertTriangle className="mr-1 h-3 w-3" />
-              {summary.alertCount} alert{summary.alertCount !== 1 ? "s" : ""}
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Score + check-in stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="col-span-1 flex items-center justify-center">
-            <ScoreDisplay score={summary.avgScore} />
-          </div>
-          <div className="col-span-2 grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-muted/50 p-2 text-center">
-              <p className="font-bold text-lg">{summary.checkedInToday}</p>
-              <p className="text-muted-foreground text-xs">Checked in today</p>
+    <Link className="group block" href={href}>
+      <Card
+        className="h-full transition-shadow group-hover:shadow-md"
+        style={
+          hasAlerts
+            ? { borderColor: "#f59e0b", backgroundColor: "#fffbeb" }
+            : undefined
+        }
+      >
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between gap-2 text-base">
+            <span className="truncate group-hover:underline">{teamName}</span>
+            {hasAlerts && (
+              <Badge className="shrink-0 bg-amber-100 text-amber-700">
+                <AlertTriangle className="mr-1 h-3 w-3" />
+                {summary.alertCount} alert{summary.alertCount !== 1 ? "s" : ""}
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Score + check-in stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1 flex items-center justify-center">
+              <ScoreDisplay score={summary.avgScore} />
             </div>
-            <div className="rounded-lg bg-muted/50 p-2 text-center">
-              <p className="font-bold text-lg">{summary.playersSharing}</p>
-              <p className="text-muted-foreground text-xs">
-                of {summary.totalPlayers} sharing
-              </p>
+            <div className="col-span-2 grid grid-cols-2 gap-2">
+              <div className="rounded-lg bg-muted/50 p-2 text-center">
+                <p className="font-bold text-lg">{summary.checkedInToday}</p>
+                <p className="text-muted-foreground text-xs">
+                  Checked in today
+                </p>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-2 text-center">
+                <p className="font-bold text-lg">{summary.playersSharing}</p>
+                <p className="text-muted-foreground text-xs">
+                  of {summary.totalPlayers} sharing
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* 7-day team trend */}
-        <TeamTrend trend={summary.trend7Days} />
-      </CardContent>
-    </Card>
+          {/* 7-day team trend */}
+          <TeamTrend trend={summary.trend7Days} />
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -312,10 +320,13 @@ export default function CoachWellnessPage() {
             </Card>
           </div>
 
-          {/* Per-team cards */}
+          {/* Per-team cards — click to view detailed team trends */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {teamSummaries?.map((summary) => (
               <TeamWellnessCard
+                href={
+                  `/orgs/${orgId}/coach/wellness/${summary.teamId}` as Route
+                }
                 key={summary.teamId}
                 summary={summary}
                 teamName={

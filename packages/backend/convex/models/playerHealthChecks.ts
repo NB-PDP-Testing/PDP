@@ -2028,6 +2028,221 @@ export const getCoachesForPlayerTeams = query({
 });
 
 /**
+ * Team wellness history for coach detail view.
+ * Returns per-day aggregated dimension averages across all sharing players
+ * on the specified team. Individual player data is never exposed.
+ */
+export const getTeamWellnessHistory = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+    coachUserId: v.string(),
+    days: v.number(),
+  },
+  returns: v.array(
+    v.object({
+      date: v.string(),
+      checkedInCount: v.number(),
+      overall: v.union(v.number(), v.null()),
+      sleepQuality: v.union(v.number(), v.null()),
+      energyLevel: v.union(v.number(), v.null()),
+      mood: v.union(v.number(), v.null()),
+      physicalFeeling: v.union(v.number(), v.null()),
+      motivation: v.union(v.number(), v.null()),
+      foodIntake: v.union(v.number(), v.null()),
+      waterIntake: v.union(v.number(), v.null()),
+      muscleRecovery: v.union(v.number(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Verify coach is assigned to this team
+    const assignment = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_user_and_org", (q) =>
+        q
+          .eq("userId", args.coachUserId)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!assignment?.teams.includes(args.teamId)) {
+      return [];
+    }
+
+    // Verify team is adult/senior
+    type BetterAuthTeamDetail = { _id: string; ageGroup?: string };
+    const teamResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "team",
+        where: [{ field: "id", value: args.teamId, operator: "eq" }],
+      }
+    );
+    const team = teamResult as BetterAuthTeamDetail | null;
+    const ageGroup = (team?.ageGroup ?? "").toLowerCase();
+    const ADULT_AGE_GROUPS = new Set(["adult", "senior"]);
+    if (!ADULT_AGE_GROUPS.has(ageGroup)) {
+      return [];
+    }
+
+    // Get all players on this team
+    const teamMembers = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_teamId_and_status", (q) =>
+        q.eq("teamId", args.teamId).eq("status", "active")
+      )
+      .collect();
+
+    // Filter out players who revoked this coach's access
+    const revokedRecords = await ctx.db
+      .query("wellnessCoachAccess")
+      .withIndex("by_org_and_coach", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("coachUserId", args.coachUserId)
+      )
+      .collect();
+    const revokedPlayerIds = new Set(
+      revokedRecords
+        .filter((r) => r.status === "revoked")
+        .map((r) => String(r.playerIdentityId))
+    );
+
+    const sharingMembers = teamMembers.filter(
+      (m) => !revokedPlayerIds.has(String(m.playerIdentityId))
+    );
+
+    if (sharingMembers.length === 0) {
+      return [];
+    }
+
+    // Build date range
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - args.days);
+    const cutoffStr = cutoffDate.toISOString().split("T")[0];
+
+    // Fetch all health checks for sharing players in parallel
+    const allChecksArrays = await Promise.all(
+      sharingMembers.map((m) =>
+        ctx.db
+          .query("dailyPlayerHealthChecks")
+          .withIndex("by_player", (q) =>
+            q.eq("playerIdentityId", m.playerIdentityId)
+          )
+          .collect()
+      )
+    );
+
+    type DimKey =
+      | "sleepQuality"
+      | "energyLevel"
+      | "mood"
+      | "physicalFeeling"
+      | "motivation"
+      | "foodIntake"
+      | "waterIntake"
+      | "muscleRecovery";
+    const ALL_DIMS: DimKey[] = [
+      "sleepQuality",
+      "energyLevel",
+      "mood",
+      "physicalFeeling",
+      "motivation",
+      "foodIntake",
+      "waterIntake",
+      "muscleRecovery",
+    ];
+
+    // Aggregate per day: map date → per-dimension totals + counts
+    const dayMap = new Map<
+      string,
+      {
+        checkedInCount: number;
+        dimTotals: Record<DimKey, number>;
+        dimCounts: Record<DimKey, number>;
+      }
+    >();
+
+    for (const checks of allChecksArrays) {
+      for (const check of checks) {
+        if (check.checkDate < cutoffStr) {
+          continue;
+        }
+        const entry = dayMap.get(check.checkDate) ?? {
+          checkedInCount: 0,
+          dimTotals: {
+            sleepQuality: 0,
+            energyLevel: 0,
+            mood: 0,
+            physicalFeeling: 0,
+            motivation: 0,
+            foodIntake: 0,
+            waterIntake: 0,
+            muscleRecovery: 0,
+          },
+          dimCounts: {
+            sleepQuality: 0,
+            energyLevel: 0,
+            mood: 0,
+            physicalFeeling: 0,
+            motivation: 0,
+            foodIntake: 0,
+            waterIntake: 0,
+            muscleRecovery: 0,
+          },
+        };
+        entry.checkedInCount += 1;
+        for (const dim of ALL_DIMS) {
+          const val = check[dim];
+          if (typeof val === "number") {
+            entry.dimTotals[dim] += val;
+            entry.dimCounts[dim] += 1;
+          }
+        }
+        dayMap.set(check.checkDate, entry);
+      }
+    }
+
+    const round1 = (n: number) => Math.round(n * 10) / 10;
+
+    return Array.from(dayMap.entries())
+      .map(([date, entry]) => {
+        const dimAvgs: Record<DimKey, number | null> = {
+          sleepQuality: null,
+          energyLevel: null,
+          mood: null,
+          physicalFeeling: null,
+          motivation: null,
+          foodIntake: null,
+          waterIntake: null,
+          muscleRecovery: null,
+        };
+        const overallValues: number[] = [];
+        for (const dim of ALL_DIMS) {
+          if (entry.dimCounts[dim] > 0) {
+            const avg = round1(entry.dimTotals[dim] / entry.dimCounts[dim]);
+            dimAvgs[dim] = avg;
+            overallValues.push(avg);
+          }
+        }
+        const overall =
+          overallValues.length > 0
+            ? round1(
+                overallValues.reduce((a, b) => a + b, 0) / overallValues.length
+              )
+            : null;
+        return {
+          date,
+          checkedInCount: entry.checkedInCount,
+          overall,
+          ...dimAvgs,
+        };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+  },
+});
+
+/**
  * Player disables a coach's default wellness access.
  * Creates a "revoked" record if none exists, or updates an existing one.
  */

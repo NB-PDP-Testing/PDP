@@ -347,17 +347,17 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
       href: `/orgs/${orgId}/coach/todos`,
     },
     {
-      id: "messages",
-      icon: MessageSquare,
-      label: "Messages",
-      href: `/orgs/${orgId}/coach/messages`,
-    },
-    {
       id: "voice",
       icon: Mic,
       label: "Voice",
       href: `/orgs/${orgId}/coach/voice-notes`,
       highlight: true,
+    },
+    {
+      id: "messages",
+      icon: MessageSquare,
+      label: "Messages",
+      href: `/orgs/${orgId}/coach/messages`,
     },
     {
       id: "team-hub",

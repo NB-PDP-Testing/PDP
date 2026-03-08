@@ -372,7 +372,7 @@ export const processIncomingMessage = internalAction({
       }
 
       // Create pending message
-      await ctx.runMutation(
+      const pendingMessageId = await ctx.runMutation(
         internal.models.whatsappMessages.createPendingMessage,
         {
           messageSid: args.messageSid,
@@ -395,7 +395,25 @@ export const processIncomingMessage = internalAction({
         errorMessage: "Awaiting org selection",
       });
 
-      // Send clarification request
+      // Fix #601: For voice notes, attempt to auto-resolve org from transcript.
+      // Races against the coach's manual reply — whichever resolves first wins.
+      if (messageType === "audio" && mediaStorageId) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.whatsapp.attemptOrgDetectionFromAudio,
+          {
+            pendingMessageId,
+            mediaStorageId,
+            phoneNumber,
+            coachId: coachContext.coachId,
+            coachName: coachContext.coachName,
+            messageId,
+            availableOrgs: coachContext.availableOrgs,
+          }
+        );
+      }
+
+      // Send clarification request (coach can reply manually if auto-detect fails)
       const orgList = coachContext.availableOrgs
         .map((org, i) => `${i + 1}. ${org.name}`)
         .join("\n");
@@ -2108,6 +2126,184 @@ async function sendWhatsAppMessage(to: string, body: string): Promise<boolean> {
     return false;
   }
 }
+
+// ============================================================
+// FIX #601: POST-TRANSCRIPTION ORG AUTO-DETECTION
+// ============================================================
+
+/**
+ * Attempt to auto-resolve org from a voice note's transcript.
+ *
+ * When a multi-org coach sends a voice note, the message body is empty
+ * (transcription hasn't happened yet), so all content-based matching fails.
+ * This action races against the coach's manual org selection reply:
+ *
+ * 1. Transcribe the audio with Whisper
+ * 2. Run findCoachWithOrgContext with the transcript text
+ * 3. If org resolves → auto-resolve pending message + process voice note
+ * 4. If not → do nothing (coach replies manually)
+ *
+ * The pending message can only be resolved once (status check prevents
+ * double-processing if the coach replies before transcription finishes).
+ */
+export const attemptOrgDetectionFromAudio = internalAction({
+  args: {
+    pendingMessageId: v.id("whatsappPendingMessages"),
+    mediaStorageId: v.id("_storage"),
+    phoneNumber: v.string(),
+    coachId: v.string(),
+    coachName: v.string(),
+    messageId: v.id("whatsappMessages"),
+    availableOrgs: v.array(v.object({ id: v.string(), name: v.string() })),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      // Step 1: Transcribe the audio
+      const audioUrl = await ctx.storage.getUrl(args.mediaStorageId);
+      if (!audioUrl) {
+        console.error(
+          "[whatsapp] Auto-detect: failed to get audio URL from storage"
+        );
+        return null;
+      }
+
+      const audioResponse = await fetch(audioUrl);
+      if (!audioResponse.ok) {
+        console.error(
+          "[whatsapp] Auto-detect: failed to fetch audio:",
+          audioResponse.status
+        );
+        return null;
+      }
+
+      const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+
+      // Use dynamic import to avoid circular dependency with OpenAI setup
+      const OpenAI = (await import("openai")).default;
+      if (!process.env.OPENAI_API_KEY) {
+        console.error("[whatsapp] Auto-detect: OPENAI_API_KEY not set");
+        return null;
+      }
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const file = await OpenAI.toFile(audioBuffer, "voice-note.ogg");
+      const transcription = await client.audio.transcriptions.create({
+        model: "whisper-1",
+        file,
+      });
+
+      const transcriptText = transcription.text?.trim();
+      if (!transcriptText) {
+        return null;
+      }
+
+      // Step 2: Check if the pending message is still awaiting selection.
+      // If the coach already replied, the pending message will be resolved
+      // and we should not double-process.
+      const pendingMessage = await ctx.runMutation(
+        internal.models.whatsappMessages.getPendingMessage,
+        { phoneNumber: args.phoneNumber }
+      );
+
+      if (!pendingMessage || pendingMessage._id !== args.pendingMessageId) {
+        // Already resolved by coach's manual reply — nothing to do
+        return null;
+      }
+
+      // Step 3: Re-run org detection with the transcript text
+      const coachContext = await ctx.runQuery(
+        internal.models.whatsappMessages.findCoachWithOrgContext,
+        { phoneNumber: args.phoneNumber, messageBody: transcriptText }
+      );
+
+      if (!coachContext || coachContext.needsClarification) {
+        // Transcript didn't help resolve org — coach will reply manually
+        return null;
+      }
+
+      // Step 4: Org resolved! Auto-process the voice note.
+      const resolvedOrg = coachContext.organization as {
+        id: string;
+        name: string;
+      };
+
+      // Resolve the pending message
+      await ctx.runMutation(
+        internal.models.whatsappMessages.resolvePendingMessage,
+        { pendingMessageId: args.pendingMessageId }
+      );
+
+      // Update session memory
+      await ctx.runMutation(internal.models.whatsappMessages.updateSession, {
+        phoneNumber: args.phoneNumber,
+        coachId: args.coachId,
+        organizationId: resolvedOrg.id,
+        organizationName: resolvedOrg.name,
+        resolvedVia: coachContext.resolvedVia as
+          | "player_match"
+          | "team_match"
+          | "coach_match"
+          | "age_group_match"
+          | "sport_match"
+          | "explicit_mention"
+          | "session_memory"
+          | "single_org",
+      });
+
+      // Update the original message with coach info
+      await ctx.runMutation(internal.models.whatsappMessages.updateCoachInfo, {
+        messageId: args.messageId,
+        coachId: args.coachId,
+        coachName: args.coachName,
+        organizationId: resolvedOrg.id,
+      });
+
+      // Create voice note from the already-stored audio
+      const noteId = await ctx.runMutation(
+        api.models.voiceNotes.createRecordedNote,
+        {
+          orgId: resolvedOrg.id,
+          coachId: args.coachId,
+          audioStorageId: args.mediaStorageId,
+          noteType: "general",
+          source: "whatsapp_audio",
+        }
+      );
+
+      // Link voice note to WhatsApp message
+      await ctx.runMutation(internal.models.whatsappMessages.linkVoiceNote, {
+        messageId: args.messageId,
+        voiceNoteId: noteId,
+      });
+
+      // Schedule auto-apply check
+      await ctx.scheduler.runAfter(
+        30_000,
+        internal.actions.whatsapp.checkAndAutoApply,
+        {
+          messageId: args.messageId,
+          voiceNoteId: noteId,
+          coachId: args.coachId,
+          organizationId: resolvedOrg.id,
+          phoneNumber: args.phoneNumber,
+        }
+      );
+
+      // Notify coach that org was auto-detected
+      await sendWhatsAppMessage(
+        args.phoneNumber,
+        `Auto-detected: recording for ${resolvedOrg.name} (from your voice note content). Processing...`
+      );
+    } catch (error) {
+      // Non-fatal — coach can still reply manually
+      console.error(
+        "[whatsapp] Auto-detect from audio failed:",
+        error instanceof Error ? error.message : error
+      );
+    }
+    return null;
+  },
+});
 
 // ============================================================
 // WHATSAPP QUICK-REPLY COMMAND HANDLERS (US-VN-011)

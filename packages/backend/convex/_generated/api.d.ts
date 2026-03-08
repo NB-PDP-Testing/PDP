@@ -37,6 +37,7 @@ import type * as actions_syncQueueProcessor from "../actions/syncQueueProcessor.
 import type * as actions_teamInsights from "../actions/teamInsights.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
 import type * as actions_wellnessInsights from "../actions/wellnessInsights.js";
+import type * as actions_what3words from "../actions/what3words.js";
 import type * as actions_whatsapp from "../actions/whatsapp.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
@@ -247,7 +248,6 @@ import type * as scripts_seed_passports from "../scripts/seed/passports.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
 import type * as scripts_seedDemoClub from "../scripts/seedDemoClub.js";
 import type * as scripts_seedFeatureFlags from "../scripts/seedFeatureFlags.js";
-import type * as scripts_seedPassportSharing from "../scripts/seedPassportSharing.js";
 import type * as scripts_seedRugbyTeam from "../scripts/seedRugbyTeam.js";
 import type * as scripts_seedUATData from "../scripts/seedUATData.js";
 import type * as scripts_setCurrentOrg from "../scripts/setCurrentOrg.js";
@@ -297,6 +297,7 @@ declare const fullApi: ApiFromModules<{
   "actions/teamInsights": typeof actions_teamInsights;
   "actions/voiceNotes": typeof actions_voiceNotes;
   "actions/wellnessInsights": typeof actions_wellnessInsights;
+  "actions/what3words": typeof actions_what3words;
   "actions/whatsapp": typeof actions_whatsapp;
   auth: typeof auth;
   crons: typeof crons;
@@ -507,7 +508,6 @@ declare const fullApi: ApiFromModules<{
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
   "scripts/seedDemoClub": typeof scripts_seedDemoClub;
   "scripts/seedFeatureFlags": typeof scripts_seedFeatureFlags;
-  "scripts/seedPassportSharing": typeof scripts_seedPassportSharing;
   "scripts/seedRugbyTeam": typeof scripts_seedRugbyTeam;
   "scripts/seedUATData": typeof scripts_seedUATData;
   "scripts/setCurrentOrg": typeof scripts_setCurrentOrg;

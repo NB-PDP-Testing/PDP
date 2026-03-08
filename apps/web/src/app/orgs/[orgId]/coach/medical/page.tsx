@@ -10,6 +10,7 @@ import {
   Heart,
   HeartPulse,
   Loader2,
+  MapPin,
   Phone,
   Pill,
   Search,
@@ -104,13 +105,61 @@ function CoachPrivacyConfirmation({
 // Limited Medical Profile View for Coaches
 function CoachMedicalView({
   profile,
+  player,
   playerName,
   onClose,
 }: {
   profile: any;
+  player: any;
   playerName: string;
   onClose: () => void;
 }) {
+  const [w3wLoading, setW3wLoading] = useState(false);
+  const [w3wError, setW3wError] = useState<string | null>(null);
+  const [w3wMapUrl, setW3wMapUrl] = useState<string | null>(null);
+
+  const addressLines = [
+    player?.address,
+    player?.address2,
+    player?.town,
+    player?.county,
+    player?.postcode,
+    player?.country,
+  ].filter(Boolean) as string[];
+
+  const handleGenerateWhat3Words = async () => {
+    if (!addressLines.length) {
+      return;
+    }
+    setW3wLoading(true);
+    setW3wError(null);
+    try {
+      // Geocode address → coordinates via Nominatim (free, no key required)
+      const geocodeRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressLines.join(", "))}&format=json&limit=1`,
+        { headers: { "Accept-Language": "en" } }
+      );
+      const geocodeData = (await geocodeRes.json()) as Array<{
+        lat: string;
+        lon: string;
+      }>;
+      if (!geocodeData.length) {
+        setW3wError("Address could not be located. Please check the address.");
+        return;
+      }
+      const { lat, lon: lng } = geocodeData[0];
+      const mock = process.env.NEXT_PUBLIC_W3W_MOCK === "1" ? "&mock=1" : "";
+      const url = `/api/w3w-map?lat=${lat}&lng=${lng}&label=${encodeURIComponent(playerName)}${mock}`;
+      setW3wMapUrl(url);
+    } catch (err) {
+      setW3wError(
+        err instanceof Error ? err.message : "Failed to locate address."
+      );
+    } finally {
+      setW3wLoading(false);
+    }
+  };
+
   return (
     <Dialog onOpenChange={(open) => !open && onClose()} open>
       <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
@@ -153,6 +202,28 @@ function CoachMedicalView({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Address */}
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <h3 className="mb-3 flex items-center gap-2 font-semibold text-gray-800">
+              <MapPin className="h-4 w-4" />
+              Address
+              {player?.addressSource === "guardian" && (
+                <Badge className="ml-auto" variant="outline">
+                  Guardian&apos;s address
+                </Badge>
+              )}
+            </h3>
+            {addressLines.length > 0 ? (
+              <p className="whitespace-pre-line text-gray-700 text-sm">
+                {addressLines.join("\n")}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                No address on file
+              </p>
+            )}
           </div>
 
           {/* Critical Allergies */}
@@ -226,10 +297,54 @@ function CoachMedicalView({
           )}
         </div>
 
-        <DialogFooter>
-          <Button onClick={onClose}>Close</Button>
+        <DialogFooter className="flex-col gap-3 sm:flex-col">
+          {w3wError && (
+            <p className="w-full text-center text-destructive text-sm">
+              {w3wError}
+            </p>
+          )}
+          <div className="flex w-full justify-between gap-2">
+            <Button
+              className="flex-1"
+              disabled={w3wLoading || !addressLines.length}
+              onClick={handleGenerateWhat3Words}
+              title={addressLines.length ? undefined : "No address available"}
+              variant="outline"
+            >
+              {w3wLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Locating…
+                </>
+              ) : (
+                "Generate what3words location?"
+              )}
+            </Button>
+            <Button onClick={onClose}>Close</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
+
+      {/* what3words map — nested dialog over the medical info */}
+      {w3wMapUrl && (
+        <Dialog onOpenChange={(open) => !open && setW3wMapUrl(null)} open>
+          <DialogContent className="flex h-[85vh] max-w-3xl flex-col gap-0 p-0">
+            <DialogHeader className="flex-shrink-0 px-4 pt-4 pb-2">
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-emerald-600" />
+                what3words Location — {playerName}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden rounded-b-lg">
+              <iframe
+                className="h-full w-full border-0"
+                src={w3wMapUrl}
+                title="what3words map"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }
@@ -253,12 +368,14 @@ export default function CoachMedicalPage() {
   const [pendingView, setPendingView] = useState<{
     playerName: string;
     profile: any;
+    player: any;
   } | null>(null);
 
   // View modal state
   const [viewingProfile, setViewingProfile] = useState<{
     playerName: string;
     profile: any;
+    player: any;
   } | null>(null);
 
   // Queries
@@ -415,8 +532,8 @@ export default function CoachMedicalPage() {
   }, [allProfiles]);
 
   // Handle view click
-  const handleViewClick = (playerName: string, profile: any) => {
-    setPendingView({ playerName, profile });
+  const handleViewClick = (playerName: string, profile: any, player: any) => {
+    setPendingView({ playerName, profile, player });
   };
 
   // Handle privacy confirmation
@@ -813,7 +930,11 @@ export default function CoachMedicalPage() {
                       className="cursor-pointer rounded-lg border p-3 transition-all duration-200 hover:shadow-md"
                       key={item.player._id}
                       onClick={() =>
-                        handleViewClick(item.player.name, item.profile)
+                        handleViewClick(
+                          item.player.name,
+                          item.profile,
+                          item.player
+                        )
                       }
                       style={{
                         backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
@@ -919,6 +1040,7 @@ export default function CoachMedicalPage() {
       {viewingProfile && (
         <CoachMedicalView
           onClose={() => setViewingProfile(null)}
+          player={viewingProfile.player}
           playerName={viewingProfile.playerName}
           profile={viewingProfile.profile}
         />

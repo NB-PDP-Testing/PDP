@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  MapPin,
   Phone,
   Search,
   Shield,
@@ -17,6 +18,12 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
 /**
@@ -32,6 +39,36 @@ export default function MatchDayPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
   const [teamsExpanded, setTeamsExpanded] = useState(true);
+
+  // what3words state
+  const [w3wLoading, setW3wLoading] = useState(false);
+  const [w3wGeoError, setW3wGeoError] = useState<string | null>(null);
+  const [w3wMapUrl, setW3wMapUrl] = useState<string | null>(null);
+
+  const handleW3WLocation = () => {
+    if (!navigator.geolocation) {
+      setW3wGeoError("Geolocation is not supported by this browser.");
+      return;
+    }
+    setW3wLoading(true);
+    setW3wGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toString();
+        const lng = position.coords.longitude.toString();
+        const mock = process.env.NEXT_PUBLIC_W3W_MOCK === "1" ? "&mock=1" : "";
+        setW3wMapUrl(
+          `/api/w3w-map?lat=${lat}&lng=${lng}&label=Current%20Location${mock}`
+        );
+        setW3wLoading(false);
+      },
+      (err) => {
+        setW3wLoading(false);
+        setW3wGeoError(`Could not get location: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10_000 }
+    );
+  };
 
   // Get all adult players with their emergency contacts
   const emergencyData = useQuery(
@@ -223,7 +260,52 @@ export default function MatchDayPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* what3words Location card */}
+        <Card
+          className="cursor-pointer border-emerald-200 bg-emerald-50 pt-0 transition-all duration-200 hover:shadow-lg"
+          onClick={handleW3WLocation}
+        >
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              {w3wLoading ? (
+                <Loader2 className="animate-spin text-emerald-500" size={20} />
+              ) : (
+                <MapPin className="text-emerald-500" size={20} />
+              )}
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              {w3wLoading
+                ? "Getting location…"
+                : (w3wGeoError ?? "Generate a what3words emergency location")}
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-emerald-500/20">
+              <div className="h-1 w-0 rounded-full bg-emerald-500" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Map dialog */}
+      {w3wMapUrl && (
+        <Dialog onOpenChange={(open) => !open && setW3wMapUrl(null)} open>
+          <DialogContent className="flex h-[85vh] max-w-3xl flex-col gap-0 p-0">
+            <DialogHeader className="flex-shrink-0 px-4 pt-4 pb-2">
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-emerald-600" />
+                what3words Location
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden rounded-b-lg">
+              <iframe
+                className="h-full w-full border-0"
+                src={w3wMapUrl}
+                title="what3words map"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Team selector */}
       {teams.length > 0 && (

@@ -6,6 +6,15 @@ import {
   DEFAULT_TEXT_WINDOW_MS,
 } from "../lib/duplicateDetection";
 import { normalizePhoneNumber } from "../lib/phoneUtils";
+import {
+  ALIAS_TO_CANONICAL,
+  levenshteinSimilarity,
+  normalizeForMatching,
+} from "../lib/stringMatching";
+
+// Minimum fuzzy similarity for player name matching in org detection.
+// High threshold to avoid false positives — wrong org is worse than asking.
+const ORG_DETECTION_NAME_SIMILARITY = 0.8;
 
 /**
  * WhatsApp Messages Model
@@ -21,12 +30,17 @@ import { normalizePhoneNumber } from "../lib/phoneUtils";
  * 5. If still ambiguous → ask for clarification via WhatsApp
  */
 
-// Session timeout: 2 hours
-const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+// Fix #601: Extended from 2 hours to 24 hours. Coaches typically use the same
+// org across a training day. Short timeouts caused voice notes (which have no
+// message body for content-based matching) to re-prompt for org selection.
+const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 // ============================================================
 // REGEX PATTERNS (top-level for performance)
 // ============================================================
+
+// Whitespace split for tokenization
+const WHITESPACE_SPLIT_REGEX = /\s+/;
 
 // Age group patterns
 const AGE_GROUP_U_PATTERN = /\bu[-\s]?(\d{1,2})\b/gi;
@@ -1014,21 +1028,109 @@ async function checkPlayerMatches(
     }
   }
 
-  // Synchronous name matching using pre-fetched data
+  // Fix #601: Fuzzy name matching using existing stringMatching utilities.
+  // Tokenize message into words and bigrams, then match against player names
+  // using normalization (diacritics, O'/Mc/Mac), Irish aliases, and Levenshtein.
+  const messageTokens = messageBody
+    .split(WHITESPACE_SPLIT_REGEX)
+    .filter((t) => t.length > 0);
+  const messageBigrams: string[] = [];
+  for (let i = 0; i < messageTokens.length - 1; i++) {
+    messageBigrams.push(`${messageTokens[i]} ${messageTokens[i + 1]}`);
+  }
+
   for (const teamPlayer of allTeamPlayers) {
     const player = playerMap.get(teamPlayer.playerIdentityId);
     if (!player) {
       continue;
     }
 
-    const firstName = (player.firstName || "").toLowerCase();
-    const lastName = (player.lastName || "").toLowerCase();
-    const fullName = `${firstName} ${lastName}`;
+    const playerFirst = player.firstName || "";
+    const playerLast = player.lastName || "";
+    if (!(playerFirst || playerLast)) {
+      continue;
+    }
 
-    if (
-      (firstName.length > 2 && messageBody.includes(firstName)) ||
-      messageBody.includes(fullName)
-    ) {
+    const normFirst = normalizeForMatching(playerFirst);
+    const normLast = normalizeForMatching(playerLast);
+    const normFull = `${normFirst} ${normLast}`.trim();
+    const firstCanonical = ALIAS_TO_CANONICAL.get(normFirst);
+
+    let matched = false;
+
+    // Check bigrams against full name (e.g. "john murphy" in message)
+    for (const bigram of messageBigrams) {
+      const normBigram = normalizeForMatching(bigram);
+      if (
+        normFull &&
+        levenshteinSimilarity(normBigram, normFull) >=
+          ORG_DETECTION_NAME_SIMILARITY
+      ) {
+        matched = true;
+        break;
+      }
+    }
+
+    // Check individual tokens against first name
+    if (!matched && normFirst) {
+      for (const token of messageTokens) {
+        const normToken = normalizeForMatching(token);
+        if (normToken.length < 2) {
+          continue;
+        }
+
+        // Exact normalized match (handles diacritics, O'/Mc/Mac)
+        if (normToken === normFirst) {
+          matched = true;
+          break;
+        }
+
+        // Irish alias match (e.g. "neeve" → "niamh", "paddy" → "padraig")
+        const tokenCanonical = ALIAS_TO_CANONICAL.get(normToken);
+        if (
+          tokenCanonical &&
+          firstCanonical &&
+          tokenCanonical === firstCanonical
+        ) {
+          matched = true;
+          break;
+        }
+
+        // Fuzzy match (only for tokens 3+ chars to avoid false positives)
+        if (
+          normToken.length >= 3 &&
+          levenshteinSimilarity(normToken, normFirst) >=
+            ORG_DETECTION_NAME_SIMILARITY
+        ) {
+          matched = true;
+          break;
+        }
+      }
+    }
+
+    // Check individual tokens against last name
+    if (!matched && normLast) {
+      for (const token of messageTokens) {
+        const normToken = normalizeForMatching(token);
+        if (normToken.length < 2) {
+          continue;
+        }
+        if (normToken === normLast) {
+          matched = true;
+          break;
+        }
+        if (
+          normToken.length >= 3 &&
+          levenshteinSimilarity(normToken, normLast) >=
+            ORG_DETECTION_NAME_SIMILARITY
+        ) {
+          matched = true;
+          break;
+        }
+      }
+    }
+
+    if (matched) {
       const orgId = teamToOrg.get(teamPlayer.teamId);
       if (orgId) {
         playerMatches.set(orgId, (playerMatches.get(orgId) || 0) + 1);

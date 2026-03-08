@@ -166,9 +166,28 @@ export const processIncomingMessage = internalAction({
       return { success: true };
     }
 
+    // Fix #601: Pending org selection takes priority over wellness.
+    // A coach replying "1" or "2" to select their club must not be
+    // intercepted by the wellness handler (which also accepts 1-5).
+    const pendingMessage = await ctx.runMutation(
+      internal.models.whatsappMessages.getPendingMessage,
+      { phoneNumber }
+    );
+
+    if (pendingMessage && args.body) {
+      // This is an org selection response — handle before anything else
+      return await handleOrgSelectionResponse(ctx, {
+        phoneNumber,
+        toNumber,
+        messageBody: args.body,
+        pendingMessage,
+        newMessageSid: args.messageSid,
+        accountSid: args.accountSid,
+      });
+    }
+
     // US-P8-004: Wellness Session Priority Check
-    // Check for active wellness session BEFORE any coach processing.
-    // Session priority rule: wellness replies intercept before coach routing.
+    // Now safe to check wellness — we know there's no pending org selection.
     if (messageType === "text" && args.body) {
       const trimmedBody = args.body.trim();
 
@@ -269,25 +288,6 @@ export const processIncomingMessage = internalAction({
         await handleWellnessOnDemand(ctx, phoneNumber);
         return { success: true };
       }
-    }
-
-    // Check if there's a pending message awaiting org selection
-    // Uses runMutation because it may mark expired messages
-    const pendingMessage = await ctx.runMutation(
-      internal.models.whatsappMessages.getPendingMessage,
-      { phoneNumber }
-    );
-
-    if (pendingMessage && args.body) {
-      // This might be an org selection response
-      return await handleOrgSelectionResponse(ctx, {
-        phoneNumber,
-        toNumber,
-        messageBody: args.body,
-        pendingMessage,
-        newMessageSid: args.messageSid,
-        accountSid: args.accountSid,
-      });
     }
 
     // Store raw message

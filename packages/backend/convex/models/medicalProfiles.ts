@@ -96,6 +96,17 @@ export const getAllForOrganization = query({
         ageGroup: v.optional(v.string()),
         sport: v.string(),
         dateOfBirth: v.optional(v.string()),
+        address: v.optional(v.string()),
+        address2: v.optional(v.string()),
+        town: v.optional(v.string()),
+        county: v.optional(v.string()),
+        postcode: v.optional(v.string()),
+        country: v.optional(v.string()),
+        addressSource: v.union(
+          v.literal("player"),
+          v.literal("guardian"),
+          v.null()
+        ),
       }),
       hasProfile: v.boolean(),
       hasAllergies: v.boolean(),
@@ -151,6 +162,61 @@ export const getAllForOrganization = query({
             .first();
         }
 
+        // Resolve address: prefer player's own address, fall back to primary guardian
+        let resolvedAddress: {
+          address?: string;
+          address2?: string;
+          town?: string;
+          county?: string;
+          postcode?: string;
+          country?: string;
+        } = {};
+        let addressSource: "player" | "guardian" | null = null;
+
+        const hasPlayerAddress = !!(
+          playerIdentity.address ||
+          playerIdentity.town ||
+          playerIdentity.postcode
+        );
+
+        if (hasPlayerAddress) {
+          addressSource = "player";
+          resolvedAddress = {
+            address: playerIdentity.address,
+            address2: playerIdentity.address2,
+            town: playerIdentity.town,
+            county: playerIdentity.county,
+            postcode: playerIdentity.postcode,
+            country: playerIdentity.country,
+          };
+        } else {
+          // Look up primary guardian for their address
+          const guardianLinks = await ctx.db
+            .query("guardianPlayerLinks")
+            .withIndex("by_player", (q) =>
+              q.eq("playerIdentityId", playerIdentity._id)
+            )
+            .collect();
+          const primaryLink = guardianLinks.find((l) => l.isPrimary);
+          if (primaryLink) {
+            const guardian = await ctx.db.get(primaryLink.guardianIdentityId);
+            if (
+              guardian &&
+              (guardian.address || guardian.town || guardian.postcode)
+            ) {
+              addressSource = "guardian";
+              resolvedAddress = {
+                address: guardian.address,
+                address2: guardian.address2,
+                town: guardian.town,
+                county: guardian.county,
+                postcode: guardian.postcode,
+                country: guardian.country,
+              };
+            }
+          }
+        }
+
         return {
           profile,
           player: {
@@ -159,6 +225,8 @@ export const getAllForOrganization = query({
             ageGroup: enrollment.ageGroup,
             sport: passport?.sportCode || "Not assigned",
             dateOfBirth: playerIdentity.dateOfBirth,
+            ...resolvedAddress,
+            addressSource,
           },
           hasProfile: !!profile,
           hasAllergies: (profile?.allergies?.length ?? 0) > 0,

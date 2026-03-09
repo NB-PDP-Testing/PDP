@@ -5,14 +5,16 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   Activity,
+  AlertCircle,
   Bike,
   CheckCheck,
   Dumbbell,
-  Filter,
   type LucideIcon,
+  MessageSquare,
   Search,
   Sparkles,
   Trophy,
+  Users,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -27,14 +29,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
+import { authClient } from "@/lib/auth-client";
 import { ParentSummaryCard } from "./parent-summary-card";
 
 type CoachFeedbackEnhancedProps = {
@@ -53,18 +50,68 @@ const sportCodeToIcon: Record<string, LucideIcon> = {
 };
 
 export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
+  const { data: session } = authClient.useSession();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedChild, setSelectedChild] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"new" | "history">("new");
-  const [viewMode, setViewMode] = useState<"all-messages" | "by-child">(
-    "all-messages"
-  );
 
   // Fetch AI-generated summaries grouped by child and sport
   const summariesData = useQuery(
     api.models.coachParentSummaries.getParentSummariesByChildAndSport,
     { organizationId: orgId }
   );
+
+  // Get children with DOB for filter cards
+  const { children: identityChildren } = useGuardianChildrenInOrg(
+    orgId,
+    session?.user?.email
+  );
+
+  // Fetch teams and memberships for child cards
+  const orgTeams = useQuery(api.models.teams.getTeamsByOrganization, {
+    organizationId: orgId,
+  });
+  const teamMemberships = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    { organizationId: orgId, status: "active" }
+  );
+
+  // teamId → name
+  const teamNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of orgTeams ?? []) {
+      map.set(t._id, t.name);
+    }
+    return map;
+  }, [orgTeams]);
+
+  // playerIdentityId → team names
+  const teamNamesByPlayer = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const m of teamMemberships ?? []) {
+      const name = teamNameById.get(m.teamId);
+      if (!name) {
+        continue;
+      }
+      map.set(m.playerIdentityId, [
+        ...(map.get(m.playerIdentityId) ?? []),
+        name,
+      ]);
+    }
+    return map;
+  }, [teamMemberships, teamNameById]);
+
+  // Age helper
+  const calcAge = (dob: string) => {
+    const today = new Date();
+    const birth = new Date(dob);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age -= 1;
+    }
+    return age;
+  };
 
   // Mark summary as viewed mutation
   const markViewed = useMutation(
@@ -124,177 +171,97 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
     }
   };
 
-  // Calculate stats and filter data
-  const {
-    newData,
-    historyData,
-    allMessagesNew,
-    allMessagesHistory,
-    stats,
-    childOptions,
-  } = useMemo(() => {
+  // Calculate stats, per-child stats, and split data by read/unread
+  const { newData, historyData, stats, childStats } = useMemo(() => {
     if (!summariesData) {
       return {
         newData: [],
         historyData: [],
-        allMessagesNew: [],
-        allMessagesHistory: [],
         stats: { total: 0, unread: 0, read: 0, children: 0 },
-        childOptions: [],
+        childStats: new Map<
+          string,
+          { total: number; unread: number; read: number }
+        >(),
       };
     }
 
-    // Build child options for filter dropdown
-    const options = summariesData.map((child: any) => ({
-      value: child.player._id,
-      label: `${child.player.firstName} ${child.player.lastName}`,
-    }));
-
-    // Flatten all summaries for stats
-    const allSummaries = summariesData.flatMap((child: any) =>
-      child.sportGroups.flatMap((sportGroup: any) =>
-        sportGroup.summaries.map((summary: any) => ({
-          summary,
-          child,
-          sportGroup,
-        }))
-      )
-    );
-
-    // Calculate stats
-    const totalSummaries = allSummaries.length;
-    const unreadSummaries = allSummaries.filter(
-      (item: any) => !item.summary.acknowledgedAt
-    ).length;
-    const readSummaries = totalSummaries - unreadSummaries;
-
-    // Apply child filter
-    let filtered = summariesData;
-    if (selectedChild !== "all") {
-      filtered = filtered.filter(
-        (child: any) => child.player._id === selectedChild
-      );
+    // Per-child message stats
+    const perChild = new Map<
+      string,
+      { total: number; unread: number; read: number }
+    >();
+    for (const child of summariesData) {
+      let total = 0;
+      let unread = 0;
+      for (const sg of child.sportGroups) {
+        for (const s of sg.summaries) {
+          total += 1;
+          if (!s.acknowledgedAt) {
+            unread += 1;
+          }
+        }
+      }
+      perChild.set(child.player._id, { total, unread, read: total - unread });
     }
 
-    // Split into new (unacknowledged) and history (acknowledged)
-    const splitData = (acknowledged: boolean) => {
-      return filtered
+    // Flatten for aggregate stats
+    const allSummaries = summariesData.flatMap((child: any) =>
+      child.sportGroups.flatMap((sg: any) => sg.summaries)
+    );
+    const totalSummaries = allSummaries.length;
+    const unreadSummaries = allSummaries.filter(
+      (s: any) => !s.acknowledgedAt
+    ).length;
+
+    // Apply child filter + search + acknowledged split
+    const buildData = (acknowledged: boolean) =>
+      summariesData
+        .filter((child: any) =>
+          selectedChild === "all" ? true : child.player._id === selectedChild
+        )
         .map((child: any) => ({
           ...child,
           sportGroups: child.sportGroups
-            .map((sportGroup: any) => ({
-              ...sportGroup,
-              summaries: sportGroup.summaries.filter((summary: any) => {
-                // Filter by acknowledged status
+            .map((sg: any) => ({
+              ...sg,
+              summaries: sg.summaries.filter((summary: any) => {
                 if (acknowledged && !summary.acknowledgedAt) {
                   return false;
                 }
                 if (!acknowledged && summary.acknowledgedAt) {
                   return false;
                 }
-
-                // Apply search filter
-                if (searchQuery.trim()) {
-                  const searchLower = searchQuery.toLowerCase();
-                  const content = summary.publicSummary.content.toLowerCase();
-                  const coachName = summary.coachName?.toLowerCase() || "";
-                  const category =
-                    summary.privateInsight?.category.toLowerCase() || "";
-
-                  return (
-                    content.includes(searchLower) ||
-                    coachName.includes(searchLower) ||
-                    category.includes(searchLower)
-                  );
+                if (!searchQuery.trim()) {
+                  return true;
                 }
-
-                return true;
+                const q = searchQuery.toLowerCase();
+                return (
+                  summary.publicSummary.content.toLowerCase().includes(q) ||
+                  (summary.coachName?.toLowerCase() || "").includes(q) ||
+                  (
+                    summary.privateInsight?.category.toLowerCase() || ""
+                  ).includes(q)
+                );
               }),
             }))
-            .filter((sportGroup: any) => sportGroup.summaries.length > 0),
+            .filter((sg: any) => sg.summaries.length > 0),
         }))
         .filter((child: any) => child.sportGroups.length > 0);
-    };
-
-    // Create flat lists for "All Messages" view (sorted newest to oldest)
-    const createFlatList = (acknowledged: boolean) => {
-      const flatList: any[] = [];
-
-      // Apply child filter first
-      let dataToProcess = summariesData;
-      if (selectedChild !== "all") {
-        dataToProcess = dataToProcess.filter(
-          (child: any) => child.player._id === selectedChild
-        );
-      }
-
-      // Flatten all summaries with metadata
-      for (const child of dataToProcess) {
-        for (const sportGroup of child.sportGroups) {
-          for (const summary of sportGroup.summaries) {
-            // Filter by acknowledged status
-            if (acknowledged && !summary.acknowledgedAt) {
-              continue;
-            }
-            if (!acknowledged && summary.acknowledgedAt) {
-              continue;
-            }
-
-            // Apply search filter
-            if (searchQuery.trim()) {
-              const searchLower = searchQuery.toLowerCase();
-              const content = summary.publicSummary.content.toLowerCase();
-              const coachName = summary.coachName?.toLowerCase() || "";
-              const category =
-                summary.privateInsight?.category.toLowerCase() || "";
-
-              if (
-                !(
-                  content.includes(searchLower) ||
-                  coachName.includes(searchLower) ||
-                  category.includes(searchLower)
-                )
-              ) {
-                continue;
-              }
-            }
-
-            flatList.push({
-              summary,
-              child,
-              sportGroup,
-              playerName: `${child.player.firstName} ${child.player.lastName}`,
-              sportName: sportGroup.sport?.name || "Unknown Sport",
-              sportCode: sportGroup.sport?.code,
-            });
-          }
-        }
-      }
-
-      // Sort by creation time (newest first)
-      flatList.sort(
-        (a, b) => b.summary._creationTime - a.summary._creationTime
-      );
-
-      return flatList;
-    };
 
     return {
-      newData: splitData(false), // Unacknowledged (grouped by child)
-      historyData: splitData(true), // Acknowledged (grouped by child)
-      allMessagesNew: createFlatList(false), // Unacknowledged (flat list)
-      allMessagesHistory: createFlatList(true), // Acknowledged (flat list)
+      newData: buildData(false),
+      historyData: buildData(true),
       stats: {
         total: totalSummaries,
         unread: unreadSummaries,
-        read: readSummaries,
+        read: totalSummaries - unreadSummaries,
         children: summariesData.length,
       },
-      childOptions: options,
+      childStats: perChild,
     };
   }, [summariesData, selectedChild, searchQuery]);
 
-  // Auto-switch to history tab if no unread messages
+  // Auto-switch to history tab if no unread messages remain
   useEffect(() => {
     if (stats.unread === 0 && stats.read > 0 && activeTab === "new") {
       setActiveTab("history");
@@ -302,72 +269,13 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
   }, [stats.unread, stats.read, activeTab]);
 
   const hasSummaries = summariesData && summariesData.length > 0;
-  const hasActiveFilters = searchQuery.trim() || selectedChild !== "all";
+  const hasActiveFilters = searchQuery.trim() !== "";
 
   if (!hasSummaries) {
     return null;
   }
 
-  // Render flat list of all messages (newest to oldest)
-  const renderAllMessages = (messages: typeof allMessagesNew) => {
-    if (messages.length === 0) {
-      return (
-        <div className="rounded-lg border border-dashed bg-muted/30 p-12 text-center">
-          <p className="text-muted-foreground">
-            {hasActiveFilters
-              ? "No messages found matching your filters."
-              : activeTab === "new"
-                ? "No new messages. Great job staying on top of feedback!"
-                : "No message history yet."}
-          </p>
-          {hasActiveFilters && (
-            <Button
-              className="mt-4"
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedChild("all");
-              }}
-              variant="outline"
-            >
-              Clear filters
-            </Button>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-2">
-        {messages.map((item: any) => (
-          <div className="space-y-1" key={item.summary._id}>
-            {/* Child and sport header */}
-            <div className="flex items-center gap-2 px-1 text-muted-foreground text-xs">
-              <span className="truncate font-medium text-foreground">
-                {item.playerName}
-              </span>
-              <span className="flex-shrink-0">•</span>
-              <span className="flex flex-shrink-0 items-center gap-1">
-                {(() => {
-                  const SportIcon = getSportIcon(item.sportCode);
-                  return <SportIcon className="h-3 w-3" />;
-                })()}
-                <span className="truncate">{item.sportName}</span>
-              </span>
-            </div>
-            {/* Summary card */}
-            <ParentSummaryCard
-              isUnread={!item.summary.acknowledgedAt}
-              onAcknowledge={handleAcknowledgeSummary}
-              onView={handleViewSummary}
-              summary={item.summary}
-            />
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderChildCards = (
+  const renderChildGroups = (
     data: typeof newData,
     showMarkAllButton: boolean
   ) => {
@@ -376,21 +284,18 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
         <div className="rounded-lg border border-dashed bg-muted/30 p-12 text-center">
           <p className="text-muted-foreground">
             {hasActiveFilters
-              ? "No messages found matching your filters."
+              ? "No messages found matching your search."
               : activeTab === "new"
-                ? "No new messages. Great job staying on top of feedback!"
+                ? "No unread messages. Great job staying on top of feedback!"
                 : "No message history yet."}
           </p>
           {hasActiveFilters && (
             <Button
               className="mt-4"
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedChild("all");
-              }}
+              onClick={() => setSearchQuery("")}
               variant="outline"
             >
-              Clear filters
+              Clear search
             </Button>
           )}
         </div>
@@ -401,7 +306,7 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
       <div className="space-y-4">
         {data.map((childData: any) => {
           const unreadCount = childData.sportGroups.reduce(
-            (sum: any, sg: any) =>
+            (sum: number, sg: any) =>
               sum + sg.summaries.filter((s: any) => !s.acknowledgedAt).length,
             0
           );
@@ -418,12 +323,12 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                       {childData.sportGroups.length} sport
                       {childData.sportGroups.length !== 1 ? "s" : ""} •{" "}
                       {childData.sportGroups.reduce(
-                        (sum: any, sg: any) => sum + sg.summaries.length,
+                        (sum: number, sg: any) => sum + sg.summaries.length,
                         0
                       )}{" "}
                       message
                       {childData.sportGroups.reduce(
-                        (sum: any, sg: any) => sum + sg.summaries.length,
+                        (sum: number, sg: any) => sum + sg.summaries.length,
                         0
                       ) !== 1
                         ? "s"
@@ -456,7 +361,6 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
               <CardContent className="space-y-4">
                 {childData.sportGroups.map((sportGroup: any) => (
                   <div key={sportGroup.sport?._id || `sport-${Math.random()}`}>
-                    {/* Sport header */}
                     {sportGroup.sport && (
                       <h4 className="mb-2 flex items-center gap-2 font-medium text-sm">
                         {(() => {
@@ -464,22 +368,19 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                           return <SportIcon className="h-4 w-4" />;
                         })()}
                         {sportGroup.sport.name}
-                        {showMarkAllButton &&
-                          sportGroup.summaries.filter(
-                            (s: any) => !s.acknowledgedAt
-                          ).length > 0 && (
-                            <Badge variant="destructive">
-                              {
-                                sportGroup.summaries.filter(
-                                  (s: any) => !s.acknowledgedAt
-                                ).length
-                              }
-                            </Badge>
-                          )}
+                        {sportGroup.summaries.filter(
+                          (s: any) => !s.acknowledgedAt
+                        ).length > 0 && (
+                          <Badge variant="destructive">
+                            {
+                              sportGroup.summaries.filter(
+                                (s: any) => !s.acknowledgedAt
+                              ).length
+                            }
+                          </Badge>
+                        )}
                       </h4>
                     )}
-
-                    {/* Summary cards */}
                     <div className="space-y-2">
                       {sportGroup.summaries.map((summary: any) => (
                         <ParentSummaryCard
@@ -501,55 +402,204 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
     );
   };
 
+  const childCount = identityChildren.length;
+
   return (
     <div className="space-y-4">
       {/* Stats Overview */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pt-3 pb-2">
-            <CardDescription className="text-xs">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <MessageSquare className="text-blue-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.total}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
               Total Messages
-            </CardDescription>
-            <CardTitle className="text-2xl">{stats.total}</CardTitle>
-          </CardHeader>
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div className="h-1 w-full rounded-full bg-blue-500" />
+            </div>
+          </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pt-3 pb-2">
-            <CardDescription className="text-xs">
-              Unread Messages
-            </CardDescription>
-            <CardTitle className="text-2xl">
-              {stats.unread}
-              {stats.unread > 0 && (
-                <Badge className="ml-2 bg-red-500" variant="default">
-                  NEW
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
+
+        <Card className="border-red-200 bg-red-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <AlertCircle className="text-red-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.unread}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Unread
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-red-100">
+              <div
+                className="h-1 rounded-full bg-red-500"
+                style={{
+                  width:
+                    stats.total > 0
+                      ? `${(stats.unread / stats.total) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pt-3 pb-2">
-            <CardDescription className="text-xs">Children</CardDescription>
-            <CardTitle className="text-2xl">{stats.children}</CardTitle>
-          </CardHeader>
+
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <CheckCheck className="text-green-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.read}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Read
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div
+                className="h-1 rounded-full bg-green-500"
+                style={{
+                  width:
+                    stats.total > 0
+                      ? `${(stats.read / stats.total) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Users className="text-purple-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.children}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Children
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div className="h-1 w-full rounded-full bg-purple-500" />
+            </div>
+          </CardContent>
         </Card>
       </div>
 
-      {/* Unified Card with Tabs and Content */}
+      {/* Child Filter Cards */}
+      {childCount > 0 && summariesData !== undefined && (
+        <div
+          className={`grid gap-3 ${
+            childCount === 1
+              ? "max-w-xs grid-cols-1"
+              : childCount === 2
+                ? "grid-cols-2"
+                : "grid-cols-2 md:grid-cols-3"
+          }`}
+        >
+          {identityChildren.map((child) => {
+            const isSelected = selectedChild === child.player._id;
+            const cs = childStats.get(child.player._id) ?? {
+              total: 0,
+              unread: 0,
+              read: 0,
+            };
+
+            return (
+              <button
+                className={`cursor-pointer rounded-lg border p-3 text-left transition-all duration-200 hover:shadow-md ${
+                  isSelected ? "ring-2 ring-blue-500" : ""
+                }`}
+                key={child.player._id}
+                onClick={() =>
+                  setSelectedChild(isSelected ? "all" : child.player._id)
+                }
+                style={{
+                  backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                  borderColor: isSelected
+                    ? undefined
+                    : "rgba(var(--org-primary-rgb), 0.25)",
+                }}
+                type="button"
+              >
+                <p
+                  className="truncate font-semibold text-gray-900 text-sm"
+                  title={`${child.player.firstName} ${child.player.lastName}`}
+                >
+                  {child.player.firstName} {child.player.lastName}
+                </p>
+
+                {child.player.dateOfBirth && (
+                  <p className="text-gray-500 text-xs">
+                    {new Date(child.player.dateOfBirth).toLocaleDateString(
+                      "en-GB",
+                      { day: "numeric", month: "short", year: "numeric" }
+                    )}{" "}
+                    · Age {calcAge(child.player.dateOfBirth)}
+                  </p>
+                )}
+
+                {(teamNamesByPlayer.get(child.player._id) ?? []).length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {(teamNamesByPlayer.get(child.player._id) ?? []).map(
+                      (name) => (
+                        <span
+                          className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600 text-xs"
+                          key={name}
+                        >
+                          {name}
+                        </span>
+                      )
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  <span
+                    className="flex items-center gap-1 text-blue-600 text-xs"
+                    title="Total messages"
+                  >
+                    <MessageSquare size={13} />
+                    <span className="font-medium">{cs.total}</span>
+                  </span>
+                  <span
+                    className={`flex items-center gap-1 text-xs ${cs.unread > 0 ? "text-red-600" : "text-gray-400"}`}
+                    title="Unread"
+                  >
+                    <AlertCircle size={13} />
+                    <span className="font-medium">{cs.unread}</span>
+                  </span>
+                  <span
+                    className={`flex items-center gap-1 text-xs ${cs.read > 0 ? "text-green-600" : "text-gray-400"}`}
+                    title="Read"
+                  >
+                    <CheckCheck size={13} />
+                    <span className="font-medium">{cs.read}</span>
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Summaries Card */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Sparkles className="h-5 w-5 text-blue-600" />
-                AI Coach Summaries
-              </CardTitle>
-              <CardDescription className="text-xs">
-                AI-generated summaries from your coach's voice notes
-              </CardDescription>
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Sparkles className="h-5 w-5 text-blue-600" />
+            AI Coach Summaries
+          </CardTitle>
+          <CardDescription className="text-xs">
+            AI-generated summaries from your coach's voice notes
+          </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
@@ -557,10 +607,9 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
             onValueChange={(v) => setActiveTab(v as "new" | "history")}
             value={activeTab}
           >
-            {/* Tabs */}
             <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="new">
-                New
+                Unread
                 {stats.unread > 0 && (
                   <Badge
                     className="ml-2 bg-red-500 text-white"
@@ -571,7 +620,7 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                 )}
               </TabsTrigger>
               <TabsTrigger value="history">
-                History
+                Read
                 {stats.read > 0 && (
                   <Badge className="ml-2" variant="secondary">
                     {stats.read}
@@ -580,161 +629,33 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
               </TabsTrigger>
             </TabsList>
 
-            {/* View Mode Toggle */}
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
+            {/* Search */}
+            <div className="relative mt-4">
+              <Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search messages, coaches, or categories..."
+                value={searchQuery}
+              />
+              {searchQuery && (
                 <Button
-                  onClick={() => setViewMode("all-messages")}
-                  size="sm"
-                  variant={viewMode === "all-messages" ? "default" : "outline"}
-                >
-                  <span className="inline-flex h-4 w-4 items-center justify-center sm:mr-2">
-                    <svg
-                      aria-label="List view"
-                      className="h-4 w-4"
-                      fill="none"
-                      role="img"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M3 12h18M3 6h18M3 18h18"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                  <span className="hidden sm:inline">All Messages</span>
-                  <span className="sm:hidden">All</span>
-                </Button>
-                <Button
-                  onClick={() => setViewMode("by-child")}
-                  size="sm"
-                  variant={viewMode === "by-child" ? "default" : "outline"}
-                >
-                  <span className="inline-flex h-4 w-4 items-center justify-center sm:mr-2">
-                    <svg
-                      aria-label="Grid view"
-                      className="h-4 w-4"
-                      fill="none"
-                      role="img"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                  <span className="hidden sm:inline">By Child</span>
-                  <span className="sm:hidden">Child</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Search and Filters */}
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search messages, coaches, or categories..."
-                  value={searchQuery}
-                />
-                {searchQuery && (
-                  <Button
-                    className="absolute top-2 right-2 h-6 w-6"
-                    onClick={() => setSearchQuery("")}
-                    size="icon"
-                    variant="ghost"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-
-              {/* Child Filter */}
-              <Select onValueChange={setSelectedChild} value={selectedChild}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="All Children" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Children</SelectItem>
-                  {childOptions.map((option: any) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Active Filters Display */}
-            {hasActiveFilters && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground text-sm">
-                  Active filters:
-                </span>
-                {searchQuery.trim() && (
-                  <Badge variant="secondary">
-                    Search: "{searchQuery}"
-                    <button
-                      className="ml-1"
-                      onClick={() => setSearchQuery("")}
-                      type="button"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
-                {selectedChild !== "all" && (
-                  <Badge variant="secondary">
-                    {
-                      childOptions.find((o: any) => o.value === selectedChild)
-                        ?.label
-                    }
-                    <button
-                      className="ml-1"
-                      onClick={() => setSelectedChild("all")}
-                      type="button"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
-                <Button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedChild("all");
-                  }}
-                  size="sm"
+                  className="absolute top-2 right-2 h-6 w-6"
+                  onClick={() => setSearchQuery("")}
+                  size="icon"
                   variant="ghost"
                 >
-                  Clear all
+                  <X className="h-4 w-4" />
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Tab Content */}
             <TabsContent className="mt-4" value="new">
-              {viewMode === "all-messages"
-                ? renderAllMessages(allMessagesNew)
-                : renderChildCards(newData, true)}
+              {renderChildGroups(newData, true)}
             </TabsContent>
 
             <TabsContent className="mt-4" value="history">
-              {viewMode === "all-messages"
-                ? renderAllMessages(allMessagesHistory)
-                : renderChildCards(historyData, false)}
+              {renderChildGroups(historyData, false)}
             </TabsContent>
           </Tabs>
         </CardContent>

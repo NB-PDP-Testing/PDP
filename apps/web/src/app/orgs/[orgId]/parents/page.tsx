@@ -7,16 +7,15 @@ import { AlertCircle, CheckCircle, Clock, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useMemo, useRef } from "react";
 import { PageSkeleton } from "@/components/loading";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 import { ActionItemsPanel } from "./components/action-items-panel";
-import { AIPracticeAssistant } from "./components/ai-practice-assistant";
 import { ChildCard } from "./components/child-card";
 import { CoachFeedbackSnapshot } from "./components/coach-feedback-snapshot";
 import { GraduationAlerts } from "./components/graduation-alert";
-import { GuardianSettings } from "./components/guardian-settings";
 import { WeeklySchedule } from "./components/weekly-schedule";
 
 function ParentDashboardContent() {
@@ -178,25 +177,33 @@ function ParentDashboardContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
+      <OrgThemedGradient
+        className="rounded-lg p-6 shadow-md"
+        gradientTo="secondary"
+      >
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="font-bold text-3xl">Your Family's Journey</h1>
-            <p className="mt-2 text-blue-100">
+            <h1 className="font-bold text-3xl">Your Family&apos;s Journey</h1>
+            <p className="mt-2 opacity-90">
               Tracking {playerCount} {playerCount === 1 ? "child" : "children"}{" "}
               in {activeOrganization?.name || "this organization"}
             </p>
             {guardianIdentity && (
-              <p className="mt-1 text-blue-200 text-sm">
+              <p className="mt-1 text-sm opacity-75">
                 Welcome back, {guardianIdentity.firstName}!
               </p>
             )}
           </div>
-          {guardianIdentity && (
-            <GuardianSettings guardianIdentity={guardianIdentity} />
-          )}
         </div>
-      </div>
+      </OrgThemedGradient>
+
+      {/* Action Items Panel - shown immediately below header when there are unread updates */}
+      {playerCount > 0 && totalUnreadCount > 0 && (
+        <ActionItemsPanel
+          onReviewClick={handleReviewClick}
+          unreadCount={totalUnreadCount}
+        />
+      )}
 
       {/* Graduation Alerts - shown above all other content */}
       <GraduationAlerts orgId={orgId} />
@@ -205,79 +212,78 @@ function ParentDashboardContent() {
       {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Users className="text-blue-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {playerCount}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
               Children Tracked
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">{playerCount}</div>
-            <p className="text-muted-foreground text-xs">
-              Active in {activeOrganization?.name || "this org"}
-            </p>
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div className="h-1 w-full rounded-full bg-blue-500" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <CheckCircle className="text-green-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {summaryStats.completedReviews}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
               Reviews Complete
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl text-green-600">
-              {summaryStats.completedReviews}
             </div>
-            <p className="text-muted-foreground text-xs">Up to date</p>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div className="h-1 w-full rounded-full bg-green-500" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">Due Soon</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl text-yellow-600">
-              {summaryStats.dueSoon}
+        <Card className="border-yellow-200 bg-yellow-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Clock className="text-yellow-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {summaryStats.dueSoon}
+              </div>
             </div>
-            <p className="text-muted-foreground text-xs">Reviews pending</p>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Due Soon
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-yellow-100">
+              <div className="h-1 w-full rounded-full bg-yellow-500" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">Overdue</CardTitle>
-            <AlertCircle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl text-red-600">
-              {summaryStats.overdue}
+        <Card className="border-red-200 bg-red-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <AlertCircle className="text-red-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {summaryStats.overdue}
+              </div>
             </div>
-            <p className="text-muted-foreground text-xs">Needs attention</p>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Overdue
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-red-100">
+              <div className="h-1 w-full rounded-full bg-red-500" />
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Coach Feedback Snapshot */}
       {playerCount > 0 && <CoachFeedbackSnapshot orgId={orgId} />}
-
-      {/* AI Practice Assistant - Full width */}
-      {playerCount > 0 && (
-        <AIPracticeAssistant orgId={orgId} playerData={identityChildren} />
-      )}
-
-      {/* Action Items Panel (US-013) */}
-      {playerCount > 0 && totalUnreadCount > 0 && (
-        <ActionItemsPanel
-          onReviewClick={handleReviewClick}
-          unreadCount={totalUnreadCount}
-        />
-      )}
 
       {/* Children Cards - US-PERF-015: Pass bulk data to avoid N+1 queries */}
       {playerCount > 0 && bulkChildData && (

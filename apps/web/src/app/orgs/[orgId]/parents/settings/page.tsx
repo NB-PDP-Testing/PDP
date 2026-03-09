@@ -1,39 +1,39 @@
 import { Settings } from "lucide-react";
 import type { Metadata } from "next";
-import { MyRolesSection } from "@/components/settings/my-roles-section";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
+import { SettingsContent } from "./settings-content";
 
 export const metadata: Metadata = {
   title: "Settings | Parent Dashboard",
   description: "Manage your account settings",
 };
 
-export default function ParentSettingsPage() {
+type ParentSettingsPageProps = {
+  params: Promise<{ orgId: string }>;
+};
+
+export default async function ParentSettingsPage({
+  params,
+}: ParentSettingsPageProps) {
+  const { orgId } = await params;
+
   return (
     <div className="space-y-6">
-      <MyRolesSection />
-      <div>
-        <h1 className="font-bold text-2xl text-gray-900">Settings</h1>
-        <p className="text-gray-600 text-sm">
-          Configure your account and notification preferences
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="text-gray-600" size={20} />
-            Account Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="py-12 text-center">
-          <Settings className="mx-auto mb-3 text-gray-300" size={48} />
-          <p className="text-gray-500">Settings page coming soon</p>
-          <p className="mt-2 text-gray-400 text-sm">
-            Manage notifications, privacy, and account preferences here
-          </p>
-        </CardContent>
-      </Card>
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        gradientTo="secondary"
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          <Settings className="h-7 w-7 flex-shrink-0" />
+          <div>
+            <h1 className="font-bold text-xl md:text-2xl">Settings</h1>
+            <p className="text-sm opacity-90">
+              Configure your account and notification preferences
+            </p>
+          </div>
+        </div>
+      </OrgThemedGradient>
+      <SettingsContent orgId={orgId} />
     </div>
   );
 }

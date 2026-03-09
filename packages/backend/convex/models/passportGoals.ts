@@ -141,6 +141,27 @@ export const getGoalsForPlayer = query({
 });
 
 /**
+ * Get all goals for multiple players (batch fetch for parent portal)
+ */
+export const getGoalsForPlayers = query({
+  args: { playerIdentityIds: v.array(v.id("playerIdentities")) },
+  returns: v.array(goalValidator),
+  handler: async (ctx, args) => {
+    const allGoals = [];
+    for (const playerId of args.playerIdentityIds) {
+      const goals = await ctx.db
+        .query("passportGoals")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .collect();
+      allGoals.push(...goals);
+    }
+    return allGoals;
+  },
+});
+
+/**
  * Get all goals for an organization
  */
 export const getGoalsForOrg = query({

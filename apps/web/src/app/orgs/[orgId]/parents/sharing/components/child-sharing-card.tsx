@@ -11,18 +11,13 @@ import {
   Share2,
   ShieldAlert,
   TrendingUp,
+  User,
   UserCheck,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -148,6 +143,7 @@ export function ChildSharingCard({
 }: ChildSharingCardProps) {
   // Modal state for revocation
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
+
   const [selectedConsentId, setSelectedConsentId] =
     useState<Id<"passportShareConsents"> | null>(null);
   const [selectedOrgName, setSelectedOrgName] = useState("");
@@ -270,28 +266,39 @@ export function ChildSharingCard({
   }, [consents, pendingRequests, activeConsents]);
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="mb-1.5 font-semibold text-base">
-          {child.player.firstName} {child.player.lastName}
-        </CardTitle>
-        <CardDescription className="flex flex-wrap items-center gap-2">
-          <Badge className="font-normal" variant="outline">
-            {formatSportName(primarySportCode) || "Unknown"}
-          </Badge>
-          <span className="text-muted-foreground">•</span>
-          <span>{child.enrollment?.ageGroup || "No age group"}</span>
-          {sportPassports && sportPassports.length > 1 && (
-            <>
-              <span className="text-muted-foreground">•</span>
-              <Badge className="text-xs" variant="secondary">
-                {sportPassports.length} sports
-              </Badge>
-            </>
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Card className="overflow-hidden border-0 shadow-md transition-shadow hover:shadow-lg">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <User className="h-5 w-5 text-white" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-lg text-white leading-snug">
+              {child.player.firstName} {child.player.lastName}
+            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <span className="text-blue-100 text-sm">
+                {formatSportName(primarySportCode) || "Unknown"}
+              </span>
+              {child.enrollment?.ageGroup && (
+                <>
+                  <span className="text-blue-200">·</span>
+                  <span className="text-blue-100 text-sm">
+                    {child.enrollment.ageGroup}
+                  </span>
+                </>
+              )}
+              {sportPassports && sportPassports.length > 1 && (
+                <Badge className="border-white/30 bg-white/20 text-white text-xs">
+                  {sportPassports.length} sports
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      <CardContent className="space-y-4 pt-4">
         {/* QuickShare component (shows only if feature flag enabled and parent has previous consent) */}
         <QuickShare
           childName={`${child.player.firstName} ${child.player.lastName}`}

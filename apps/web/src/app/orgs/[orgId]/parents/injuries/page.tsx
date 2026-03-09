@@ -8,6 +8,8 @@ import {
   AlertTriangle,
   Calendar,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Heart,
 } from "lucide-react";
@@ -121,11 +123,64 @@ function InjuriesPageContent() {
     player?: { firstName: string; lastName: string };
   } | null>(null);
 
+  // Child filter state
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+
+  // Collapsible section state
+  const [activeCollapsed, setActiveCollapsed] = useState(false);
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
+
   // Get player IDs for querying injuries
   const playerIds = useMemo(
     () => identityChildren.map((c) => c.player._id),
     [identityChildren]
   );
+
+  // Fetch teams and memberships for child cards
+  const orgTeams = useQuery(api.models.teams.getTeamsByOrganization, {
+    organizationId: orgId,
+  });
+  const teamMemberships = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    { organizationId: orgId, status: "active" }
+  );
+
+  // teamId → name
+  const teamNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of orgTeams ?? []) {
+      map.set(t._id, t.name);
+    }
+    return map;
+  }, [orgTeams]);
+
+  // playerIdentityId → team names
+  const teamNamesByPlayer = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const m of teamMemberships ?? []) {
+      const name = teamNameById.get(m.teamId);
+      if (!name) {
+        continue;
+      }
+      map.set(m.playerIdentityId, [
+        ...(map.get(m.playerIdentityId) ?? []),
+        name,
+      ]);
+    }
+    return map;
+  }, [teamMemberships, teamNameById]);
+
+  // Age helper
+  const calcAge = (dob: string) => {
+    const today = new Date();
+    const birth = new Date(dob);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age -= 1;
+    }
+    return age;
+  };
 
   // Query all injuries for all children (including healed)
   const allInjuries = useQuery(
@@ -151,25 +206,62 @@ function InjuriesPageContent() {
     return map;
   }, [identityChildren]);
 
-  // Separate active/recovering from healed/cleared
+  // Separate active/recovering from healed/cleared (aggregate, for stat cards)
   const { activeInjuries, inactiveInjuries } = useMemo(() => {
     if (!allInjuries) {
       return { activeInjuries: [], inactiveInjuries: [] };
     }
-
     const active = allInjuries.filter(
       (i) => i.status === "active" || i.status === "recovering"
     );
     const inactive = allInjuries.filter(
       (i) => i.status === "healed" || i.status === "cleared"
     );
-
     return { activeInjuries: active, inactiveInjuries: inactive };
   }, [allInjuries]);
+
+  // Per-child injury stats for child filter cards
+  const childInjuryStats = useMemo(() => {
+    const map = new Map<
+      string,
+      { active: number; recovering: number; history: number }
+    >();
+    for (const child of identityChildren) {
+      const childInjuries =
+        allInjuries?.filter((i) => i.playerIdentityId === child.player._id) ??
+        [];
+      map.set(child.player._id, {
+        active: childInjuries.filter((i) => i.status === "active").length,
+        recovering: childInjuries.filter((i) => i.status === "recovering")
+          .length,
+        history: childInjuries.filter(
+          (i) => i.status === "healed" || i.status === "cleared"
+        ).length,
+      });
+    }
+    return map;
+  }, [identityChildren, allInjuries]);
+
+  // Filtered injuries based on selected child — empty until a child is selected
+  const { filteredActive, filteredInactive } = useMemo(() => {
+    if (!selectedChildId) {
+      return { filteredActive: [], filteredInactive: [] };
+    }
+    return {
+      filteredActive: activeInjuries.filter(
+        (i) => i.playerIdentityId === selectedChildId
+      ),
+      filteredInactive: inactiveInjuries.filter(
+        (i) => i.playerIdentityId === selectedChildId
+      ),
+    };
+  }, [selectedChildId, activeInjuries, inactiveInjuries]);
 
   if (isLoading) {
     return <PageSkeleton variant="list" />;
   }
+
+  const childCount = identityChildren.length;
 
   return (
     <div className="space-y-6">
@@ -187,275 +279,468 @@ function InjuriesPageContent() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className={activeInjuries.length > 0 ? "border-red-200" : ""}>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              Active Injuries
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`font-bold text-2xl ${activeInjuries.filter((i) => i.status === "active").length > 0 ? "text-red-600" : "text-green-600"}`}
-            >
-              {activeInjuries.filter((i) => i.status === "active").length}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-red-200 bg-red-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <AlertTriangle className="text-red-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {activeInjuries.filter((i) => i.status === "active").length}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Active
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-red-100">
+              <div
+                className="h-1 rounded-full bg-red-500"
+                style={{
+                  width:
+                    childCount > 0
+                      ? `${(activeInjuries.filter((i) => i.status === "active").length / childCount) * 100}%`
+                      : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
 
-        <Card
-          className={
-            activeInjuries.filter((i) => i.status === "recovering").length > 0
-              ? "border-amber-200"
-              : ""
-          }
-        >
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-amber-500" />
+        <Card className="border-amber-200 bg-amber-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Clock className="text-amber-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {activeInjuries.filter((i) => i.status === "recovering").length}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
               Recovering
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`font-bold text-2xl ${activeInjuries.filter((i) => i.status === "recovering").length > 0 ? "text-amber-600" : "text-gray-600"}`}
-            >
-              {activeInjuries.filter((i) => i.status === "recovering").length}
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-amber-100">
+              <div
+                className="h-1 rounded-full bg-amber-500"
+                style={{
+                  width:
+                    childCount > 0
+                      ? `${(activeInjuries.filter((i) => i.status === "recovering").length / childCount) * 100}%`
+                      : "0%",
+                }}
+              />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              All Clear
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl text-green-600">
-              {
-                identityChildren.filter((c) => {
-                  const childActiveInjuries = activeInjuries.filter(
-                    (i) => i.playerIdentityId === c.player._id
-                  );
-                  return childActiveInjuries.length === 0;
-                }).length
-              }
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Heart className="text-purple-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {inactiveInjuries.length}
+              </div>
             </div>
-            <p className="text-muted-foreground text-xs">
-              children injury-free
-            </p>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Healed
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div
+                className="h-1 rounded-full bg-purple-500"
+                style={{
+                  width:
+                    childCount > 0
+                      ? `${(inactiveInjuries.length / childCount) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <CheckCircle className="text-green-500" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {
+                  identityChildren.filter((c) =>
+                    (allInjuries ?? []).every(
+                      (i) => i.playerIdentityId !== c.player._id
+                    )
+                  ).length
+                }
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              All Clear
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div
+                className="h-1 rounded-full bg-green-500"
+                style={{
+                  width:
+                    childCount > 0
+                      ? `${(identityChildren.filter((c) => (allInjuries ?? []).every((i) => i.playerIdentityId !== c.player._id)).length / childCount) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Child Filter Cards */}
+      {childCount > 0 && allInjuries !== undefined && (
+        <div
+          className={`grid gap-3 ${
+            childCount === 1
+              ? "max-w-xs grid-cols-1"
+              : childCount === 2
+                ? "grid-cols-2"
+                : "grid-cols-2 md:grid-cols-3"
+          }`}
+        >
+          {identityChildren.map((child) => {
+            const stats = childInjuryStats.get(child.player._id) ?? {
+              active: 0,
+              recovering: 0,
+              history: 0,
+            };
+            const isSelected = selectedChildId === child.player._id;
+            const allClear = stats.active === 0 && stats.recovering === 0;
+
+            return (
+              <button
+                className={`cursor-pointer rounded-lg border p-3 text-left transition-all duration-200 hover:shadow-md ${
+                  isSelected ? "ring-2 ring-blue-500" : ""
+                }`}
+                key={child.player._id}
+                onClick={() =>
+                  setSelectedChildId(isSelected ? null : child.player._id)
+                }
+                style={{
+                  backgroundColor: "rgba(var(--org-primary-rgb), 0.06)",
+                  borderColor: isSelected
+                    ? undefined
+                    : "rgba(var(--org-primary-rgb), 0.25)",
+                }}
+                type="button"
+              >
+                {/* Name */}
+                <p
+                  className="truncate font-semibold text-gray-900 text-sm"
+                  title={`${child.player.firstName} ${child.player.lastName}`}
+                >
+                  {child.player.firstName} {child.player.lastName}
+                </p>
+
+                {/* DOB + age */}
+                {child.player.dateOfBirth && (
+                  <p className="text-gray-500 text-xs">
+                    {new Date(child.player.dateOfBirth).toLocaleDateString(
+                      "en-GB",
+                      { day: "numeric", month: "short", year: "numeric" }
+                    )}{" "}
+                    · Age {calcAge(child.player.dateOfBirth)}
+                  </p>
+                )}
+
+                {/* Team badges */}
+                {(teamNamesByPlayer.get(child.player._id) ?? []).length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {(teamNamesByPlayer.get(child.player._id) ?? []).map(
+                      (name) => (
+                        <span
+                          className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600 text-xs"
+                          key={name}
+                        >
+                          {name}
+                        </span>
+                      )
+                    )}
+                  </div>
+                )}
+
+                {/* Stat icons */}
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  <span
+                    className={`flex items-center gap-1 text-xs ${stats.active > 0 ? "text-red-600" : "text-gray-400"}`}
+                    title="Active injuries"
+                  >
+                    <AlertTriangle size={13} />
+                    <span className="font-medium">{stats.active}</span>
+                  </span>
+                  <span
+                    className={`flex items-center gap-1 text-xs ${stats.recovering > 0 ? "text-amber-600" : "text-gray-400"}`}
+                    title="Recovering"
+                  >
+                    <Clock size={13} />
+                    <span className="font-medium">{stats.recovering}</span>
+                  </span>
+                  <span
+                    className={`flex items-center gap-1 text-xs ${allClear ? "text-green-600" : "text-gray-400"}`}
+                    title="All clear"
+                  >
+                    <CheckCircle size={13} />
+                    <span className="font-medium">{allClear ? "✓" : "–"}</span>
+                  </span>
+                  <span
+                    className={`flex items-center gap-1 text-xs ${stats.history > 0 ? "text-purple-600" : "text-gray-400"}`}
+                    title="Healed injuries"
+                  >
+                    <Heart size={13} />
+                    <span className="font-medium">{stats.history}</span>
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Active Injuries Section */}
-      {activeInjuries.length > 0 && (
+      {filteredActive.length > 0 && (
         <Card className="border-red-200 bg-red-50/50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-700">
-              <AlertTriangle className="h-5 w-5" />
-              Active Injuries ({activeInjuries.length})
-            </CardTitle>
-            <CardDescription>
-              Current injuries requiring attention
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {activeInjuries.map((injury) => {
-                const player = playerMap.get(injury.playerIdentityId);
-                const StatusIcon = STATUS_CONFIG[injury.status].icon;
-
-                return (
-                  <button
-                    className="flex w-full cursor-pointer items-start justify-between rounded-lg border border-red-200 bg-white p-4 text-left transition-colors hover:bg-red-50"
-                    key={injury._id}
-                    onClick={() => {
-                      setViewingInjury({
-                        ...injury,
-                        player: player || undefined,
-                      });
-                      setShowDetailModal(true);
-                    }}
-                    type="button"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
-                        <Heart className="h-5 w-5 text-red-600" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium">
-                            {player?.firstName} {player?.lastName}
-                          </span>
-                          {player?.ageGroup && (
-                            <span className="text-muted-foreground text-xs">
-                              ({player.ageGroup})
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-700">
-                            {injury.bodyPart}
-                            {injury.side && ` (${injury.side})`} -{" "}
-                            {injury.injuryType}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground text-sm">
-                          {injury.description}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {injury.dateOccurred}
-                          </span>
-                          {injury.expectedReturn && (
-                            <span>
-                              Expected return: {injury.expectedReturn}
-                            </span>
-                          )}
-                          {injury.treatment && (
-                            <span>Treatment: {injury.treatment}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-shrink-0 items-center gap-2">
-                      <Badge
-                        className={`${SEVERITY_CONFIG[injury.severity].bgColor} ${SEVERITY_CONFIG[injury.severity].color}`}
-                      >
-                        {SEVERITY_CONFIG[injury.severity].label}
-                      </Badge>
-                      <Badge
-                        className={`${STATUS_CONFIG[injury.status].bgColor} ${STATUS_CONFIG[injury.status].color}`}
-                      >
-                        <StatusIcon className="mr-1 h-3 w-3" />
-                        {STATUS_CONFIG[injury.status].label}
-                      </Badge>
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-red-700">
+                  <AlertTriangle className="h-5 w-5" />
+                  Active Injuries ({filteredActive.length})
+                </CardTitle>
+                <CardDescription>
+                  Current injuries requiring attention
+                </CardDescription>
+              </div>
+              <button
+                aria-label={activeCollapsed ? "Expand" : "Collapse"}
+                className="rounded p-1 text-red-400 hover:bg-red-100 hover:text-red-600"
+                onClick={() => setActiveCollapsed((c) => !c)}
+                type="button"
+              >
+                {activeCollapsed ? (
+                  <ChevronDown size={18} />
+                ) : (
+                  <ChevronUp size={18} />
+                )}
+              </button>
             </div>
-          </CardContent>
+          </CardHeader>
+          {!activeCollapsed && (
+            <CardContent>
+              <div className="space-y-3">
+                {filteredActive.map((injury) => {
+                  const player = playerMap.get(injury.playerIdentityId);
+                  const StatusIcon = STATUS_CONFIG[injury.status].icon;
+
+                  return (
+                    <button
+                      className="flex w-full cursor-pointer items-start justify-between rounded-lg border border-red-200 bg-white p-4 text-left transition-colors hover:bg-red-50"
+                      key={injury._id}
+                      onClick={() => {
+                        setViewingInjury({
+                          ...injury,
+                          player: player || undefined,
+                        });
+                        setShowDetailModal(true);
+                      }}
+                      type="button"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
+                          <Heart className="h-5 w-5 text-red-600" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">
+                              {player?.firstName} {player?.lastName}
+                            </span>
+                            {player?.ageGroup && (
+                              <span className="text-muted-foreground text-xs">
+                                ({player.ageGroup})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-700">
+                              {injury.bodyPart}
+                              {injury.side && ` (${injury.side})`} -{" "}
+                              {injury.injuryType}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground text-sm">
+                            {injury.description}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {injury.dateOccurred}
+                            </span>
+                            {injury.expectedReturn && (
+                              <span>
+                                Expected return: {injury.expectedReturn}
+                              </span>
+                            )}
+                            {injury.treatment && (
+                              <span>Treatment: {injury.treatment}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-shrink-0 items-center gap-2">
+                        <Badge
+                          className={`${SEVERITY_CONFIG[injury.severity].bgColor} ${SEVERITY_CONFIG[injury.severity].color}`}
+                        >
+                          {SEVERITY_CONFIG[injury.severity].label}
+                        </Badge>
+                        <Badge
+                          className={`${STATUS_CONFIG[injury.status].bgColor} ${STATUS_CONFIG[injury.status].color}`}
+                        >
+                          <StatusIcon className="mr-1 h-3 w-3" />
+                          {STATUS_CONFIG[injury.status].label}
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 
       {/* No Active Injuries message */}
-      {identityChildren.length > 0 && activeInjuries.length === 0 && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="flex items-center gap-3 pt-6">
-            <CheckCircle className="h-8 w-8 text-green-600" />
-            <div>
-              <p className="font-medium text-green-800">All Clear!</p>
-              <p className="text-green-700 text-sm">
-                None of your children have any active or recovering injuries.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {selectedChildId &&
+        identityChildren.length > 0 &&
+        filteredActive.length === 0 && (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="flex items-center gap-3 pt-6">
+              <CheckCircle className="h-8 w-8 text-green-600" />
+              <div>
+                <p className="font-medium text-green-800">All Clear!</p>
+                <p className="text-green-700 text-sm">
+                  {selectedChildId
+                    ? `${playerMap.get(selectedChildId)?.firstName} has no active or recovering injuries.`
+                    : "None of your children have any active or recovering injuries."}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Injury History Section */}
-      {inactiveInjuries.length > 0 && (
+      {filteredInactive.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Injury History ({inactiveInjuries.length})
-            </CardTitle>
-            <CardDescription>
-              Past injuries that have healed or been cleared
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {inactiveInjuries.map((injury) => {
-                const player = playerMap.get(injury.playerIdentityId);
-                const StatusIcon = STATUS_CONFIG[injury.status].icon;
-
-                return (
-                  <button
-                    className="flex w-full cursor-pointer items-start justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
-                    key={injury._id}
-                    onClick={() => {
-                      setViewingInjury({
-                        ...injury,
-                        player: player || undefined,
-                      });
-                      setShowDetailModal(true);
-                    }}
-                    type="button"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100">
-                        <Heart className="h-5 w-5 text-gray-600" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium">
-                            {player?.firstName} {player?.lastName}
-                          </span>
-                          {player?.ageGroup && (
-                            <span className="text-muted-foreground text-xs">
-                              ({player.ageGroup})
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-700">
-                            {injury.bodyPart}
-                            {injury.side && ` (${injury.side})`} -{" "}
-                            {injury.injuryType}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground text-sm">
-                          {injury.description}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {injury.dateOccurred}
-                          </span>
-                          {injury.actualReturn && (
-                            <span>Returned: {injury.actualReturn}</span>
-                          )}
-                          {injury.daysOut && (
-                            <span className="font-medium text-orange-600">
-                              {injury.daysOut} days out
-                            </span>
-                          )}
-                          {injury.treatment && (
-                            <span>Treatment: {injury.treatment}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-shrink-0 items-center gap-2">
-                      <Badge
-                        className={`${SEVERITY_CONFIG[injury.severity].bgColor} ${SEVERITY_CONFIG[injury.severity].color}`}
-                      >
-                        {SEVERITY_CONFIG[injury.severity].label}
-                      </Badge>
-                      <Badge
-                        className={`${STATUS_CONFIG[injury.status].bgColor} ${STATUS_CONFIG[injury.status].color}`}
-                      >
-                        <StatusIcon className="mr-1 h-3 w-3" />
-                        {STATUS_CONFIG[injury.status].label}
-                      </Badge>
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Injury History ({filteredInactive.length})
+                </CardTitle>
+                <CardDescription>
+                  Past injuries that have healed or been cleared
+                </CardDescription>
+              </div>
+              <button
+                aria-label={historyCollapsed ? "Expand" : "Collapse"}
+                className="rounded p-1 text-muted-foreground hover:bg-muted"
+                onClick={() => setHistoryCollapsed((c) => !c)}
+                type="button"
+              >
+                {historyCollapsed ? (
+                  <ChevronDown size={18} />
+                ) : (
+                  <ChevronUp size={18} />
+                )}
+              </button>
             </div>
-          </CardContent>
+          </CardHeader>
+          {!historyCollapsed && (
+            <CardContent>
+              <div className="space-y-3">
+                {filteredInactive.map((injury) => {
+                  const player = playerMap.get(injury.playerIdentityId);
+                  const StatusIcon = STATUS_CONFIG[injury.status].icon;
+
+                  return (
+                    <button
+                      className="flex w-full cursor-pointer items-start justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
+                      key={injury._id}
+                      onClick={() => {
+                        setViewingInjury({
+                          ...injury,
+                          player: player || undefined,
+                        });
+                        setShowDetailModal(true);
+                      }}
+                      type="button"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100">
+                          <Heart className="h-5 w-5 text-gray-600" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">
+                              {player?.firstName} {player?.lastName}
+                            </span>
+                            {player?.ageGroup && (
+                              <span className="text-muted-foreground text-xs">
+                                ({player.ageGroup})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-700">
+                              {injury.bodyPart}
+                              {injury.side && ` (${injury.side})`} -{" "}
+                              {injury.injuryType}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground text-sm">
+                            {injury.description}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {injury.dateOccurred}
+                            </span>
+                            {injury.actualReturn && (
+                              <span>Returned: {injury.actualReturn}</span>
+                            )}
+                            {injury.daysOut && (
+                              <span className="font-medium text-orange-600">
+                                {injury.daysOut} days out
+                              </span>
+                            )}
+                            {injury.treatment && (
+                              <span>Treatment: {injury.treatment}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-shrink-0 items-center gap-2">
+                        <Badge
+                          className={`${SEVERITY_CONFIG[injury.severity].bgColor} ${SEVERITY_CONFIG[injury.severity].color}`}
+                        >
+                          {SEVERITY_CONFIG[injury.severity].label}
+                        </Badge>
+                        <Badge
+                          className={`${STATUS_CONFIG[injury.status].bgColor} ${STATUS_CONFIG[injury.status].color}`}
+                        >
+                          <StatusIcon className="mr-1 h-3 w-3" />
+                          {STATUS_CONFIG[injury.status].label}
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 
-      {/* Injury Detail Modal - Phase 2 Recovery Management */}
+      {/* Injury Detail Modal */}
       {session?.user?.id && currentUser && (
         <InjuryDetailModal
           canEdit={false}

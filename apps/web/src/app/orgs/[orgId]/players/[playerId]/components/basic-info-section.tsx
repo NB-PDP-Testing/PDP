@@ -2,10 +2,12 @@
 
 import {
   AlertTriangle,
+  Car,
   ChevronDown,
   ChevronUp,
   Mail,
   Phone,
+  ShieldCheck,
   User,
 } from "lucide-react";
 import { useState } from "react";
@@ -24,6 +26,8 @@ type Parent = {
   phone?: string;
   relationship?: string;
   isPrimary?: boolean;
+  hasParentalResponsibility?: boolean;
+  canCollectFromTraining?: boolean;
 };
 
 type Team = {
@@ -341,6 +345,44 @@ export function BasicInformationSection({ player }: Props) {
                               <span>{parent.phone}</span>
                             </a>
                           )}
+                        </div>
+
+                        {/* Permission Indicators */}
+                        <div className="mt-3 flex gap-3 border-t pt-3">
+                          <div
+                            className="flex items-center gap-1.5"
+                            title={
+                              parent.hasParentalResponsibility
+                                ? "Has parental responsibility"
+                                : "No parental responsibility"
+                            }
+                          >
+                            <ShieldCheck
+                              className={`h-4 w-4 ${parent.hasParentalResponsibility ? "text-purple-600" : "text-gray-300"}`}
+                            />
+                            <span
+                              className={`text-xs ${parent.hasParentalResponsibility ? "text-purple-700" : "text-gray-400"}`}
+                            >
+                              Parental resp.
+                            </span>
+                          </div>
+                          <div
+                            className="flex items-center gap-1.5"
+                            title={
+                              parent.canCollectFromTraining
+                                ? "Authorised to collect from training"
+                                : "Not authorised to collect from training"
+                            }
+                          >
+                            <Car
+                              className={`h-4 w-4 ${parent.canCollectFromTraining ? "text-amber-600" : "text-gray-300"}`}
+                            />
+                            <span
+                              className={`text-xs ${parent.canCollectFromTraining ? "text-amber-700" : "text-gray-400"}`}
+                            >
+                              Can collect
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}

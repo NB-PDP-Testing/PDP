@@ -81,6 +81,11 @@ export function getParentNav(
             icon: Users,
           },
           {
+            href: `/orgs/${orgId}/parents/ai-practice-assistant`,
+            label: "AI Practice Assistant",
+            icon: Sparkles,
+          },
+          {
             href: `/orgs/${orgId}/parents/progress`,
             label: "Progress",
             icon: TrendingUp,
@@ -99,11 +104,6 @@ export function getParentNav(
             href: `/orgs/${orgId}/parents/injuries`,
             label: "Injuries",
             icon: Activity,
-          },
-          {
-            href: `/orgs/${orgId}/parents/wellness`,
-            label: "Wellness",
-            icon: Heart,
           },
         ],
       },
@@ -131,11 +131,6 @@ export function getParentNav(
             ...(unreadMessagesCount && unreadMessagesCount > 0
               ? { badge: unreadMessagesCount }
               : {}),
-          },
-          {
-            href: `/orgs/${orgId}/parents/announcements`,
-            label: "Announcements",
-            icon: Bell,
           },
         ],
       },

@@ -6,6 +6,7 @@ import { AlertCircle, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import Loader from "@/components/loader";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
@@ -29,12 +30,8 @@ export function ParentChildrenView({ orgId }: ParentChildrenViewProps) {
   );
 
   // Get children from guardian identity system
-  const {
-    guardianIdentity,
-    children: identityChildren,
-    isLoading: identityLoading,
-    hasIdentity,
-  } = useGuardianChildrenInOrg(orgId, session?.user?.email);
+  const { children: identityChildren, isLoading: identityLoading } =
+    useGuardianChildrenInOrg(orgId, session?.user?.email);
 
   // Check if user has parent functional role or is admin/owner
   const hasParentRole = useMemo(() => {
@@ -99,13 +96,22 @@ export function ParentChildrenView({ orgId }: ParentChildrenViewProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="font-bold text-2xl text-gray-900">My Children</h1>
-        <p className="text-gray-600 text-sm">
-          View and manage {playerCount}{" "}
-          {playerCount === 1 ? "child's" : "children's"} profiles and progress
-        </p>
-      </div>
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        gradientTo="secondary"
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          <Users className="h-7 w-7 flex-shrink-0" />
+          <div>
+            <h1 className="font-bold text-xl md:text-2xl">My Children</h1>
+            <p className="text-sm opacity-90">
+              View and manage {playerCount}{" "}
+              {playerCount === 1 ? "child's" : "children's"} profiles and
+              progress
+            </p>
+          </div>
+        </div>
+      </OrgThemedGradient>
 
       {/* Children Grid */}
       {identityChildren.length === 0 ? (

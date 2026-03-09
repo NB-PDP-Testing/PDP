@@ -13,7 +13,7 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -97,20 +97,87 @@ type AIInsights = {
 
 type AIInsightsPanelProps = {
   comparisonData: ComparisonData;
+  consentId: string;
 };
+
+type CachedInsights = {
+  insights: AIInsights;
+  generatedAt: string;
+};
+
+const STORAGE_PREFIX = "pdp_ai_insights_";
+
+function getCachedInsights(consentId: string): CachedInsights | null {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_PREFIX}${consentId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedInsights(consentId: string, insights: AIInsights): void {
+  try {
+    localStorage.setItem(
+      `${STORAGE_PREFIX}${consentId}`,
+      JSON.stringify({
+        insights,
+        generatedAt: new Date().toISOString(),
+      })
+    );
+  } catch {
+    /* quota exceeded — ignore */
+  }
+}
+
+function formatRelativeDate(isoString: string): string {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const timeStr = date.toLocaleTimeString("en-IE", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  if (diffDays === 0) {
+    return `today at ${timeStr}`;
+  }
+  if (diffDays === 1) {
+    return `yesterday at ${timeStr}`;
+  }
+  return date.toLocaleDateString("en-IE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 /**
  * AI Insights Panel
  *
  * Generates and displays AI-powered insights from passport comparison data.
  * Uses Claude to analyze divergences, agreements, and blind spots to provide
- * actionable coaching recommendations.
+ * actionable coaching recommendations. Persists insights to localStorage.
  */
-export function AIInsightsPanel({ comparisonData }: AIInsightsPanelProps) {
+export function AIInsightsPanel({
+  comparisonData,
+  consentId,
+}: AIInsightsPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [insights, setInsights] = useState<AIInsights | null>(null);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
+
+  // Load cached insights on mount
+  useEffect(() => {
+    const cached = getCachedInsights(consentId);
+    if (cached) {
+      setInsights(cached.insights);
+      setGeneratedAt(cached.generatedAt);
+    }
+  }, [consentId]);
 
   const generateInsights = useCallback(async () => {
     setIsLoading(true);
@@ -152,18 +219,25 @@ export function AIInsightsPanel({ comparisonData }: AIInsightsPanelProps) {
 
       const data = await response.json();
 
+      let parsedInsights: AIInsights | null = null;
+
       if (data.insights) {
-        setInsights(data.insights);
+        parsedInsights = data.insights;
       } else if (data.content?.[0]?.text) {
         // Try to parse from raw Claude response
         try {
-          const parsed = JSON.parse(data.content[0].text);
-          setInsights(parsed);
+          parsedInsights = JSON.parse(data.content[0].text);
         } catch {
           throw new Error("Failed to parse AI response");
         }
       } else {
         throw new Error("Invalid response format");
+      }
+
+      if (parsedInsights) {
+        setInsights(parsedInsights);
+        setCachedInsights(consentId, parsedInsights);
+        setGeneratedAt(new Date().toISOString());
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -262,6 +336,11 @@ export function AIInsightsPanel({ comparisonData }: AIInsightsPanelProps) {
                 {/* Summary */}
                 <div className="rounded-lg bg-white p-4 shadow-sm">
                   <p className="text-gray-700">{insights.summary}</p>
+                  {generatedAt && (
+                    <p className="mt-2 text-muted-foreground text-xs">
+                      Generated {formatRelativeDate(generatedAt)}
+                    </p>
+                  )}
                 </div>
 
                 {/* Key Insights */}
@@ -271,7 +350,7 @@ export function AIInsightsPanel({ comparisonData }: AIInsightsPanelProps) {
                     Key Insights
                   </h4>
                   <div className="space-y-3">
-                    {insights.keyInsights.map((insight, index) => (
+                    {insights.keyInsights.map((insight) => (
                       <div
                         className={cn(
                           "rounded-lg border bg-white p-4",
@@ -279,7 +358,7 @@ export function AIInsightsPanel({ comparisonData }: AIInsightsPanelProps) {
                           insight.priority === "medium" && "border-amber-200",
                           insight.priority === "low" && "border-green-200"
                         )}
-                        key={index}
+                        key={insight.title}
                       >
                         <div className="mb-2 flex items-start justify-between">
                           <h5 className="font-medium">{insight.title}</h5>
@@ -320,13 +399,11 @@ export function AIInsightsPanel({ comparisonData }: AIInsightsPanelProps) {
                           Immediate
                         </p>
                         <ul className="space-y-1">
-                          {insights.developmentFocus.immediate.map(
-                            (item, i) => (
-                              <li className="text-red-600 text-sm" key={i}>
-                                • {item}
-                              </li>
-                            )
-                          )}
+                          {insights.developmentFocus.immediate.map((item) => (
+                            <li className="text-red-600 text-sm" key={item}>
+                              • {item}
+                            </li>
+                          ))}
                         </ul>
                       </div>
                     )}
@@ -336,13 +413,11 @@ export function AIInsightsPanel({ comparisonData }: AIInsightsPanelProps) {
                           Short Term
                         </p>
                         <ul className="space-y-1">
-                          {insights.developmentFocus.shortTerm.map(
-                            (item, i) => (
-                              <li className="text-amber-600 text-sm" key={i}>
-                                • {item}
-                              </li>
-                            )
-                          )}
+                          {insights.developmentFocus.shortTerm.map((item) => (
+                            <li className="text-amber-600 text-sm" key={item}>
+                              • {item}
+                            </li>
+                          ))}
                         </ul>
                       </div>
                     )}
@@ -352,8 +427,8 @@ export function AIInsightsPanel({ comparisonData }: AIInsightsPanelProps) {
                           Long Term
                         </p>
                         <ul className="space-y-1">
-                          {insights.developmentFocus.longTerm.map((item, i) => (
-                            <li className="text-green-600 text-sm" key={i}>
+                          {insights.developmentFocus.longTerm.map((item) => (
+                            <li className="text-green-600 text-sm" key={item}>
                               • {item}
                             </li>
                           ))}
@@ -371,10 +446,10 @@ export function AIInsightsPanel({ comparisonData }: AIInsightsPanelProps) {
                       Questions to Investigate
                     </h4>
                     <div className="space-y-2">
-                      {insights.questions.map((question, i) => (
+                      {insights.questions.map((question) => (
                         <div
                           className="flex items-start gap-2 rounded-lg bg-blue-50 p-3"
-                          key={i}
+                          key={question}
                         >
                           <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
                           <p className="text-blue-700 text-sm">{question}</p>
@@ -392,10 +467,10 @@ export function AIInsightsPanel({ comparisonData }: AIInsightsPanelProps) {
                       Positives
                     </h4>
                     <div className="space-y-2">
-                      {insights.positives.map((positive, i) => (
+                      {insights.positives.map((positive) => (
                         <div
                           className="flex items-start gap-2 rounded-lg bg-green-50 p-3"
-                          key={i}
+                          key={positive}
                         >
                           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
                           <p className="text-green-700 text-sm">{positive}</p>

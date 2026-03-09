@@ -354,15 +354,17 @@ export default function SharedPassportPage() {
                           return (
                             <div
                               className="flex items-center justify-between rounded-lg border p-3"
-                              key={`${enrollment.organizationId}-${enrollment.sport}`}
+                              key={`${enrollment.organizationId}-${enrollment.ageGroup}`}
                             >
                               <div>
                                 <p className="font-medium">
                                   {enrollment.organizationName}
                                 </p>
                                 <p className="text-muted-foreground text-sm">
-                                  {enrollment.sport} • {enrollment.ageGroup} •{" "}
-                                  {enrollment.status}
+                                  {enrollment.sport
+                                    ? `${enrollment.sport} • `
+                                    : ""}
+                                  {enrollment.ageGroup} • {enrollment.status}
                                 </p>
                               </div>
                               <div className="flex flex-col items-end gap-1">

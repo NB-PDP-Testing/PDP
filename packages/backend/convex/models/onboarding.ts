@@ -450,14 +450,23 @@ export const getOnboardingTasks = query({
       .first();
 
     if (userGuardian) {
-      // Find links where acknowledgedByParentAt is undefined (not yet acknowledged)
-      // Do NOT filter by declinedByUserId - ALL children should be shown to matching users
+      // Find links where acknowledgedByParentAt is undefined AND status is pending
+      // Links with status "active" or "declined" have already been actioned
+      // (seed data may set status:"active" without acknowledgedByParentAt)
       const pendingLinks = await ctx.db
         .query("guardianPlayerLinks")
         .withIndex("by_guardian", (q) =>
           q.eq("guardianIdentityId", userGuardian._id)
         )
-        .filter((q) => q.eq(q.field("acknowledgedByParentAt"), undefined))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("acknowledgedByParentAt"), undefined),
+            q.or(
+              q.eq(q.field("status"), "pending"),
+              q.eq(q.field("status"), undefined)
+            )
+          )
+        )
         .collect();
 
       if (pendingLinks.length > 0) {

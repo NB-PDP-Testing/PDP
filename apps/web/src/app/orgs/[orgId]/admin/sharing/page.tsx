@@ -13,7 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { authClient } from "@/lib/auth-client";
 import { SharingContactSettings } from "./sharing-contact-settings";
 
 type ActivityType =
@@ -145,6 +146,18 @@ export default function AdminSharingStatistics() {
   const params = useParams();
   const orgId = params.orgId as string;
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Build org name map from Better Auth organizations for frontend name resolution
+  const { data: organizations } = authClient.useListOrganizations();
+  const orgNameMap = useMemo(() => {
+    if (!organizations) {
+      return new Map<string, string>();
+    }
+    return new Map(organizations.map((org) => [org.id, org.name]));
+  }, [organizations]);
+
+  const resolveOrgName = (id: string) =>
+    orgNameMap.get(id) || "Unknown Organization";
 
   // Fetch data
   const stats = useQuery(api.models.passportSharing.getOrgSharingStats, {
@@ -286,7 +299,11 @@ export default function AdminSharingStatistics() {
                         <TableCell className="font-medium">
                           {item.playerName}
                         </TableCell>
-                        <TableCell>{item.sourceOrgNames.join(", ")}</TableCell>
+                        <TableCell>
+                          {item.sourceOrgIds
+                            .map((id) => resolveOrgName(id))
+                            .join(", ")}
+                        </TableCell>
                         <TableCell>
                           <Badge
                             variant={
@@ -343,7 +360,9 @@ export default function AdminSharingStatistics() {
                           <TableCell className="font-medium">
                             {activity.playerName}
                           </TableCell>
-                          <TableCell>{activity.orgName}</TableCell>
+                          <TableCell>
+                            {resolveOrgName(activity.orgId)}
+                          </TableCell>
                           <TableCell className="text-muted-foreground text-sm">
                             {formatDateTime(activity.timestamp)}
                           </TableCell>
@@ -376,7 +395,9 @@ export default function AdminSharingStatistics() {
                     exportToCSV(
                       outgoingShares.map((share) => ({
                         Player: share.playerName,
-                        "Receiving Organization": share.receivingOrgName,
+                        "Receiving Organization": resolveOrgName(
+                          share.receivingOrgId
+                        ),
                         "Elements Shared": share.elementsShared.join("; "),
                         "Shared Since": formatDate(share.sharedSince),
                         Status: share.status,
@@ -415,7 +436,9 @@ export default function AdminSharingStatistics() {
                         <TableCell className="font-medium">
                           {share.playerName}
                         </TableCell>
-                        <TableCell>{share.receivingOrgName}</TableCell>
+                        <TableCell>
+                          {resolveOrgName(share.receivingOrgId)}
+                        </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {share.elementsShared.slice(0, 3).map((element) => (
@@ -471,7 +494,9 @@ export default function AdminSharingStatistics() {
                     exportToCSV(
                       incomingShares.map((share) => ({
                         Player: share.playerName,
-                        "Source Organizations": share.sourceOrgNames.join("; "),
+                        "Source Organizations": share.sourceOrgIds
+                          .map((id) => resolveOrgName(id))
+                          .join("; "),
                         "Elements Received": share.elementsReceived.join("; "),
                         "Shared Since": formatDate(share.sharedSince),
                         "Last Accessed": share.lastAccessedAt
@@ -513,7 +538,11 @@ export default function AdminSharingStatistics() {
                         <TableCell className="font-medium">
                           {share.playerName}
                         </TableCell>
-                        <TableCell>{share.sourceOrgNames.join(", ")}</TableCell>
+                        <TableCell>
+                          {share.sourceOrgIds
+                            .map((id) => resolveOrgName(id))
+                            .join(", ")}
+                        </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {share.elementsReceived

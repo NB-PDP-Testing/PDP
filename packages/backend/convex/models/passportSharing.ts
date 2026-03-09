@@ -248,7 +248,7 @@ async function notifyGuardiansOfSharingChange(
       | "share_expired"
       | "share_expiring"
       | "guardian_change"
-      | "access_requested";
+      | "share_request";
     actorUserId: string;
     actorName?: string;
     metadata: {
@@ -334,7 +334,7 @@ async function notifyGuardiansOfSharingChange(
           message = `Another guardian has modified passport sharing settings for your child with ${metadata.receivingOrgName || "an organization"}.`;
           actionUrl = "/parents/sharing";
           break;
-        case "access_requested":
+        case "share_request":
           title = "Access Request";
           message = `${metadata.receivingOrgName || "An organization"} has requested access to your child's passport.`;
           actionUrl = "/parents/sharing";
@@ -1508,7 +1508,7 @@ export const requestPassportAccess = mutation({
     // Notify all guardians with parental responsibility
     await notifyGuardiansOfSharingChange(ctx, {
       playerIdentityId: args.playerIdentityId,
-      eventType: "access_requested",
+      eventType: "share_request",
       actorUserId: userId,
       actorName: coachName,
       metadata: {
@@ -3068,23 +3068,39 @@ export const getOrgSharingStats = query({
     outgoingShares: v.number(),
   }),
   handler: async (ctx, args) => {
-    // Players with active outgoing shares (where this org is a source org)
-    // Count unique players who have granted consent where this org is in their sourceOrgIds
-    const outgoingConsents = await ctx.db
+    // Use by_expiry index (prefix: status) to get active consents without full table scan
+    const activeConsents = await ctx.db
       .query("passportShareConsents")
-      .filter((q) => q.eq(q.field("status"), "active"))
+      .withIndex("by_expiry", (q) => q.eq("status", "active"))
       .collect();
 
-    // Filter for consents where this org is a source
+    // Count outgoing: consents where this org is a source
     const outgoingPlayerIds = new Set<Id<"playerIdentities">>();
-    for (const consent of outgoingConsents) {
-      // Check if this org is in the sourceOrgIds
+    let outgoingCount = 0;
+    for (const consent of activeConsents) {
+      let isSource = false;
       if (consent.sourceOrgIds?.includes(args.organizationId)) {
+        isSource = true;
+      } else if (consent.sourceOrgMode === "all_enrolled") {
+        // Check if player is enrolled at this org
+        const enrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", consent.playerIdentityId)
+          )
+          .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+          .first();
+        if (enrollment) {
+          isSource = true;
+        }
+      }
+      if (isSource) {
         outgoingPlayerIds.add(consent.playerIdentityId);
+        outgoingCount += 1;
       }
     }
 
-    // Incoming shares: consents where this org is the receiving org and coachAcceptanceStatus is 'accepted'
+    // Incoming shares: use by_receiving_org index
     const incomingConsents = await ctx.db
       .query("passportShareConsents")
       .withIndex("by_receiving_org", (q) =>
@@ -3101,9 +3117,7 @@ export const getOrgSharingStats = query({
     return {
       playersWithSharing: outgoingPlayerIds.size,
       incomingShares: incomingConsents.length,
-      outgoingShares: outgoingConsents.filter((c) =>
-        c.sourceOrgIds?.includes(args.organizationId)
-      ).length,
+      outgoingShares: outgoingCount,
     };
   },
 });
@@ -3128,89 +3142,71 @@ export const getOrgOutgoingShares = query({
     })
   ),
   handler: async (ctx, args) => {
-    // Get all consents and filter for active ones
-    const allConsents = await ctx.db
+    // Use by_expiry index instead of full table scan
+    const activeConsents = await ctx.db
       .query("passportShareConsents")
-      .filter((q) => q.eq(q.field("status"), "active"))
+      .withIndex("by_expiry", (q) => q.eq("status", "active"))
       .collect();
 
-    // Filter for consents where this org is a source
-    const outgoingConsents = allConsents.filter((c) =>
+    const outgoingConsents = activeConsents.filter((c) =>
       c.sourceOrgIds?.includes(args.organizationId)
     );
 
-    // Enrich with player and org names
-    const enrichedConsents: Array<{
-      consentId: Id<"passportShareConsents">;
-      playerIdentityId: Id<"playerIdentities">;
-      playerName: string;
-      receivingOrgId: string;
-      receivingOrgName: string;
-      elementsShared: string[];
-      sharedSince: number;
-      status: string;
-      coachAcceptanceStatus: string;
-    }> = await Promise.all(
-      outgoingConsents.map(async (consent) => {
-        // Get player identity
-        const playerIdentity = await ctx.db.get(consent.playerIdentityId);
-        const playerName: string = playerIdentity
-          ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
-          : "Unknown Player";
-
-        // Get receiving organization name
-        const receivingOrg: any = await ctx.runQuery(
-          api.models.organizations.getOrganization,
-          { organizationId: consent.receivingOrgId }
-        );
-        const receivingOrgName: string =
-          receivingOrg?.name || "Unknown Organization";
-
-        // Build list of shared elements
-        const elementsShared: string[] = [];
-        if (consent.sharedElements.basicProfile) {
-          elementsShared.push("Basic Profile");
-        }
-        if (consent.sharedElements.skillRatings) {
-          elementsShared.push("Skills");
-        }
-        if (consent.sharedElements.developmentGoals) {
-          elementsShared.push("Goals");
-        }
-        if (consent.sharedElements.coachNotes) {
-          elementsShared.push("Coach Notes");
-        }
-        if (consent.sharedElements.benchmarkData) {
-          elementsShared.push("Benchmarks");
-        }
-        if (consent.sharedElements.attendanceRecords) {
-          elementsShared.push("Attendance");
-        }
-        if (consent.sharedElements.injuryHistory) {
-          elementsShared.push("Injuries");
-        }
-        if (consent.sharedElements.medicalSummary) {
-          elementsShared.push("Medical Info");
-        }
-        if (consent.sharedElements.contactInfo) {
-          elementsShared.push("Contact Info");
-        }
-
-        return {
-          consentId: consent._id,
-          playerIdentityId: consent.playerIdentityId,
-          playerName,
-          receivingOrgId: consent.receivingOrgId,
-          receivingOrgName,
-          elementsShared,
-          sharedSince: consent.consentedAt,
-          status: consent.status,
-          coachAcceptanceStatus: consent.coachAcceptanceStatus,
-        };
-      })
+    // Batch-fetch all player identities
+    const playerIds = [
+      ...new Set(outgoingConsents.map((c) => c.playerIdentityId)),
+    ];
+    const players = await Promise.all(playerIds.map((id) => ctx.db.get(id)));
+    const playerMap = new Map(
+      players
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+        .map((p) => [p._id, `${p.firstName} ${p.lastName}`])
     );
 
-    return enrichedConsents;
+    // Helper to extract shared elements
+    const getElements = (el: any): string[] => {
+      const result: string[] = [];
+      if (el.basicProfile) {
+        result.push("Basic Profile");
+      }
+      if (el.skillRatings) {
+        result.push("Skills");
+      }
+      if (el.developmentGoals) {
+        result.push("Goals");
+      }
+      if (el.coachNotes) {
+        result.push("Coach Notes");
+      }
+      if (el.benchmarkData) {
+        result.push("Benchmarks");
+      }
+      if (el.attendanceRecords) {
+        result.push("Attendance");
+      }
+      if (el.injuryHistory) {
+        result.push("Injuries");
+      }
+      if (el.medicalSummary) {
+        result.push("Medical Info");
+      }
+      if (el.contactInfo) {
+        result.push("Contact Info");
+      }
+      return result;
+    };
+
+    return outgoingConsents.map((consent) => ({
+      consentId: consent._id,
+      playerIdentityId: consent.playerIdentityId,
+      playerName: playerMap.get(consent.playerIdentityId) || "Unknown Player",
+      receivingOrgId: consent.receivingOrgId,
+      receivingOrgName: "Unknown Organization", // Frontend resolves via authClient
+      elementsShared: getElements(consent.sharedElements),
+      sharedSince: consent.consentedAt,
+      status: consent.status,
+      coachAcceptanceStatus: consent.coachAcceptanceStatus,
+    }));
   },
 });
 
@@ -3248,108 +3244,106 @@ export const getOrgIncomingShares = query({
       )
       .collect();
 
-    // Enrich with player names, source org names, and access stats
-    const enrichedConsents: Array<{
-      consentId: Id<"passportShareConsents">;
-      playerIdentityId: Id<"playerIdentities">;
-      playerName: string;
-      sourceOrgIds: string[];
-      sourceOrgNames: string[];
-      elementsReceived: string[];
-      sharedSince: number;
-      lastAccessedAt?: number;
-      accessCount: number;
-    }> = await Promise.all(
-      incomingConsents.map(
-        async (
-          consent
-        ): Promise<{
-          consentId: Id<"passportShareConsents">;
-          playerIdentityId: Id<"playerIdentities">;
-          playerName: string;
-          sourceOrgIds: string[];
-          sourceOrgNames: string[];
-          elementsReceived: string[];
-          sharedSince: number;
-          lastAccessedAt?: number;
-          accessCount: number;
-        }> => {
-          // Get player identity
-          const playerIdentity = await ctx.db.get(consent.playerIdentityId);
-          const playerName: string = playerIdentity
-            ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
-            : "Unknown Player";
-
-          // Get source organization names
-          const sourceOrgNames: string[] = await Promise.all(
-            (consent.sourceOrgIds || []).map(
-              async (orgId: string): Promise<string> => {
-                const org: any = await ctx.runQuery(
-                  api.models.organizations.getOrganization,
-                  { organizationId: orgId }
-                );
-                return org?.name || "Unknown Organization";
-              }
-            )
-          );
-
-          // Build list of received elements
-          const elementsReceived: string[] = [];
-          if (consent.sharedElements.basicProfile) {
-            elementsReceived.push("Basic Profile");
-          }
-          if (consent.sharedElements.skillRatings) {
-            elementsReceived.push("Skills");
-          }
-          if (consent.sharedElements.developmentGoals) {
-            elementsReceived.push("Goals");
-          }
-          if (consent.sharedElements.coachNotes) {
-            elementsReceived.push("Coach Notes");
-          }
-          if (consent.sharedElements.benchmarkData) {
-            elementsReceived.push("Benchmarks");
-          }
-          if (consent.sharedElements.attendanceRecords) {
-            elementsReceived.push("Attendance");
-          }
-          if (consent.sharedElements.injuryHistory) {
-            elementsReceived.push("Injuries");
-          }
-          if (consent.sharedElements.medicalSummary) {
-            elementsReceived.push("Medical Info");
-          }
-          if (consent.sharedElements.contactInfo) {
-            elementsReceived.push("Contact Info");
-          }
-
-          // Get access logs for this consent
-          const accessLogs = await ctx.db
-            .query("passportShareAccessLogs")
-            .withIndex("by_consent", (q) => q.eq("consentId", consent._id))
-            .collect();
-
-          const lastAccessedAt =
-            accessLogs.length > 0
-              ? Math.max(...accessLogs.map((log) => log.accessedAt))
-              : undefined;
-
-          return {
-            consentId: consent._id,
-            playerIdentityId: consent.playerIdentityId,
-            playerName,
-            sourceOrgIds: consent.sourceOrgIds || [],
-            sourceOrgNames,
-            elementsReceived,
-            sharedSince: consent.consentedAt,
-            lastAccessedAt,
-            accessCount: accessLogs.length,
-          };
-        }
-      )
+    // Batch-fetch player identities
+    const playerIds = [
+      ...new Set(incomingConsents.map((c) => c.playerIdentityId)),
+    ];
+    const players = await Promise.all(playerIds.map((id) => ctx.db.get(id)));
+    const playerMap = new Map(
+      players
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+        .map((p) => [p._id, `${p.firstName} ${p.lastName}`])
     );
 
-    return enrichedConsents;
+    // Batch-fetch access logs
+    const accessLogResults = await Promise.all(
+      incomingConsents.map((c) =>
+        ctx.db
+          .query("passportShareAccessLogs")
+          .withIndex("by_consent", (q) => q.eq("consentId", c._id))
+          .collect()
+      )
+    );
+    const accessLogMap = new Map(
+      incomingConsents.map((c, i) => [c._id, accessLogResults[i]])
+    );
+
+    // Resolve source org IDs for all_enrolled mode
+    const enrollmentMap = new Map<Id<"playerIdentities">, string[]>();
+    for (const consent of incomingConsents) {
+      if (
+        consent.sourceOrgMode === "all_enrolled" &&
+        !enrollmentMap.has(consent.playerIdentityId)
+      ) {
+        const enrollments = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", consent.playerIdentityId)
+          )
+          .collect();
+        enrollmentMap.set(
+          consent.playerIdentityId,
+          enrollments
+            .filter((e) => e.organizationId !== args.organizationId)
+            .map((e) => e.organizationId)
+        );
+      }
+    }
+
+    // Helper to extract shared elements
+    const getElements = (el: any): string[] => {
+      const result: string[] = [];
+      if (el.basicProfile) {
+        result.push("Basic Profile");
+      }
+      if (el.skillRatings) {
+        result.push("Skills");
+      }
+      if (el.developmentGoals) {
+        result.push("Goals");
+      }
+      if (el.coachNotes) {
+        result.push("Coach Notes");
+      }
+      if (el.benchmarkData) {
+        result.push("Benchmarks");
+      }
+      if (el.attendanceRecords) {
+        result.push("Attendance");
+      }
+      if (el.injuryHistory) {
+        result.push("Injuries");
+      }
+      if (el.medicalSummary) {
+        result.push("Medical Info");
+      }
+      if (el.contactInfo) {
+        result.push("Contact Info");
+      }
+      return result;
+    };
+
+    return incomingConsents.map((consent) => {
+      const resolvedSourceOrgIds =
+        consent.sourceOrgMode === "all_enrolled"
+          ? enrollmentMap.get(consent.playerIdentityId) || []
+          : consent.sourceOrgIds || [];
+      const logs = accessLogMap.get(consent._id) || [];
+      return {
+        consentId: consent._id,
+        playerIdentityId: consent.playerIdentityId,
+        playerName: playerMap.get(consent.playerIdentityId) || "Unknown Player",
+        sourceOrgIds: resolvedSourceOrgIds,
+        sourceOrgNames: resolvedSourceOrgIds.map(() => "Unknown Organization"), // Frontend resolves
+        elementsReceived: getElements(consent.sharedElements),
+        sharedSince: consent.consentedAt,
+        lastAccessedAt:
+          logs.length > 0
+            ? Math.max(...logs.map((log) => log.accessedAt))
+            : undefined,
+        accessCount: logs.length,
+      };
+    });
   },
 });
 
@@ -3370,12 +3364,60 @@ export const getOrgRecentSharingActivity = query({
       ),
       timestamp: v.number(),
       playerName: v.string(),
+      orgId: v.string(),
       orgName: v.string(),
       details: v.optional(v.string()),
     })
   ),
   handler: async (ctx, args) => {
     const limit = args.limit || 20;
+
+    // Fetch incoming + outgoing consents using indexes instead of full table scan
+    const [incomingConsents, outgoingConsents] = await Promise.all([
+      ctx.db
+        .query("passportShareConsents")
+        .withIndex("by_receiving_org", (q) =>
+          q.eq("receivingOrgId", args.organizationId)
+        )
+        .collect(),
+      ctx.db
+        .query("passportShareConsents")
+        .withIndex("by_expiry", (q) => q.eq("status", "active"))
+        .collect(),
+    ]);
+
+    // Combine: incoming + outgoing where this org is source
+    const consentMap = new Map<
+      Id<"passportShareConsents">,
+      { consent: (typeof incomingConsents)[0]; isReceivingOrg: boolean }
+    >();
+
+    for (const consent of incomingConsents) {
+      consentMap.set(consent._id, { consent, isReceivingOrg: true });
+    }
+    for (const consent of outgoingConsents) {
+      if (
+        consent.sourceOrgIds?.includes(args.organizationId) &&
+        !consentMap.has(consent._id)
+      ) {
+        consentMap.set(consent._id, { consent, isReceivingOrg: false });
+      }
+    }
+
+    const allConsents = [...consentMap.values()];
+
+    // Batch-fetch player identities
+    const playerIds = [
+      ...new Set(allConsents.map((c) => c.consent.playerIdentityId)),
+    ];
+    const players = await Promise.all(playerIds.map((id) => ctx.db.get(id)));
+    const playerMap = new Map(
+      players
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+        .map((p) => [p._id, `${p.firstName} ${p.lastName}`])
+    );
+
+    // Build activities — no N+1 org lookups (frontend resolves names via orgId)
     const activities: Array<{
       activityType:
         | "consent_created"
@@ -3385,48 +3427,26 @@ export const getOrgRecentSharingActivity = query({
         | "data_accessed";
       timestamp: number;
       playerName: string;
+      orgId: string;
       orgName: string;
       details?: string;
     }> = [];
 
-    // Get recent consents involving this org
-    const recentConsents = await ctx.db
-      .query("passportShareConsents")
-      .order("desc")
-      .take(50);
+    for (const { consent, isReceivingOrg } of allConsents) {
+      const playerName =
+        playerMap.get(consent.playerIdentityId) || "Unknown Player";
+      // The "other" org ID — frontend resolves to name
+      const otherOrgId = isReceivingOrg
+        ? consent.sourceOrgIds?.[0] || ""
+        : consent.receivingOrgId;
+      const orgName = "Unknown Organization"; // Frontend resolves
 
-    for (const consent of recentConsents) {
-      // Check if this org is involved (as source or receiver)
-      const isSourceOrg = consent.sourceOrgIds?.includes(args.organizationId);
-      const isReceivingOrg = consent.receivingOrgId === args.organizationId;
-
-      if (!(isSourceOrg || isReceivingOrg)) {
-        continue;
-      }
-
-      // Get player name
-      const playerIdentity = await ctx.db.get(consent.playerIdentityId);
-      const playerName = playerIdentity
-        ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
-        : "Unknown Player";
-
-      // Get other org name
-      const otherOrgId = isSourceOrg
-        ? consent.receivingOrgId
-        : consent.sourceOrgIds?.[0] || "";
-      const otherOrg = otherOrgId
-        ? await ctx.runQuery(api.models.organizations.getOrganization, {
-            organizationId: otherOrgId,
-          })
-        : null;
-      const orgName = otherOrg?.name || "Unknown Organization";
-
-      // Add activity based on consent lifecycle
       if (consent.coachAcceptanceStatus === "accepted" && consent.acceptedAt) {
         activities.push({
           activityType: "consent_accepted",
           timestamp: consent.acceptedAt,
           playerName,
+          orgId: otherOrgId,
           orgName,
           details: isReceivingOrg
             ? "Accepted incoming share"
@@ -3439,6 +3459,7 @@ export const getOrgRecentSharingActivity = query({
           activityType: "consent_declined",
           timestamp: consent.declinedAt,
           playerName,
+          orgId: otherOrgId,
           orgName,
           details: consent.declineReason || undefined,
         });
@@ -3449,6 +3470,7 @@ export const getOrgRecentSharingActivity = query({
           activityType: "consent_revoked",
           timestamp: consent.revokedAt,
           playerName,
+          orgId: otherOrgId,
           orgName,
           details: consent.revokedReason || undefined,
         });
@@ -3459,6 +3481,7 @@ export const getOrgRecentSharingActivity = query({
           activityType: "consent_created",
           timestamp: consent.consentedAt,
           playerName,
+          orgId: otherOrgId,
           orgName,
         });
       }
@@ -3480,80 +3503,76 @@ export const getOrgPendingAcceptances = query({
     v.object({
       consentId: v.id("passportShareConsents"),
       playerName: v.string(),
+      sourceOrgIds: v.array(v.string()),
       sourceOrgNames: v.array(v.string()),
       consentedAt: v.number(),
       daysPending: v.number(),
     })
   ),
   handler: async (ctx, args) => {
-    // Get consents where this org is receiving and status is pending
+    // Use by_coach_acceptance index for efficient pending lookup
     const pendingConsents = await ctx.db
       .query("passportShareConsents")
-      .withIndex("by_receiving_org", (q) =>
-        q.eq("receivingOrgId", args.organizationId)
+      .withIndex("by_coach_acceptance", (q) =>
+        q
+          .eq("receivingOrgId", args.organizationId)
+          .eq("coachAcceptanceStatus", "pending")
       )
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("status"), "active"),
-          q.eq(q.field("coachAcceptanceStatus"), "pending")
-        )
-      )
+      .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
 
-    // Enrich with player and org names
-    const enrichedConsents: Array<{
-      consentId: Id<"passportShareConsents">;
-      playerName: string;
-      sourceOrgNames: string[];
-      consentedAt: number;
-      daysPending: number;
-    }> = await Promise.all(
-      pendingConsents.map(
-        async (
-          consent
-        ): Promise<{
-          consentId: Id<"passportShareConsents">;
-          playerName: string;
-          sourceOrgNames: string[];
-          consentedAt: number;
-          daysPending: number;
-        }> => {
-          // Get player identity
-          const playerIdentity = await ctx.db.get(consent.playerIdentityId);
-          const playerName: string = playerIdentity
-            ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
-            : "Unknown Player";
-
-          // Get source organization names
-          const sourceOrgNames: string[] = await Promise.all(
-            (consent.sourceOrgIds || []).map(
-              async (orgId: string): Promise<string> => {
-                const org: any = await ctx.runQuery(
-                  api.models.organizations.getOrganization,
-                  { organizationId: orgId }
-                );
-                return org?.name || "Unknown Organization";
-              }
-            )
-          );
-
-          // Calculate days pending
-          const daysPending = Math.floor(
-            (Date.now() - consent.consentedAt) / (1000 * 60 * 60 * 24)
-          );
-
-          return {
-            consentId: consent._id,
-            playerName,
-            sourceOrgNames,
-            consentedAt: consent.consentedAt,
-            daysPending,
-          };
-        }
-      )
+    // Batch-fetch player identities
+    const playerIds = [
+      ...new Set(pendingConsents.map((c) => c.playerIdentityId)),
+    ];
+    const players = await Promise.all(playerIds.map((id) => ctx.db.get(id)));
+    const playerMap = new Map(
+      players
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+        .map((p) => [p._id, `${p.firstName} ${p.lastName}`])
     );
 
-    return enrichedConsents;
+    // Resolve source org IDs for all_enrolled mode via enrollments
+    const enrollmentMap = new Map<Id<"playerIdentities">, string[]>();
+    for (const consent of pendingConsents) {
+      if (
+        consent.sourceOrgMode === "all_enrolled" &&
+        !enrollmentMap.has(consent.playerIdentityId)
+      ) {
+        const enrollments = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", consent.playerIdentityId)
+          )
+          .collect();
+        enrollmentMap.set(
+          consent.playerIdentityId,
+          enrollments
+            .filter((e) => e.organizationId !== args.organizationId)
+            .map((e) => e.organizationId)
+        );
+      }
+    }
+
+    return pendingConsents.map((consent) => {
+      const resolvedSourceOrgIds =
+        consent.sourceOrgMode === "all_enrolled"
+          ? enrollmentMap.get(consent.playerIdentityId) || []
+          : consent.sourceOrgIds || [];
+
+      const daysPending = Math.floor(
+        (Date.now() - consent.consentedAt) / (1000 * 60 * 60 * 24)
+      );
+
+      return {
+        consentId: consent._id,
+        playerName: playerMap.get(consent.playerIdentityId) || "Unknown Player",
+        sourceOrgIds: resolvedSourceOrgIds,
+        sourceOrgNames: resolvedSourceOrgIds.map(() => "Unknown Organization"), // Frontend resolves
+        consentedAt: consent.consentedAt,
+        daysPending,
+      };
+    });
   },
 });
 

@@ -248,6 +248,7 @@ import type * as scripts_seed_passports from "../scripts/seed/passports.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
 import type * as scripts_seedDemoClub from "../scripts/seedDemoClub.js";
 import type * as scripts_seedFeatureFlags from "../scripts/seedFeatureFlags.js";
+import type * as scripts_seedPassportSharing from "../scripts/seedPassportSharing.js";
 import type * as scripts_seedRugbyTeam from "../scripts/seedRugbyTeam.js";
 import type * as scripts_seedUATData from "../scripts/seedUATData.js";
 import type * as scripts_setCurrentOrg from "../scripts/setCurrentOrg.js";
@@ -508,6 +509,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
   "scripts/seedDemoClub": typeof scripts_seedDemoClub;
   "scripts/seedFeatureFlags": typeof scripts_seedFeatureFlags;
+  "scripts/seedPassportSharing": typeof scripts_seedPassportSharing;
   "scripts/seedRugbyTeam": typeof scripts_seedRugbyTeam;
   "scripts/seedUATData": typeof scripts_seedUATData;
   "scripts/setCurrentOrg": typeof scripts_setCurrentOrg;

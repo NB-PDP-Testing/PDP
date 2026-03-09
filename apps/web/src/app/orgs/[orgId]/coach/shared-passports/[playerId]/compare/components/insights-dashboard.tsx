@@ -111,6 +111,7 @@ type ComparisonData = {
 
 type InsightsDashboardProps = {
   comparisonData: ComparisonData;
+  consentId: string;
 };
 
 /**
@@ -123,7 +124,10 @@ type InsightsDashboardProps = {
  * - Blind spots (skills only in one assessment)
  * - Actionable recommendations
  */
-export function InsightsDashboard({ comparisonData }: InsightsDashboardProps) {
+export function InsightsDashboard({
+  comparisonData,
+  consentId,
+}: InsightsDashboardProps) {
   const { insights, local, shared } = comparisonData;
   const [isDivergencesOpen, setIsDivergencesOpen] = useState(true);
   const [isAgreementsOpen, setIsAgreementsOpen] = useState(false);
@@ -217,7 +221,12 @@ export function InsightsDashboard({ comparisonData }: InsightsDashboardProps) {
       </Card>
 
       {/* AI-Powered Insights */}
-      {hasSkillsData && <AIInsightsPanel comparisonData={comparisonData} />}
+      {hasSkillsData && (
+        <AIInsightsPanel
+          comparisonData={comparisonData}
+          consentId={consentId}
+        />
+      )}
 
       {/* Divergences Section (Expanded by default) */}
       {hasSkillsData && insights.divergences.length > 0 && (

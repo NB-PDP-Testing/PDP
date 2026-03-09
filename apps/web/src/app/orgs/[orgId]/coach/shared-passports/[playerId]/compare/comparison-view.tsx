@@ -180,7 +180,10 @@ export function ComparisonView({
       {/* Main content based on view mode */}
       <div className="mt-6">
         {viewMode === "insights" && (
-          <InsightsDashboard comparisonData={comparisonData} />
+          <InsightsDashboard
+            comparisonData={comparisonData}
+            consentId={consentId}
+          />
         )}
 
         {viewMode === "split" && (

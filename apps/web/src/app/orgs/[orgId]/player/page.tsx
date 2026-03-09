@@ -31,7 +31,6 @@ import { useChildAccess } from "@/hooks/use-child-access";
 import { authClient } from "@/lib/auth-client";
 import { useMembershipContext } from "@/providers/membership-provider";
 import { WeeklySchedule } from "../parents/components/weekly-schedule";
-import { AIPracticeAssistantPlayer } from "./components/ai-practice-assistant-player";
 import { PlayerFeedbackSnippet } from "./components/player-feedback-snippet";
 import { PlayerPassportCard } from "./components/player-passport-card";
 
@@ -434,65 +433,60 @@ export default function PlayerDashboardPage() {
         </p>
       </div>
 
-      {/* 2. Weekly Schedule */}
+      {/* 2. Daily Wellness Check — shown above schedule so it's the first thing seen */}
+      {/* Gated for child accounts by includeWellnessAccess toggle */}
+      {(!isChildAccount || toggles?.includeWellnessAccess) &&
+        (wellnessDone ? (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                <div>
+                  <p className="font-semibold text-green-800 text-sm">
+                    ✓ Wellness checked in today
+                  </p>
+                  {wellnessScore !== undefined && (
+                    <p className="mt-0.5 font-medium text-green-700 text-xs">
+                      Score: {wellnessScore.toFixed(1)} / 5
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <div className="space-y-2">
+                  <p className="font-semibold text-amber-800 text-sm">
+                    Complete your daily wellness check
+                  </p>
+                  <p className="text-amber-700 text-xs">Takes under a minute</p>
+                  <Button
+                    asChild
+                    className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Link href={`/orgs/${orgId}/player/health-check` as Route}>
+                      Start Check-In
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+
+      {/* 3. Weekly Schedule */}
       <WeeklySchedule playerData={playerDataForComponents} />
 
-      {/* 3. Wellness + Injury + ICE cards in a responsive grid */}
-      {/* For child accounts, only show wellness if includeWellnessAccess toggle is on */}
+      {/* 4. Injury + ICE cards in a responsive grid */}
       <div
-        className={`grid gap-4 ${firstContact && !isChildAccount ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+        className={`grid gap-4 ${firstContact && !isChildAccount ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}
       >
-        {/* Wellness card — gated for child accounts */}
-        {/* Wellness card — hidden entirely for child accounts when toggle is off */}
-        {(!isChildAccount || toggles?.includeWellnessAccess) &&
-          (wellnessDone ? (
-            <Card className="border-green-200 bg-green-50">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-                  <div>
-                    <p className="font-semibold text-green-800 text-sm">
-                      ✓ Wellness checked in today
-                    </p>
-                    {wellnessScore !== undefined && (
-                      <p className="mt-0.5 font-medium text-green-700 text-xs">
-                        Score: {wellnessScore.toFixed(1)} / 5
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-amber-200 bg-amber-50">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                  <div className="space-y-2">
-                    <p className="font-semibold text-amber-800 text-sm">
-                      Complete your daily wellness check
-                    </p>
-                    <p className="text-amber-700 text-xs">
-                      Takes under a minute
-                    </p>
-                    <Button
-                      asChild
-                      className="border-amber-300 text-amber-800 hover:bg-amber-100"
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Link
-                        href={`/orgs/${orgId}/player/health-check` as Route}
-                      >
-                        Start Check-In
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
         {/* Injury card — never shown for child accounts (medical data) */}
         {!isChildAccount && hasActiveInjuries && (
           <Card className="border-amber-200 bg-amber-50">
@@ -617,15 +611,7 @@ export default function PlayerDashboardPage() {
           </Card>
         )}
 
-      {/* 8. AI Practice Assistant — not shown for child accounts (no profiling/AI for youth) */}
-      {!isChildAccount && playerData !== undefined && (
-        <AIPracticeAssistantPlayer
-          orgId={orgId}
-          playerData={playerDataForComponents}
-        />
-      )}
-
-      {/* 9. My Passport Card — constrained width to match child-card size on parent page */}
+      {/* 8. My Passport Card — constrained width to match child-card size on parent page */}
       <div className="sm:max-w-sm">
         <PlayerPassportCard
           matchAttendance={(passportSummary as any)?.matchAttendance}

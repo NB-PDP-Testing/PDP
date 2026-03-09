@@ -920,7 +920,7 @@ export const getSharedPassportData = query({
           v.object({
             organizationId: v.string(),
             organizationName: v.string(),
-            sport: v.string(),
+            sport: v.optional(v.string()),
             ageGroup: v.string(),
             status: v.string(),
             lastUpdated: v.number(),
@@ -1082,7 +1082,7 @@ export const getSharedPassportData = query({
           return {
             organizationId: enrollment.organizationId,
             organizationName: org?.name || "Unknown Organization",
-            sport: enrollment.sport,
+            sport: enrollment.sport || undefined,
             ageGroup: enrollment.ageGroup || "Unknown",
             status: enrollment.status,
             lastUpdated: enrollment.updatedAt,

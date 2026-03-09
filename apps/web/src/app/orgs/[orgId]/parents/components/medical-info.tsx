@@ -54,6 +54,7 @@ type MedicalInfoProps = {
       _id: Id<"playerIdentities">;
       firstName: string;
       lastName: string;
+      dateOfBirth?: string;
     };
     enrollment?: {
       ageGroup?: string;
@@ -61,6 +62,17 @@ type MedicalInfoProps = {
   }>;
   orgId: string;
 };
+
+function calcAge(dob: string): number {
+  const birth = new Date(dob);
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const m = now.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
 
 // Medical Form Component
 function MedicalForm({
@@ -554,7 +566,9 @@ export function MedicalInfo({ playerData, orgId }: MedicalInfoProps) {
                         {child.player.firstName} {child.player.lastName}
                       </p>
                       <p className="text-muted-foreground text-xs">
-                        {child.enrollment?.ageGroup || "Age group TBD"}
+                        {child.player.dateOfBirth
+                          ? `${new Date(child.player.dateOfBirth).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · Age ${calcAge(child.player.dateOfBirth)}`
+                          : "DOB not set"}
                       </p>
                     </div>
                   </div>

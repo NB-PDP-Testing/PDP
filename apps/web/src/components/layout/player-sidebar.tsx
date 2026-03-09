@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Settings,
   Share2,
+  Sparkles,
   Target,
   TrendingUp,
   Trophy,
@@ -54,6 +55,12 @@ export function getPlayerNavItems(orgId: string): NavItem[] {
       href: `/orgs/${orgId}/player/profile`,
       label: "My Profile",
       icon: User,
+    },
+    {
+      href: `/orgs/${orgId}/player/ai-practice-assistant`,
+      label: "AI Practice Assistant",
+      icon: Sparkles,
+      hiddenForChildren: true,
     },
     {
       href: `/orgs/${orgId}/player/progress`,

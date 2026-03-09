@@ -8,6 +8,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -50,15 +51,21 @@ export default function ParentMessagesPage() {
   };
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="font-bold text-3xl">Messages</h1>
-          <p className="text-muted-foreground">
-            View messages from coaches about your children
-          </p>
+    <div className="container mx-auto space-y-6 py-6">
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        gradientTo="secondary"
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          <MessageSquare className="h-7 w-7 flex-shrink-0" />
+          <div>
+            <h1 className="font-bold text-xl md:text-2xl">Messages</h1>
+            <p className="text-sm opacity-90">
+              View messages from coaches about your children
+            </p>
+          </div>
         </div>
-      </div>
+      </OrgThemedGradient>
 
       {/* Unread Filter */}
       <div className="mb-6">

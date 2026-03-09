@@ -655,6 +655,8 @@ export const getFullPlayerPassportView = query({
       phone: string;
       relationship: string;
       isPrimary: boolean;
+      hasParentalResponsibility: boolean;
+      canCollectFromTraining: boolean;
     }> = [];
     for (const link of guardianLinks) {
       const guardian = await ctx.db.get(link.guardianIdentityId);
@@ -667,6 +669,8 @@ export const getFullPlayerPassportView = query({
           phone: guardian.phone ?? "",
           relationship: link.relationship,
           isPrimary: link.isPrimary,
+          hasParentalResponsibility: link.hasParentalResponsibility ?? true,
+          canCollectFromTraining: link.canCollectFromTraining ?? true,
         });
       }
     }

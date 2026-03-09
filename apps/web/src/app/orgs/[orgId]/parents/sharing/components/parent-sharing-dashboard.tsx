@@ -6,16 +6,20 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Eye,
   Shield,
   UserCheck,
   Users,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import Loader from "@/components/loader";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -40,7 +44,6 @@ import {
   EnableSharingWizard,
 } from "./enable-sharing-wizard";
 import { NotificationPreferences } from "./notification-preferences";
-import { PrivacySettingsCard } from "./privacy-settings-card";
 
 type ParentSharingDashboardProps = {
   orgId: string;
@@ -62,6 +65,22 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
 
   // Preferences modal state
   const [preferencesOpen, setPreferencesOpen] = useState(false);
+
+  // Collapsible quick actions
+  const [quickActionsCollapsed, setQuickActionsCollapsed] = useState(false);
+
+  // Dismissible info card
+  const [showSharingInfo, setShowSharingInfo] = useState(() => {
+    if (typeof window === "undefined") {
+      return true;
+    }
+    return localStorage.getItem("passport-sharing-info-dismissed") !== "true";
+  });
+
+  const dismissSharingInfo = () => {
+    setShowSharingInfo(false);
+    localStorage.setItem("passport-sharing-info-dismissed", "true");
+  };
 
   // Get children from guardian identity system
   const {
@@ -234,108 +253,143 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
+      <OrgThemedGradient
+        className="rounded-lg p-6 shadow-md"
+        gradientTo="secondary"
+      >
         <div className="flex items-start justify-between">
           <div>
             <h1 className="font-bold text-3xl">Passport Sharing</h1>
-            <p className="mt-2 text-blue-100">
+            <p className="mt-2 opacity-90">
               Control how your{" "}
               {identityChildren.length === 1 ? "child's" : "children's"}{" "}
               development data is shared across organizations
             </p>
             {guardianIdentity && (
-              <p className="mt-1 text-blue-200 text-sm">
+              <p className="mt-1 text-sm opacity-75">
                 Managing {identityChildren.length}{" "}
                 {identityChildren.length === 1 ? "child" : "children"} in{" "}
                 {activeOrganization?.name || "this organization"}
               </p>
             )}
           </div>
-          <Shield className="h-10 w-10 text-blue-200" />
+          <Shield className="h-10 w-10 opacity-75" />
         </div>
-      </div>
+      </OrgThemedGradient>
 
       {/* About Passport Sharing */}
-      <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <Shield className="mt-1 h-8 w-8 shrink-0 text-blue-600" />
-            <div className="space-y-2">
-              <h3 className="font-semibold text-blue-900 text-lg">
-                What is Passport Sharing?
-              </h3>
-              <p className="text-blue-800 text-sm">
-                Enable sharing to allow coaches from other clubs and teams to
-                view your child's development progress with your permission.
-              </p>
-              <ul className="ml-4 list-disc space-y-1 text-blue-700 text-sm">
-                <li>Share with specific organizations</li>
-                <li>Control what information is shared</li>
-                <li>View access logs and analytics</li>
-                <li>Revoke access anytime</li>
-              </ul>
+      {showSharingInfo && (
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <Shield className="mt-1 h-8 w-8 shrink-0 text-blue-600" />
+              <div className="flex-1 space-y-2">
+                <h3 className="font-semibold text-blue-900 text-lg">
+                  What is Passport Sharing?
+                </h3>
+                <p className="text-blue-800 text-sm">
+                  Enable sharing to allow coaches from other clubs and teams to
+                  view your child's development progress with your permission.
+                </p>
+                <ul className="ml-4 list-disc space-y-1 text-blue-700 text-sm">
+                  <li>Share with specific organizations</li>
+                  <li>Control what information is shared</li>
+                  <li>View access logs and analytics</li>
+                  <li>Revoke access anytime</li>
+                </ul>
+              </div>
+              <button
+                aria-label="Dismiss"
+                className="shrink-0 rounded p-1 text-blue-400 hover:bg-blue-100 hover:text-blue-600"
+                onClick={dismissSharingInfo}
+                type="button"
+              >
+                <X size={16} />
+              </button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">Children</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">
-              {summaryStats.childrenCount}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Users className="text-blue-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {summaryStats.childrenCount}
+              </div>
             </div>
-            <p className="text-muted-foreground text-xs">Managed by you</p>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Children
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div className="h-1 w-full rounded-full bg-blue-600" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">Active Shares</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl text-green-600">
-              {summaryStats.activeShares}
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <CheckCircle className="text-green-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {summaryStats.activeShares}
+              </div>
             </div>
-            <p className="text-muted-foreground text-xs">Currently shared</p>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Active Shares
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div className="h-1 w-full rounded-full bg-green-600" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">
+        <Card className="border-yellow-200 bg-yellow-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Clock className="text-yellow-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {summaryStats.pendingRequests}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
               Pending Requests
-            </CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl text-yellow-600">
-              {summaryStats.pendingRequests}
             </div>
-            <p className="text-muted-foreground text-xs">Awaiting response</p>
+            <div className="mt-2 h-1 w-full rounded-full bg-yellow-100">
+              <div className="h-1 w-full rounded-full bg-yellow-600" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">Last Activity</CardTitle>
-            <UserCheck className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">
-              {summaryStats.lastActivity ? (
-                summaryStats.lastActivity.toLocaleDateString()
-              ) : (
-                <span className="text-base text-muted-foreground">None</span>
-              )}
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <UserCheck className="text-purple-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {summaryStats.lastActivity ? (
+                  summaryStats.lastActivity.toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                  })
+                ) : (
+                  <span className="font-normal text-base text-gray-400">
+                    None
+                  </span>
+                )}
+              </div>
             </div>
-            <p className="text-muted-foreground text-xs">Recent action</p>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Last Activity
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div
+                className="h-1 rounded-full bg-purple-600"
+                style={{ width: summaryStats.lastActivity ? "100%" : "0%" }}
+              />
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -344,67 +398,79 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
       {identityChildren.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Quick Actions</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Quick Actions</CardTitle>
+              <button
+                aria-label={quickActionsCollapsed ? "Expand" : "Collapse"}
+                className="rounded p-1 text-muted-foreground hover:bg-muted"
+                onClick={() => setQuickActionsCollapsed((c) => !c)}
+                type="button"
+              >
+                {quickActionsCollapsed ? (
+                  <ChevronDown size={18} />
+                ) : (
+                  <ChevronUp size={18} />
+                )}
+              </button>
+            </div>
             <CardDescription>
               Manage sharing and preferences for all your children
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3">
-              <Button
-                onClick={() => setShowWizard(true)}
-                size="default"
-                variant="default"
-              >
-                Enable Sharing
-              </Button>
-              <Button
-                disabled={!guardianIdentity?._id}
-                onClick={() => setPreferencesOpen(true)}
-                size="default"
-                variant="outline"
-              >
-                Manage Notification Preferences
-              </Button>
-            </div>
+          {!quickActionsCollapsed && (
+            <CardContent className="space-y-4">
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={() => setShowWizard(true)}
+                  size="default"
+                  variant="default"
+                >
+                  Enable Sharing
+                </Button>
+                <Button
+                  disabled={!guardianIdentity?._id}
+                  onClick={() => setPreferencesOpen(true)}
+                  size="default"
+                  variant="outline"
+                >
+                  Manage Notification Preferences
+                </Button>
+              </div>
 
-            {/* Global Findability Toggle */}
-            <div className="flex items-start gap-3 rounded-lg border-2 border-blue-200 bg-blue-50 p-4">
-              <Eye className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <Label
-                      className="font-medium text-blue-900 text-sm"
-                      htmlFor="global-discovery"
-                    >
-                      Allow Global Passport Discovery
-                    </Label>
-                    <p className="text-blue-700 text-xs">
-                      Enable coaches at any organization to discover your
-                      children's passports and request access. You'll receive a
-                      notification for each request and can approve or decline.
-                    </p>
+              {/* Global Findability Toggle */}
+              <div className="flex items-start gap-3 rounded-lg border-2 border-blue-200 bg-blue-50 p-4">
+                <Eye className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <Label
+                        className="font-medium text-blue-900 text-sm"
+                        htmlFor="global-discovery"
+                      >
+                        Allow Global Passport Discovery
+                      </Label>
+                      <p className="text-blue-700 text-xs">
+                        Enable coaches at any organization to discover your
+                        children's passports and request access. You'll receive
+                        a notification for each request and can approve or
+                        decline.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={
+                        guardianIdentity?.allowGlobalPassportDiscovery ?? false
+                      }
+                      disabled={!guardianIdentity?._id}
+                      id="global-discovery"
+                      onCheckedChange={handleDiscoveryToggle}
+                    />
                   </div>
-                  <Switch
-                    checked={
-                      guardianIdentity?.allowGlobalPassportDiscovery ?? false
-                    }
-                    disabled={!guardianIdentity?._id}
-                    id="global-discovery"
-                    onCheckedChange={handleDiscoveryToggle}
-                  />
                 </div>
               </div>
-            </div>
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
-      )}
-
-      {/* Privacy Settings */}
-      {identityChildren.length > 0 && guardianIdentity?._id && (
-        <PrivacySettingsCard guardianIdentityId={guardianIdentity._id} />
       )}
 
       {/* Children List */}
@@ -419,7 +485,6 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
               const childBulkData = bulkData?.find(
                 (data) => data.playerIdentityId === child.player._id
               );
-
               return (
                 <ChildSharingCard
                   child={child}

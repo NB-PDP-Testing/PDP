@@ -12,11 +12,13 @@ import {
   ChevronUp,
   Clock,
   Heart,
+  Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { InjuryDetailModal } from "@/components/injuries/injury-detail-modal";
 import { PageSkeleton } from "@/components/loading";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -242,6 +244,40 @@ function InjuriesPageContent() {
     return map;
   }, [identityChildren, allInjuries]);
 
+  // Stats shown in top cards — scoped to selected child or aggregate
+  const displayStats = useMemo(() => {
+    if (selectedChildId) {
+      const stats = childInjuryStats.get(selectedChildId) ?? {
+        active: 0,
+        recovering: 0,
+        history: 0,
+      };
+      const allClear = stats.active === 0 && stats.recovering === 0;
+      return {
+        active: stats.active,
+        recovering: stats.recovering,
+        healed: stats.history,
+        allClear: allClear ? 1 : 0,
+      };
+    }
+    return {
+      active: activeInjuries.filter((i) => i.status === "active").length,
+      recovering: activeInjuries.filter((i) => i.status === "recovering")
+        .length,
+      healed: inactiveInjuries.length,
+      allClear: identityChildren.filter((c) =>
+        (allInjuries ?? []).every((i) => i.playerIdentityId !== c.player._id)
+      ).length,
+    };
+  }, [
+    selectedChildId,
+    childInjuryStats,
+    activeInjuries,
+    inactiveInjuries,
+    identityChildren,
+    allInjuries,
+  ]);
+
   // Filtered injuries based on selected child — empty until a child is selected
   const { filteredActive, filteredInactive } = useMemo(() => {
     if (!selectedChildId) {
@@ -266,17 +302,20 @@ function InjuriesPageContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 p-6 text-white">
-        <div className="flex items-center gap-3">
-          <Activity className="h-8 w-8" />
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        gradientTo="secondary"
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          <Activity className="h-7 w-7 flex-shrink-0" />
           <div>
-            <h1 className="font-bold text-2xl">Injury Tracking</h1>
-            <p className="mt-1 text-amber-100">
+            <h1 className="font-bold text-xl md:text-2xl">Injury Tracking</h1>
+            <p className="text-sm opacity-90">
               Monitor injuries and recovery status for your children
             </p>
           </div>
         </div>
-      </div>
+      </OrgThemedGradient>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
@@ -285,7 +324,7 @@ function InjuriesPageContent() {
             <div className="mb-2 flex items-center justify-between">
               <AlertTriangle className="text-red-500" size={20} />
               <div className="font-bold text-gray-800 text-xl md:text-2xl">
-                {activeInjuries.filter((i) => i.status === "active").length}
+                {displayStats.active}
               </div>
             </div>
             <div className="font-medium text-gray-600 text-xs md:text-sm">
@@ -297,7 +336,7 @@ function InjuriesPageContent() {
                 style={{
                   width:
                     childCount > 0
-                      ? `${(activeInjuries.filter((i) => i.status === "active").length / childCount) * 100}%`
+                      ? `${(displayStats.active / childCount) * 100}%`
                       : "0%",
                 }}
               />
@@ -310,7 +349,7 @@ function InjuriesPageContent() {
             <div className="mb-2 flex items-center justify-between">
               <Clock className="text-amber-500" size={20} />
               <div className="font-bold text-gray-800 text-xl md:text-2xl">
-                {activeInjuries.filter((i) => i.status === "recovering").length}
+                {displayStats.recovering}
               </div>
             </div>
             <div className="font-medium text-gray-600 text-xs md:text-sm">
@@ -322,7 +361,7 @@ function InjuriesPageContent() {
                 style={{
                   width:
                     childCount > 0
-                      ? `${(activeInjuries.filter((i) => i.status === "recovering").length / childCount) * 100}%`
+                      ? `${(displayStats.recovering / childCount) * 100}%`
                       : "0%",
                 }}
               />
@@ -335,7 +374,7 @@ function InjuriesPageContent() {
             <div className="mb-2 flex items-center justify-between">
               <Heart className="text-purple-500" size={20} />
               <div className="font-bold text-gray-800 text-xl md:text-2xl">
-                {inactiveInjuries.length}
+                {displayStats.healed}
               </div>
             </div>
             <div className="font-medium text-gray-600 text-xs md:text-sm">
@@ -347,7 +386,7 @@ function InjuriesPageContent() {
                 style={{
                   width:
                     childCount > 0
-                      ? `${(inactiveInjuries.length / childCount) * 100}%`
+                      ? `${(displayStats.healed / childCount) * 100}%`
                       : "0%",
                 }}
               />
@@ -360,13 +399,7 @@ function InjuriesPageContent() {
             <div className="mb-2 flex items-center justify-between">
               <CheckCircle className="text-green-500" size={20} />
               <div className="font-bold text-gray-800 text-xl md:text-2xl">
-                {
-                  identityChildren.filter((c) =>
-                    (allInjuries ?? []).every(
-                      (i) => i.playerIdentityId !== c.player._id
-                    )
-                  ).length
-                }
+                {displayStats.allClear}
               </div>
             </div>
             <div className="font-medium text-gray-600 text-xs md:text-sm">
@@ -378,7 +411,7 @@ function InjuriesPageContent() {
                 style={{
                   width:
                     childCount > 0
-                      ? `${(identityChildren.filter((c) => (allInjuries ?? []).every((i) => i.playerIdentityId !== c.player._id)).length / childCount) * 100}%`
+                      ? `${(displayStats.allClear / childCount) * 100}%`
                       : "0%",
                 }}
               />
@@ -494,6 +527,18 @@ function InjuriesPageContent() {
             );
           })}
         </div>
+      )}
+
+      {/* Select a child prompt */}
+      {!selectedChildId && childCount > 0 && allInjuries !== undefined && (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <Users className="mx-auto mb-3 text-gray-300" size={40} />
+            <p className="text-gray-500 text-sm">
+              Select a child above to view their injuries
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Active Injuries Section */}

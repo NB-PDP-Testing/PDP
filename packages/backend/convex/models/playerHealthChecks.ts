@@ -941,15 +941,7 @@ export const getCoachAccessRequests = query({
  * Parent wellness view for a child player.
  *
  * Returns individual dimension values (parents are not coaches — full visibility).
- * Gated by parentChildAuthorizations.includeWellnessAccess (Phase 7).
- *
- * TODO: Phase 7 — when parentChildAuthorizations table is built, replace the
- * safe-default-deny below with a real check:
- *   const auth = await ctx.db
- *     .query("parentChildAuthorizations")
- *     .withIndex("by_player", q => q.eq("playerIdentityId", args.playerIdentityId))
- *     .first();
- *   if (!auth?.includeWellnessAccess) return { accessGranted: false, history: [] };
+ * Gated by parentChildAuthorizations.includeWellnessAccess.
  */
 export const getChildWellnessForParent = query({
   args: {
@@ -957,7 +949,6 @@ export const getChildWellnessForParent = query({
     days: v.optional(v.number()),
   },
   returns: v.object({
-    // TODO: Phase 7 — will be true when parentChildAuthorizations.includeWellnessAccess is true
     accessGranted: v.boolean(),
     history: v.array(
       v.object({
@@ -974,22 +965,91 @@ export const getChildWellnessForParent = query({
       })
     ),
   }),
-  handler: (_ctx, _args) => {
-    // TODO: Phase 7 — safe default: deny access until parentChildAuthorizations is implemented.
-    // Do NOT create a parallel access system. Wait for Phase 7 schema.
-    const history: Array<{
-      checkDate: string;
-      aggregateScore: number;
-      sleepQuality?: number;
-      energyLevel?: number;
-      mood?: number;
-      physicalFeeling?: number;
-      motivation?: number;
-      foodIntake?: number;
-      waterIntake?: number;
-      muscleRecovery?: number;
-    }> = [];
-    return { accessGranted: false as boolean, history };
+  handler: async (ctx, args) => {
+    const empty = {
+      accessGranted: false as boolean,
+      history: [] as Array<{
+        checkDate: string;
+        aggregateScore: number;
+        sleepQuality?: number;
+        energyLevel?: number;
+        mood?: number;
+        physicalFeeling?: number;
+        motivation?: number;
+        foodIntake?: number;
+        waterIntake?: number;
+        muscleRecovery?: number;
+      }>,
+    };
+
+    // Look up the enrollment record to get childPlayerId for the authorization check
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (!enrollment) {
+      return empty;
+    }
+
+    // Check parentChildAuthorizations for wellness access
+    const auth = await ctx.db
+      .query("parentChildAuthorizations")
+      .withIndex("by_child", (q) => q.eq("childPlayerId", enrollment._id))
+      .first();
+
+    if (!auth || auth.revokedAt || !auth.includeWellnessAccess) {
+      return empty;
+    }
+
+    // Fetch wellness history for this player
+    const lookbackDays = args.days ?? 30;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - lookbackDays);
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+    const checks = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_player_and_date", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .gte("checkDate", cutoffDate)
+      )
+      .order("desc")
+      .collect();
+
+    const history = checks
+      .filter((c) => !c.retentionExpired)
+      .map((c) => {
+        const dims = [
+          c.sleepQuality,
+          c.energyLevel,
+          c.mood,
+          c.physicalFeeling,
+          c.motivation,
+          c.foodIntake,
+          c.waterIntake,
+          c.muscleRecovery,
+        ].filter((d): d is number => d !== undefined);
+        const aggregateScore =
+          dims.length > 0 ? dims.reduce((a, b) => a + b, 0) / dims.length : 0;
+        return {
+          checkDate: c.checkDate,
+          aggregateScore: Math.round(aggregateScore * 10) / 10,
+          sleepQuality: c.sleepQuality,
+          energyLevel: c.energyLevel,
+          mood: c.mood,
+          physicalFeeling: c.physicalFeeling,
+          motivation: c.motivation,
+          foodIntake: c.foodIntake,
+          waterIntake: c.waterIntake,
+          muscleRecovery: c.muscleRecovery,
+        };
+      });
+
+    return { accessGranted: true, history };
   },
 });
 

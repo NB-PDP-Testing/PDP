@@ -41,8 +41,10 @@ async function navigateToDraftsTab(page: Page): Promise<void> {
   await waitForPageLoad(page);
   await dismissBlockingDialogs(page);
 
+  // Confirmed from voice-notes-dashboard.tsx: tabs are buttons, not role="tab"
+  // "Drafts" tab always renders (even when empty)
   const draftsTab = page
-    .getByRole("tab", { name: /drafts/i })
+    .getByRole("button", { name: /^Drafts/i })
     .or(page.getByText("Drafts", { exact: true }).first());
 
   if (await draftsTab.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -60,41 +62,48 @@ function skipIfNoConvex() {
 // ── WA-DRAFTS-001: Drafts tab loads ───────────────────────────────────────
 
 test.describe("WA-DRAFTS-001: Drafts tab is accessible", () => {
-  test("drafts tab is visible on the voice notes dashboard", async ({
+  test("drafts tab is always visible on the voice notes dashboard", async ({
     coachPage,
   }) => {
+    // Confirmed: Drafts tab ALWAYS renders (not conditional on count)
     await coachPage.goto(`/orgs/${TEST_ORG_ID}/coach/voice-notes`);
     await waitForPageLoad(coachPage);
     await dismissBlockingDialogs(coachPage);
 
-    // Drafts tab should be visible
     const draftsTab = coachPage
-      .getByRole("tab", { name: /drafts/i })
+      .getByRole("button", { name: /^Drafts/i })
       .or(coachPage.getByText("Drafts", { exact: true }).first());
 
     await expect(draftsTab).toBeVisible({ timeout: 10_000 });
   });
 
-  test("clicking drafts tab shows draft content or empty state", async ({
+  test("clicking drafts tab shows draft content or correct empty state", async ({
     coachPage,
   }) => {
     await navigateToDraftsTab(coachPage);
 
-    // Either drafts are showing OR an empty state message
+    // Either drafts are showing OR the exact empty state (confirmed from drafts-tab.tsx)
     const hasContent = await coachPage
       .locator(".draft-card, [data-draft], .draft-item")
       .first()
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
 
+    // Exact empty state text from drafts-tab.tsx:
     const hasEmptyState = await coachPage
-      .getByText(/no drafts|nothing here|all caught up|no pending/i)
+      .getByText("No pending drafts")
       .first()
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
 
+    const hasEmptySubtext = await coachPage
+      .getByText("New insights will appear here after processing voice notes.")
+      .first()
+      .isVisible({ timeout: 3_000 })
+      .catch(() => false);
+
     // One of these must be true — tab should not show a blank screen
-    expect(hasContent || hasEmptyState).toBeTruthy();
+    expect(hasContent || hasEmptyState || hasEmptySubtext).toBeTruthy();
   });
 });
 

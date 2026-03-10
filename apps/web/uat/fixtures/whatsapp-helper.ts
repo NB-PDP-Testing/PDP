@@ -229,12 +229,11 @@ export async function checkDraftsTab(
   await page.goto(`/orgs/${orgId}/coach/voice-notes`);
   await page.waitForLoadState("networkidle");
 
-  // Click Drafts tab (may be labeled "Drafts", "Pending Drafts", or "My Impact" in V1 UI)
-  // V2 pipeline may use "Drafts"; V1 UI uses "My Impact" for applied insights
+  // Click Drafts tab — confirmed always-visible tab in voice-notes-dashboard.tsx
+  // Uses role="button" not role="tab" in the actual implementation
   const draftsTab = page
-    .getByRole("tab", { name: /drafts/i })
+    .getByRole("button", { name: /^Drafts/i })
     .or(page.getByText("Drafts", { exact: true }))
-    .or(page.getByText("My Impact", { exact: true }))
     .first();
 
   if (await draftsTab.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -242,9 +241,9 @@ export async function checkDraftsTab(
     await page.waitForTimeout(1000);
   }
 
-  // Check for empty state
+  // Check for empty state — exact text confirmed from drafts-tab.tsx
   const isEmpty = await page
-    .getByText(/no drafts|nothing here|all caught up/i)
+    .getByText("No pending drafts")
     .first()
     .isVisible({ timeout: 3000 })
     .catch(() => false);

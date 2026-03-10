@@ -120,16 +120,50 @@ test.describe("WA-INAPP-001: In-app voice notes UI structure", () => {
     expect(hasContent || hasNotes || hasEmptyState).toBeTruthy();
   });
 
-  test("Drafts tab is visible", async ({ coachPage }) => {
+  test("Drafts tab is always visible (even when empty)", async ({ coachPage }) => {
+    // Confirmed from voice-notes-dashboard.tsx: Drafts tab ALWAYS renders,
+    // unlike Parents/Insights/Processing/Team which only show when count > 0
     await coachPage.goto(VOICE_NOTES_URL);
     await waitForPageLoad(coachPage);
     await dismissBlockingDialogs(coachPage);
 
     const draftsTab = coachPage
-      .getByRole("tab", { name: /drafts/i })
+      .getByRole("button", { name: /^Drafts/i })
       .or(coachPage.getByText("Drafts", { exact: true }).first());
 
     await expect(draftsTab).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("Drafts tab empty state shows correct message", async ({ coachPage }) => {
+    await coachPage.goto(VOICE_NOTES_URL);
+    await waitForPageLoad(coachPage);
+    await dismissBlockingDialogs(coachPage);
+
+    // Click Drafts tab
+    const draftsTab = coachPage
+      .getByRole("button", { name: /^Drafts/i })
+      .or(coachPage.getByText("Drafts", { exact: true }).first());
+
+    if (await draftsTab.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await draftsTab.click();
+      await coachPage.waitForTimeout(1_000);
+
+      // Empty state shows specific text (confirmed from drafts-tab.tsx)
+      const hasEmptyState = await coachPage
+        .getByText("No pending drafts")
+        .first()
+        .isVisible({ timeout: 5_000 })
+        .catch(() => false);
+
+      const hasDraftContent = await coachPage
+        .locator("[data-draft], .draft-card")
+        .first()
+        .isVisible({ timeout: 3_000 })
+        .catch(() => false);
+
+      // Either empty state or draft content should be visible
+      expect(hasEmptyState || hasDraftContent).toBeTruthy();
+    }
   });
 });
 
@@ -189,15 +223,17 @@ test.describe("WA-INAPP-003: Audio recording UI elements", () => {
 // ── WA-INAPP-004: Admin audit view ────────────────────────────────────────
 
 test.describe("WA-INAPP-004: Admin voice notes audit view", () => {
-  test("admin voice notes page loads and shows recent notes", async ({
+  test("admin voice notes page loads and shows 'Voice Notes Audit' title", async ({
     ownerPage,
   }) => {
+    // Confirmed from admin/voice-notes/page.tsx:
+    // Title: "Voice Notes Audit" with subtitle "Organization-wide voice notes for compliance and oversight"
     await ownerPage.goto(`/orgs/${TEST_ORG_ID}/admin/voice-notes`);
     await waitForPageLoad(ownerPage);
     await dismissBlockingDialogs(ownerPage);
 
     await expect(
-      ownerPage.getByText(/voice notes/i).first()
+      ownerPage.getByText("Voice Notes Audit").first()
     ).toBeVisible({ timeout: 15_000 });
   });
 
@@ -235,17 +271,16 @@ test.describe("WA-INAPP-004: Admin voice notes audit view", () => {
 // ── WA-INAPP-005: Navigation between tabs ────────────────────────────────
 
 test.describe("WA-INAPP-005: Tab navigation works correctly", () => {
-  test("can switch between all available tabs (New / History / My Impact / Drafts)", async ({
+  test("can switch between all available tabs", async ({
     coachPage,
   }) => {
-    // Existing tabs: "New", "History", "My Impact" (V1 UI)
-    // V2 pipeline may add: "Drafts" (pending insights awaiting coach review)
-    // Both are tested here — tabs that don't exist are skipped gracefully.
+    // Always-visible tabs: "New", "Drafts", "History", "My Impact"
+    // Conditional tabs (only show when count > 0): "Parents", "Insights", "Processing", "Team", "Sent to Parents"
     await coachPage.goto(VOICE_NOTES_URL);
     await waitForPageLoad(coachPage);
     await dismissBlockingDialogs(coachPage);
 
-    const tabNames = ["New", "History", "My Impact", "Drafts"];
+    const tabNames = ["New", "Drafts", "History", "My Impact"];
     for (const tabName of tabNames) {
       const tab = coachPage
         .getByRole("tab", { name: new RegExp(tabName, "i") })
@@ -265,18 +300,20 @@ test.describe("WA-INAPP-005: Tab navigation works correctly", () => {
     }
   });
 
-  test("all three core tabs exist: New, History, My Impact", async ({
+  test("all four always-present tabs exist: New, Drafts, History, My Impact", async ({
     coachPage,
   }) => {
-    // Validates the V1 tab structure confirmed in dashboard.spec.ts VN-DASH-002
+    // Confirmed from voice-notes-dashboard.tsx:
+    // These four tabs always render regardless of content count.
+    // Conditional tabs (Parents, Insights, Processing, Team) only show when count > 0.
     await coachPage.goto(VOICE_NOTES_URL);
     await waitForPageLoad(coachPage);
     await dismissBlockingDialogs(coachPage);
 
-    const coreTabNames = ["New", "History", "My Impact"];
-    for (const tabName of coreTabNames) {
+    const alwaysPresentTabs = ["New", "Drafts", "History", "My Impact"];
+    for (const tabName of alwaysPresentTabs) {
       const tab = coachPage
-        .getByRole("tab", { name: new RegExp(tabName, "i") })
+        .getByRole("button", { name: new RegExp(`^${tabName}`, "i") })
         .or(coachPage.getByText(tabName, { exact: true }).first());
       await expect(tab).toBeVisible({ timeout: 10_000 });
     }

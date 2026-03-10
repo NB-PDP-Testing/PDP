@@ -103,6 +103,37 @@ const orgPreferencesValidator = v.object({
   blockedBy: v.optional(v.string()),
   blockedAt: v.optional(v.number()),
 
+  // Notification Preferences
+  notificationChannels: v.optional(
+    v.object({
+      critical: v.array(v.string()),
+      important: v.array(v.string()),
+      normal: v.array(v.string()),
+    })
+  ),
+  digestSchedule: v.optional(
+    v.object({
+      enabled: v.boolean(),
+      time: v.string(),
+    })
+  ),
+  quietHours: v.optional(
+    v.object({
+      enabled: v.boolean(),
+      start: v.string(),
+      end: v.string(),
+    })
+  ),
+
+  // Mobile Gesture Preferences
+  gesturesEnabled: v.optional(v.boolean()),
+  swipeRightAction: v.optional(
+    v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+  ),
+  swipeLeftAction: v.optional(
+    v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+  ),
+
   createdAt: v.number(),
   updatedAt: v.number(),
 });

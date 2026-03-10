@@ -208,10 +208,7 @@ function ParentDashboardContent() {
       {/* Graduation Alerts - shown above all other content */}
       <GraduationAlerts orgId={orgId} />
 
-      {/* Coach Feedback Snapshot */}
-      {playerCount > 0 && <CoachFeedbackSnapshot orgId={orgId} />}
-
-      {/* Weekly Schedule */}
+      {/* Weekly Schedule - Moved to top */}
       {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
 
       {/* Summary Stats */}
@@ -284,6 +281,9 @@ function ParentDashboardContent() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Coach Feedback Snapshot */}
+      {playerCount > 0 && <CoachFeedbackSnapshot orgId={orgId} />}
 
       {/* Children Cards - US-PERF-015: Pass bulk data to avoid N+1 queries */}
       {playerCount > 0 && bulkChildData && (

@@ -18,7 +18,6 @@ import { useParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { InjuryDetailModal } from "@/components/injuries/injury-detail-modal";
 import { PageSkeleton } from "@/components/loading";
-import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -302,20 +301,17 @@ function InjuriesPageContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <OrgThemedGradient
-        className="rounded-lg p-4 shadow-md md:p-6"
-        gradientTo="secondary"
-      >
+      <div className="rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 p-4 text-white shadow-md md:p-6">
         <div className="flex items-center gap-2 md:gap-3">
           <Activity className="h-7 w-7 flex-shrink-0" />
           <div>
             <h1 className="font-bold text-xl md:text-2xl">Injury Tracking</h1>
-            <p className="text-sm opacity-90">
+            <p className="text-amber-100 text-sm">
               Monitor injuries and recovery status for your children
             </p>
           </div>
         </div>
-      </OrgThemedGradient>
+      </div>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">

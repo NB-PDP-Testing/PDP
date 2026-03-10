@@ -2,9 +2,16 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { ChevronDown, Loader2, MessageSquare, Smartphone } from "lucide-react";
+import {
+  Activity,
+  ChevronDown,
+  Loader2,
+  MessageSquare,
+  Smartphone,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
@@ -167,11 +174,108 @@ export default function WellnessHistoryPage() {
   return (
     <div className="container mx-auto max-w-3xl space-y-6 p-4 md:p-8">
       {/* Header */}
-      <div>
-        <h1 className="font-bold text-2xl">Wellness History</h1>
-        <p className="text-muted-foreground text-sm">
-          Your trends and check-in history from the last 30 days.
-        </p>
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        gradientTo="secondary"
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          <Activity className="h-7 w-7 flex-shrink-0" />
+          <div>
+            <h1 className="font-bold text-xl md:text-2xl">Wellness History</h1>
+            <p className="text-sm opacity-90">
+              Your trends and check-in history from the last 30 days.
+            </p>
+          </div>
+        </div>
+      </OrgThemedGradient>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Activity className="text-blue-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {checkInCount ?? 0}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Check-ins (30d)
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div
+                className="h-1 rounded-full bg-blue-600"
+                style={{
+                  width: `${Math.min(((checkInCount ?? 0) / 30) * 100, 100)}%`,
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <MessageSquare className="text-green-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {latestInsight ? "Yes" : "—"}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              AI Insight
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div
+                className="h-1 rounded-full bg-green-600"
+                style={{ width: latestInsight ? "100%" : "0%" }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Smartphone className="text-purple-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {wellnessHistory?.length ?? 0}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              History Entries
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div
+                className="h-1 rounded-full bg-purple-600"
+                style={{
+                  width: `${Math.min(((wellnessHistory?.length ?? 0) / 30) * 100, 100)}%`,
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-orange-200 bg-orange-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <ChevronDown className="text-orange-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {checkInCount !== undefined && checkInCount >= 7 ? "On" : "Off"}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Insights Active
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-orange-100">
+              <div
+                className="h-1 rounded-full bg-orange-600"
+                style={{
+                  width:
+                    checkInCount !== undefined && checkInCount >= 7
+                      ? "100%"
+                      : `${Math.min(((checkInCount ?? 0) / 7) * 100, 100)}%`,
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* AI Wellness Insight (US-P4-010) */}

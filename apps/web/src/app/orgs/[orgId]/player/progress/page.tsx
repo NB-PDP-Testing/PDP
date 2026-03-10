@@ -7,9 +7,12 @@ import {
   ArrowDown,
   ArrowUp,
   BarChart2,
+  Calendar,
+  ClipboardList,
   List,
   Loader2,
   Minus,
+  Star,
   TrendingUp,
 } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -24,6 +27,7 @@ import {
   Tooltip,
 } from "recharts";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -145,6 +149,17 @@ function fmtDate(date: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function fmtDateShort(date: string): string {
+  return new Date(date).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function formatSportName(code: string) {
+  return code.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
 // ─── Small display components ─────────────────────────────────────────────────
@@ -473,12 +488,17 @@ export default function PlayerProgressPage() {
     api.models.playerIdentities.findPlayerByEmail,
     userEmail ? { email: userEmail.toLowerCase() } : "skip"
   );
-  const passports = useQuery(
+  const rawPassports = useQuery(
     api.models.sportPassports.getPassportsForPlayer,
     playerIdentity?._id
       ? { playerIdentityId: playerIdentity._id as Id<"playerIdentities"> }
       : "skip"
   );
+
+  // Deduplicate by sportCode — keeps first occurrence per sport (import bug can create duplicates)
+  const passports = rawPassports
+    ? Array.from(new Map(rawPassports.map((p) => [p.sportCode, p])).values())
+    : rawPassports;
 
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
 
@@ -520,13 +540,27 @@ export default function PlayerProgressPage() {
 
   if (!passports || passports.length === 0) {
     return (
-      <div className="container mx-auto max-w-3xl p-4 md:p-6">
+      <div className="space-y-6">
+        <OrgThemedGradient
+          className="rounded-lg p-4 shadow-md md:p-6"
+          gradientTo="secondary"
+        >
+          <div className="flex items-center gap-2 md:gap-3">
+            <TrendingUp className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">My Progress</h1>
+              <p className="text-sm opacity-90">
+                Track your development and skill progression
+              </p>
+            </div>
+          </div>
+        </OrgThemedGradient>
         <Card className="border-dashed">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
               <TrendingUp className="h-6 w-6 text-muted-foreground" />
             </div>
-            <CardTitle>My Progress</CardTitle>
+            <CardTitle>No Assessments Yet</CardTitle>
             <CardDescription>
               No passport assessments yet. Your coach will complete your first
               assessment.
@@ -570,30 +604,174 @@ export default function PlayerProgressPage() {
     ? fmtDate(assessmentTimeline[1].date)
     : "Previous";
 
+  const skillsRated = dimensions.filter((d) => d.rating !== undefined).length;
+
   return (
-    <div className="container mx-auto max-w-3xl space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="font-bold text-2xl">My Progress</h1>
-        <p className="text-muted-foreground text-sm">
-          Track your development over time
-        </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        gradientTo="secondary"
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          <TrendingUp className="h-7 w-7 flex-shrink-0" />
+          <div>
+            <h1 className="font-bold text-xl md:text-2xl">My Progress</h1>
+            <p className="text-sm opacity-90">
+              Track your development and skill progression
+            </p>
+          </div>
+        </div>
+      </OrgThemedGradient>
+
+      {/* Summary Stat Cards */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Star className="text-blue-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {selectedPassport?.currentOverallRating !== undefined
+                  ? selectedPassport.currentOverallRating.toFixed(1)
+                  : "—"}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Overall Rating
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div
+                className="h-1 rounded-full bg-blue-600"
+                style={{
+                  width: selectedPassport?.currentOverallRating
+                    ? `${(selectedPassport.currentOverallRating / 10) * 100}%`
+                    : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <ClipboardList className="text-green-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {selectedPassport?.assessmentCount ?? 0}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Assessments
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div
+                className="h-1 rounded-full bg-green-600"
+                style={{
+                  width:
+                    (selectedPassport?.assessmentCount ?? 0) > 0
+                      ? "100%"
+                      : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <TrendingUp className="text-purple-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {skillsRated}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Skills Rated
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div
+                className="h-1 rounded-full bg-purple-600"
+                style={{
+                  width: `${(skillsRated / dimensions.length) * 100}%`,
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-orange-200 bg-orange-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Calendar className="text-orange-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {selectedPassport?.lastAssessmentDate
+                  ? fmtDateShort(selectedPassport.lastAssessmentDate)
+                  : "—"}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Last Assessed
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-orange-100">
+              <div
+                className="h-1 rounded-full bg-orange-600"
+                style={{
+                  width: selectedPassport?.lastAssessmentDate ? "100%" : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Sport Selector — only shown when player has multiple passports */}
       {passports.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          {passports.map((p) => (
-            <Button
-              key={p.sportCode}
-              onClick={() => {
-                setSelectedSport(p.sportCode);
-                resetNotes();
-              }}
-              size="sm"
-              variant={activeSport === p.sportCode ? "default" : "outline"}
-            >
-              {p.sportCode.charAt(0).toUpperCase() + p.sportCode.slice(1)}
-            </Button>
-          ))}
+        <div
+          className={`grid gap-3 ${
+            passports.length === 2
+              ? "grid-cols-2"
+              : "grid-cols-2 md:grid-cols-3"
+          }`}
+        >
+          {passports.map((p) => {
+            const isSelected = activeSport === p.sportCode;
+            return (
+              <button
+                className="cursor-pointer rounded-lg border p-3 text-left transition-all duration-200 hover:shadow-md"
+                key={p._id}
+                onClick={() => {
+                  setSelectedSport(p.sportCode);
+                  resetNotes();
+                }}
+                style={{
+                  backgroundColor: isSelected
+                    ? "rgba(var(--org-primary-rgb), 0.12)"
+                    : "rgba(var(--org-primary-rgb), 0.04)",
+                  borderColor: isSelected
+                    ? "rgba(var(--org-primary-rgb), 0.6)"
+                    : "rgba(var(--org-primary-rgb), 0.2)",
+                  outline: isSelected
+                    ? "2px solid rgba(var(--org-primary-rgb), 0.5)"
+                    : undefined,
+                }}
+                type="button"
+              >
+                <p className="truncate font-semibold text-gray-900 text-sm">
+                  {formatSportName(p.sportCode)}
+                </p>
+                {p.currentOverallRating !== undefined && (
+                  <p className="mt-1 text-gray-500 text-xs">
+                    Rating: {p.currentOverallRating.toFixed(1)}
+                  </p>
+                )}
+                {p.lastAssessmentDate && (
+                  <p className="text-gray-500 text-xs">
+                    Last: {fmtDateShort(p.lastAssessmentDate)}
+                  </p>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 

@@ -148,6 +148,9 @@ const playerIdentityValidator = v.object({
   createdFrom: v.optional(v.string()),
   normalizedFirstName: v.optional(v.string()),
   normalizedLastName: v.optional(v.string()),
+  allowGlobalPassportDiscovery: v.optional(v.boolean()),
+  allowCrossOrgSharing: v.optional(v.boolean()),
+  allowEnrollmentVisibility: v.optional(v.boolean()),
 });
 
 const sportValidator = v.object({

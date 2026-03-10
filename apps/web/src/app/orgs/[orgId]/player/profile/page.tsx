@@ -4,9 +4,18 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { CountryCode } from "libphonenumber-js";
 import { parsePhoneNumber } from "libphonenumber-js";
-import { Loader2, Lock, MapPin, RefreshCw, User } from "lucide-react";
+import {
+  Calendar,
+  CheckCircle2,
+  Loader2,
+  Lock,
+  MapPin,
+  RefreshCw,
+  User,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -238,13 +247,132 @@ export default function PlayerProfilePage() {
 
   const { player } = profile;
 
+  // Profile completeness
+  const completenessFields = [
+    player.firstName,
+    player.lastName,
+    player.phone,
+    player.address,
+    player.dateOfBirth,
+    player.gender,
+  ];
+  const completedCount = completenessFields.filter(Boolean).length;
+  const completionPct = Math.round(
+    (completedCount / completenessFields.length) * 100
+  );
+
+  const calcAge = (dob: string) => {
+    const today = new Date();
+    const birth = new Date(dob);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age -= 1;
+    }
+    return age;
+  };
+
+  const memberSince = new Date(player._creationTime).getFullYear();
+  const lastUpdated = player.updatedAt
+    ? new Date(player.updatedAt).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+      })
+    : "—";
+
   return (
     <div className="container mx-auto max-w-2xl space-y-6 p-4 md:p-8">
-      <div>
-        <h1 className="font-bold text-2xl">My Profile</h1>
-        <p className="text-muted-foreground text-sm">
-          Manage your contact details and emergency contacts.
-        </p>
+      {/* Header */}
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        gradientTo="secondary"
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          <User className="h-7 w-7 flex-shrink-0" />
+          <div>
+            <h1 className="font-bold text-xl md:text-2xl">My Profile</h1>
+            <p className="text-sm opacity-90">
+              Manage your contact details and emergency contacts.
+            </p>
+          </div>
+        </div>
+      </OrgThemedGradient>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <CheckCircle2 className="text-blue-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {completionPct}%
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Complete
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div
+                className="h-1 rounded-full bg-blue-600"
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <User className="text-green-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {player.dateOfBirth ? calcAge(player.dateOfBirth) : "—"}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Age
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div className="h-1 w-full rounded-full bg-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Calendar className="text-purple-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {memberSince}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Member Since
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div className="h-1 w-full rounded-full bg-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-orange-200 bg-orange-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <RefreshCw className="text-orange-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {lastUpdated}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Last Updated
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-orange-100">
+              <div
+                className="h-1 rounded-full bg-orange-600"
+                style={{ width: player.updatedAt ? "100%" : "0%" }}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* OAuth info */}

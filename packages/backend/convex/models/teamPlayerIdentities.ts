@@ -900,6 +900,40 @@ export const updatePlayerTeams = mutation({
           });
         }
 
+        // Auto-create sport passport if the team has a sport and none exists
+        const teamSport = (team as any).sport as string | undefined;
+        if (teamSport) {
+          const existingPassport = await ctx.db
+            .query("sportPassports")
+            .withIndex("by_player_and_org", (q) =>
+              q
+                .eq("playerIdentityId", args.playerIdentityId)
+                .eq("organizationId", args.organizationId)
+            )
+            .filter((q) =>
+              q.and(
+                q.eq(q.field("sportCode"), teamSport),
+                q.eq(q.field("status"), "active")
+              )
+            )
+            .first();
+
+          if (!existingPassport) {
+            await ctx.db.insert("sportPassports", {
+              playerIdentityId: args.playerIdentityId,
+              organizationId: args.organizationId,
+              sportCode: teamSport,
+              status: "active",
+              createdAt: now,
+              updatedAt: now,
+              assessmentCount: 0,
+            });
+            console.log(
+              `[updatePlayerTeams] Auto-created sport passport for player ${args.playerIdentityId} in sport ${teamSport}`
+            );
+          }
+        }
+
         added.push(team.name);
       } catch (error) {
         errors.push(
@@ -1031,6 +1065,77 @@ export const updatePlayerTeams = mutation({
           leftDate: new Date().toISOString().split("T")[0],
           updatedAt: now,
         });
+
+        // Deactivate sport passport if no other active teams exist for that sport
+        const teamSport = (team as any).sport as string | undefined;
+        if (teamSport) {
+          // Get all remaining active team memberships for this player in this org
+          const remainingMemberships = await ctx.db
+            .query("teamPlayerIdentities")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", args.playerIdentityId)
+            )
+            .filter((q) =>
+              q.and(
+                q.eq(q.field("organizationId"), args.organizationId),
+                q.eq(q.field("status"), "active")
+              )
+            )
+            .collect();
+
+          // Resolve the sport for each remaining team from Better Auth
+          let stillOnTeamForSport = false;
+          for (const membership of remainingMemberships) {
+            const remainingTeamResult = await ctx.runQuery(
+              components.betterAuth.adapter.findMany,
+              {
+                model: "team",
+                paginationOpts: { cursor: null, numItems: 1 },
+                where: [
+                  {
+                    field: "_id",
+                    value: membership.teamId,
+                    operator: "eq",
+                  },
+                ],
+              }
+            );
+            const remainingTeam = remainingTeamResult.page[0] as
+              | BetterAuthDoc<"team">
+              | undefined;
+            if (remainingTeam && (remainingTeam as any).sport === teamSport) {
+              stillOnTeamForSport = true;
+              break;
+            }
+          }
+
+          if (!stillOnTeamForSport) {
+            const passport = await ctx.db
+              .query("sportPassports")
+              .withIndex("by_player_and_org", (q) =>
+                q
+                  .eq("playerIdentityId", args.playerIdentityId)
+                  .eq("organizationId", args.organizationId)
+              )
+              .filter((q) =>
+                q.and(
+                  q.eq(q.field("sportCode"), teamSport),
+                  q.eq(q.field("status"), "active")
+                )
+              )
+              .first();
+
+            if (passport) {
+              await ctx.db.patch(passport._id, {
+                status: "inactive",
+                updatedAt: now,
+              });
+              console.log(
+                `[updatePlayerTeams] Deactivated sport passport for player ${args.playerIdentityId} in sport ${teamSport} (no remaining teams)`
+              );
+            }
+          }
+        }
 
         removed.push(team.name);
       } catch (error) {

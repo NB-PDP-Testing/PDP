@@ -7,6 +7,7 @@ import { CheckCircle2, Lock, MessageSquare, Send } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -145,12 +146,20 @@ export default function PlayerFeedbackPage() {
   if (!feedbackArray || feedbackArray.length === 0) {
     return (
       <div className="container mx-auto max-w-3xl space-y-6 p-4 md:p-6">
-        <div>
-          <h1 className="font-bold text-2xl">Coach Feedback</h1>
-          <p className="text-muted-foreground text-sm">
-            Feedback and AI summaries shared by your coaches
-          </p>
-        </div>
+        <OrgThemedGradient
+          className="rounded-lg p-4 shadow-md md:p-6"
+          gradientTo="secondary"
+        >
+          <div className="flex items-center gap-2 md:gap-3">
+            <MessageSquare className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">Coach Feedback</h1>
+              <p className="text-sm opacity-90">
+                Feedback and AI summaries shared by your coaches
+              </p>
+            </div>
+          </div>
+        </OrgThemedGradient>
         <Card className="border-dashed">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
@@ -285,16 +294,124 @@ export default function PlayerFeedbackPage() {
 
   return (
     <div className="container mx-auto max-w-3xl space-y-6 p-4 md:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-bold text-2xl">Coach Feedback</h1>
-          <p className="text-muted-foreground text-sm">
-            Feedback and AI summaries shared by your coaches
-          </p>
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        gradientTo="secondary"
+      >
+        <div className="flex items-center justify-between gap-2 md:gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <MessageSquare className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">Coach Feedback</h1>
+              <p className="text-sm opacity-90">
+                Feedback and AI summaries shared by your coaches
+              </p>
+            </div>
+          </div>
+          {unacknowledged.length > 0 && (
+            <Badge
+              className="shrink-0 border-current/20 bg-white/20 text-inherit hover:bg-white/30"
+              variant="outline"
+            >
+              {unacknowledged.length} new
+            </Badge>
+          )}
         </div>
-        {unacknowledged.length > 0 && (
-          <Badge variant="default">{unacknowledged.length} new</Badge>
-        )}
+      </OrgThemedGradient>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <MessageSquare className="text-blue-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {unacknowledged.length}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              New / Unread
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div
+                className="h-1 rounded-full bg-blue-600"
+                style={{
+                  width:
+                    feedbackArray.length > 0
+                      ? `${(unacknowledged.length / feedbackArray.length) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <CheckCircle2 className="text-green-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {acknowledged.length}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Acknowledged
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div
+                className="h-1 rounded-full bg-green-600"
+                style={{
+                  width:
+                    feedbackArray.length > 0
+                      ? `${(acknowledged.length / feedbackArray.length) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Send className="text-purple-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {feedbackArray.filter((f) => f.childResponse).length}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Responses Given
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div
+                className="h-1 rounded-full bg-purple-600"
+                style={{
+                  width:
+                    feedbackArray.length > 0
+                      ? `${(feedbackArray.filter((f) => f.childResponse).length / feedbackArray.length) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-orange-200 bg-orange-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Lock className="text-orange-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {feedbackArray.length}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Total
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-orange-100">
+              <div
+                className="h-1 rounded-full bg-orange-600"
+                style={{ width: "100%" }}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Unacknowledged */}

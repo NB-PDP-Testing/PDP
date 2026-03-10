@@ -3757,6 +3757,9 @@ export const getMyPassportSharingData = query({
           v.literal("accepted"),
           v.literal("declined")
         ),
+        sharedElements: sharedElementsValidator,
+        visibleSportCodes: v.optional(v.array(v.string())),
+        allowCrossSportVisibility: v.optional(v.boolean()),
         consentedAt: v.number(),
         expiresAt: v.number(),
         revokedAt: v.optional(v.number()),
@@ -3798,7 +3801,7 @@ export const getMyPassportSharingData = query({
       )
       .collect();
 
-    // Enrich consents with org names
+    // Enrich consents with org names and full details
     const enrichedConsents = await Promise.all(
       consents.map(async (consent) => {
         const org = await _lookupOrganization(ctx, consent.receivingOrgId);
@@ -3808,6 +3811,9 @@ export const getMyPassportSharingData = query({
           receivingOrgName: org?.name ?? "Unknown Organization",
           status: consent.status,
           coachAcceptanceStatus: consent.coachAcceptanceStatus,
+          sharedElements: consent.sharedElements,
+          visibleSportCodes: consent.visibleSportCodes,
+          allowCrossSportVisibility: consent.allowCrossSportVisibility,
           consentedAt: consent.consentedAt,
           expiresAt: consent.expiresAt,
           revokedAt: consent.revokedAt,
@@ -3990,6 +3996,89 @@ export const respondToAccessRequestAsPlayer = mutation({
       createdAt: now,
     });
 
+    return null;
+  },
+});
+
+/**
+ * Get privacy/sharing settings for the authenticated adult player
+ */
+export const getMyPlayerPrivacySettings = query({
+  args: {},
+  returns: v.union(
+    v.object({
+      playerIdentityId: v.id("playerIdentities"),
+      allowGlobalPassportDiscovery: v.boolean(),
+      allowCrossOrgSharing: v.boolean(),
+      allowEnrollmentVisibility: v.boolean(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const playerIdentity = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!playerIdentity || playerIdentity.playerType !== "adult") {
+      return null;
+    }
+
+    return {
+      playerIdentityId: playerIdentity._id,
+      allowGlobalPassportDiscovery:
+        playerIdentity.allowGlobalPassportDiscovery ?? false,
+      allowCrossOrgSharing: playerIdentity.allowCrossOrgSharing ?? false,
+      allowEnrollmentVisibility:
+        playerIdentity.allowEnrollmentVisibility ?? true,
+    };
+  },
+});
+
+/**
+ * Update privacy/sharing settings for the authenticated adult player
+ */
+export const updateMyPlayerPrivacySettings = mutation({
+  args: {
+    allowGlobalPassportDiscovery: v.optional(v.boolean()),
+    allowCrossOrgSharing: v.optional(v.boolean()),
+    allowEnrollmentVisibility: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const playerIdentity = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!playerIdentity || playerIdentity.playerType !== "adult") {
+      throw new Error("Adult player identity not found");
+    }
+
+    const patch: Record<string, boolean | number> = {
+      updatedAt: Date.now(),
+    };
+    if (args.allowGlobalPassportDiscovery !== undefined) {
+      patch.allowGlobalPassportDiscovery = args.allowGlobalPassportDiscovery;
+    }
+    if (args.allowCrossOrgSharing !== undefined) {
+      patch.allowCrossOrgSharing = args.allowCrossOrgSharing;
+    }
+    if (args.allowEnrollmentVisibility !== undefined) {
+      patch.allowEnrollmentVisibility = args.allowEnrollmentVisibility;
+    }
+
+    await ctx.db.patch(playerIdentity._id, patch);
     return null;
   },
 });

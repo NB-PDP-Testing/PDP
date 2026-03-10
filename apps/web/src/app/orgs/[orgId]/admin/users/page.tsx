@@ -3443,7 +3443,7 @@ export default function ManageUsersPage() {
                                               ? "border-orange-400 bg-orange-100"
                                               : "border-gray-200 bg-white hover:bg-gray-50"
                                           }`}
-                                          onClick={() =>
+                                          onClick={() => {
                                             setPlayerCreateTeams((prev) => ({
                                               ...prev,
                                               [member.userId]: isSelected
@@ -3458,8 +3458,15 @@ export default function ManageUsersPage() {
                                                       currentPlayerTeamIds),
                                                     team._id,
                                                   ],
-                                            }))
-                                          }
+                                            }));
+                                            setEditStates((prev) => ({
+                                              ...prev,
+                                              [member.userId]: {
+                                                ...prev[member.userId],
+                                                modified: true,
+                                              },
+                                            }));
+                                          }}
                                           type="button"
                                         >
                                           <span

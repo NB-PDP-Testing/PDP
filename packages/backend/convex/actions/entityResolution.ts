@@ -150,8 +150,40 @@ export const resolveEntities = internalAction({
 
       if (unresolvedClaims.length === 0) {
         console.info(
-          "[entityResolution] All claims already resolved by Phase 4"
+          "[entityResolution] All claims already resolved by Phase 4 — scheduling draft generation"
         );
+        // #498 FIX: Phase 4 (claimsExtraction) auto-resolved all claims inline by
+        // setting claim.resolvedPlayerIdentityId. We still must schedule Phase 6
+        // (generateDrafts) — without this, the Drafts tab is permanently empty.
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.draftGeneration.generateDrafts,
+          { artifactId: args.artifactId }
+        );
+        // Log the monitoring event so the pipeline dashboard shows phase completion
+        try {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.models.voicePipelineEvents.logEvent,
+            {
+              eventType: "entity_resolution_completed",
+              artifactId: args.artifactId,
+              organizationId,
+              pipelineStage: "entity_resolution",
+              stageCompletedAt: Date.now(),
+              metadata: {
+                entityCount: claims.length,
+                autoResolvedCount: claims.length,
+                disambiguationCount: 0,
+              },
+            }
+          );
+        } catch (error) {
+          console.warn(
+            "Failed to log entity_resolution_completed event (early exit):",
+            error
+          );
+        }
         return null;
       }
 
@@ -179,7 +211,15 @@ export const resolveEntities = internalAction({
       });
 
       if (resolutions.length === 0) {
-        console.info("[entityResolution] No entity mentions to resolve");
+        console.info(
+          "[entityResolution] No entity mentions to resolve — scheduling draft generation"
+        );
+        // Schedule Phase 6 even when no resolutions were created
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.draftGeneration.generateDrafts,
+          { artifactId: args.artifactId }
+        );
         return null;
       }
 

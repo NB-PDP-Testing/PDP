@@ -1913,7 +1913,7 @@ export const classifyInsight = mutation({
  * Correct player name in text using pattern matching
  * Tries multiple variations of the wrong name to find and replace
  */
-function correctPlayerNameInText(
+export function correctPlayerNameInText(
   text: string,
   wrongName: string | undefined,
   correctFirstName: string,

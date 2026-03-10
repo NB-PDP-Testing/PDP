@@ -2091,6 +2091,46 @@ export const assignPlayerToInsight = mutation({
       insights: updatedInsights,
     });
 
+    // Layer 2: Store coach-player alias for future auto-resolution.
+    // When the coach corrects a mis-transcribed name (e.g. "Cloda" → "Clodagh Barlow"),
+    // subsequent voice notes auto-resolve that alias without manual intervention.
+    if (
+      originalPlayerName &&
+      originalPlayerName !== playerName &&
+      note.coachId
+    ) {
+      const aliasNow = Date.now();
+      const normalized = originalPlayerName.toLowerCase().trim();
+      const existingAlias = await ctx.db
+        .query("coachPlayerAliases")
+        .withIndex("by_coach_org_rawText", (q) =>
+          q
+            .eq("coachUserId", note.coachId as string)
+            .eq("organizationId", note.orgId)
+            .eq("rawText", normalized)
+        )
+        .first();
+      if (existingAlias) {
+        await ctx.db.patch(existingAlias._id, {
+          resolvedEntityId: String(args.playerIdentityId),
+          resolvedEntityName: playerName,
+          useCount: existingAlias.useCount + 1,
+          lastUsedAt: aliasNow,
+        });
+      } else {
+        await ctx.db.insert("coachPlayerAliases", {
+          coachUserId: note.coachId as string,
+          organizationId: note.orgId,
+          rawText: normalized,
+          resolvedEntityId: String(args.playerIdentityId),
+          resolvedEntityName: playerName,
+          useCount: 1,
+          lastUsedAt: aliasNow,
+          createdAt: aliasNow,
+        });
+      }
+    }
+
     // Schedule parent summary generation for this insight now that it has a player
     await ctx.scheduler.runAfter(
       0,

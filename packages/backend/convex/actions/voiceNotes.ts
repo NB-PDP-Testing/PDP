@@ -198,12 +198,46 @@ export const transcribeAudio = internalAction({
       const fileExtension =
         note.source === "whatsapp_audio" ? "voice-note.ogg" : "voice-note.webm";
 
+      // Layer 1: Build roster prompt to improve transcription accuracy.
+      // gpt-4o-mini-transcribe supports instruction-following via the prompt
+      // parameter, biasing it toward known player/team names for this coach.
+      let transcriptionPrompt: string | undefined;
+      try {
+        const rosterPlayers = note.coachId
+          ? await ctx.runQuery(
+              internal.models.orgPlayerEnrollments
+                .getPlayersForCoachTeamsInternal,
+              { organizationId: note.orgId, coachUserId: note.coachId }
+            )
+          : await ctx.runQuery(
+              internal.models.orgPlayerEnrollments.getPlayersForOrgInternal,
+              { organizationId: note.orgId }
+            );
+        if (rosterPlayers.length > 0) {
+          const names = rosterPlayers
+            .map(
+              (p: { firstName: string; lastName: string }) =>
+                `${p.firstName} ${p.lastName}`
+            )
+            .join(", ");
+          // Keep prompt concise — model uses it as vocabulary/instruction context
+          const raw = `Sports coaching note. Players: ${names}.`;
+          // Hard-cap at 500 chars to stay well inside Whisper 224-token limit
+          transcriptionPrompt =
+            raw.length > 500 ? `${raw.slice(0, 497)}...` : raw;
+        }
+      } catch {
+        // Non-fatal — transcribe without prompt on any error
+      }
+
       // Transcribe with OpenAI
       const client = getOpenAI();
       const file = await OpenAI.toFile(audioBuffer, fileExtension);
       const transcription = await client.audio.transcriptions.create({
         model: config.modelId,
         file,
+        language: "en",
+        ...(transcriptionPrompt ? { prompt: transcriptionPrompt } : {}),
       });
 
       // US-VN-002: Validate transcript quality before insight extraction

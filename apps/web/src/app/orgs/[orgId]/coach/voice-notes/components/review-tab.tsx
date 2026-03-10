@@ -281,9 +281,13 @@ export function ReviewTab({ orgId, onSuccess, onError }: ReviewTabProps) {
                       <span className="font-semibold text-gray-800 text-sm sm:text-base">
                         {insight.title}
                       </span>
-                      {insight.playerName ? (
+                      {insight.playerIdentityId ? (
                         <Badge className="text-xs" variant="secondary">
                           {insight.playerName}
+                        </Badge>
+                      ) : insight.playerName ? (
+                        <Badge className="border-amber-400 bg-amber-100 text-amber-800 text-xs">
+                          ⚠️ {insight.playerName} (not in roster)
                         </Badge>
                       ) : (
                         <Badge className="bg-purple-100 text-purple-700 text-xs">

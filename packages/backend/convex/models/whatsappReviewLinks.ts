@@ -1710,6 +1710,45 @@ export const assignPlayerFromReview = mutation({
 
     await ctx.db.patch(note._id, { insights: updatedInsights });
 
+    // Layer 2: Store coach-player alias for future auto-resolution (feature parity
+    // with assignPlayerToInsight in voiceNotes.ts — same alias table, same logic).
+    if (
+      originalPlayerName &&
+      originalPlayerName !== playerName &&
+      note.coachId
+    ) {
+      const aliasNow = Date.now();
+      const normalized = originalPlayerName.toLowerCase().trim();
+      const existingAlias = await ctx.db
+        .query("coachPlayerAliases")
+        .withIndex("by_coach_org_rawText", (q) =>
+          q
+            .eq("coachUserId", note.coachId as string)
+            .eq("organizationId", note.orgId)
+            .eq("rawText", normalized)
+        )
+        .first();
+      if (existingAlias) {
+        await ctx.db.patch(existingAlias._id, {
+          resolvedEntityId: String(args.playerIdentityId),
+          resolvedEntityName: playerName,
+          useCount: existingAlias.useCount + 1,
+          lastUsedAt: aliasNow,
+        });
+      } else {
+        await ctx.db.insert("coachPlayerAliases", {
+          coachUserId: note.coachId as string,
+          organizationId: note.orgId,
+          rawText: normalized,
+          resolvedEntityId: String(args.playerIdentityId),
+          resolvedEntityName: playerName,
+          useCount: 1,
+          lastUsedAt: aliasNow,
+          createdAt: aliasNow,
+        });
+      }
+    }
+
     // Schedule parent summary generation (same as assignPlayerToInsight)
     await ctx.scheduler.runAfter(
       0,
@@ -1724,6 +1763,34 @@ export const assignPlayerFromReview = mutation({
         coachId: note.coachId,
       }
     );
+
+    // Feature parity with assignPlayerToInsight: update voiceNoteInsights table
+    // and re-check auto-apply eligibility now that a player has been assigned.
+    const voiceNoteInsight = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_voice_note_and_insight", (q) =>
+        q.eq("voiceNoteId", args.voiceNoteId).eq("insightId", args.insightId)
+      )
+      .first();
+
+    if (voiceNoteInsight && voiceNoteInsight.status === "pending") {
+      await ctx.db.patch(voiceNoteInsight._id, {
+        playerIdentityId: args.playerIdentityId,
+        playerName,
+        title: correctedTitle,
+        description: correctedDescription,
+        recommendedUpdate: correctedRecommendedUpdate,
+        wasManuallyCorrected: true,
+        manuallyCorrectedAt: Date.now(),
+        correctionType: "player_assigned",
+        updatedAt: Date.now(),
+      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voiceNotes.recheckAutoApply,
+        { voiceNoteInsightId: voiceNoteInsight._id }
+      );
+    }
 
     return { success: true as const, playerName, nameWasCorrected };
   },

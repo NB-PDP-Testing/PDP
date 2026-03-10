@@ -2,12 +2,29 @@
  * WhatsApp Voice Notes — Multi-Org Coach Routing
  *
  * Tests the org selection flow for coaches who belong to multiple organisations.
- * Multi-org coaches MUST be prompted with "Which club?" before processing.
- * After selecting, their preference is cached for 24 hours.
+ * Multi-org coaches are prompted with "Which club?" before processing.
+ * After selecting, their preference is cached for 24 hours (SESSION_TIMEOUT_MS = 86400000).
+ *
+ * Org detection cascade (8 steps, first match wins — confirmed from findCoachWithOrgContext):
+ *   1. single_org         — coach has exactly one org → immediate routing
+ *   2. explicit_mention   — "for Grange", "@Grange", "Grange:", "at Grange", "from Grange"
+ *   3. team_match         — team name fuzzy match in message text
+ *   4. age_group_match    — u12, u-12, under 12, senior, etc.
+ *   5. sport_match        — soccer, gaa, hurling, rugby, basketball, etc.
+ *   6. player_match       — player name fuzzy match (Levenshtein >= 0.8, handles Irish aliases)
+ *   7. coach_match        — another coach on same team mentioned
+ *   8. session_memory     — last org used within 24h window
+ *   → needsClarification  — all 8 steps exhausted without match → prompt coach
+ *
+ * Audio auto-detection: when audio message arrives for multi-org coach with no session,
+ * the system creates a pending message and races:
+ *   - Manual org selection (coach replies 1/2/3 or org name)
+ *   - Auto-detect via transcription (attemptOrgDetectionFromAudio)
+ * First to resolve wins.
  *
  * Regression guards for:
- *   #601 — multi-org coaches never see the clarification prompt (still broken)
- *   #480 — stale 2h session routes audio to wrong org
+ *   #601 — multi-org coaches never see the clarification prompt (session extended to 24h)
+ *   #480 — stale session routes audio to wrong org after 2h expiry
  *
  * @feature WhatsApp Voice Notes
  * @bugs #601 (org routing), #480 (stale session)

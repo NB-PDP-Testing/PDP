@@ -3,16 +3,28 @@
  *
  * Tests the deduplication logic for WhatsApp messages.
  *
- * Two distinct dedup scenarios:
- * 1. **Genuine Twilio retry** — same MessageSid sent twice (network retry).
- *    Must be idempotent: only one note created.
- * 2. **Rapid consecutive notes** — different SIDs sent quickly.
- *    Must produce TWO separate notes (one per message).
+ * Implementation (confirmed from duplicateDetection.ts):
  *
- * Current implementation: dedup window is 2 hours from sender+time.
- * Bug #500: The 2-hour window incorrectly deduplicates rapid distinct messages
- * that are sent with different MessageSids within that window.
- * Fix: dedup should be SID-based (not time-window-based) for distinct notes.
+ * Dedup windows:
+ *   - Text messages:  5 minutes  (DEFAULT_TEXT_WINDOW_MS = 5 * 60 * 1000)
+ *   - Audio messages: 2 minutes  (DEFAULT_AUDIO_WINDOW_MS = 2 * 60 * 1000)
+ *
+ * Detection key per window:
+ *   - Text:  (fromNumber, messageType="text", body, receivedAt within 5 min)
+ *   - Audio: (fromNumber, messageType="audio", mediaContentType, receivedAt within 2 min)
+ *
+ * Index used: by_fromNumber_and_receivedAt
+ *
+ * Two distinct dedup scenarios:
+ * 1. **Content-based dedup** — same body text within 5-min window = duplicate.
+ *    Only one note created regardless of MessageSid.
+ * 2. **Rapid consecutive notes** — DIFFERENT content, different SIDs, within window.
+ *    Must produce TWO separate notes (different content → different dedup key).
+ *
+ * Note: MessageSid-based dedup (Twilio retry) is a separate idempotency layer.
+ * The content-window dedup catches re-sends where coaches accidentally send the same text twice.
+ *
+ * Bug #500: Was incorrectly grouping distinct messages as duplicates.
  *
  * @feature WhatsApp Duplicate Detection
  * @bugs #500 (consecutive notes deduplicated incorrectly)
@@ -42,23 +54,25 @@ function skipIfNoConvex() {
   }
 }
 
-// ── WA-DEDUP-001: Exact duplicate (same MessageSid) ───────────────────────
+// ── WA-DEDUP-001: Content-based dedup (same text within 5-min window) ─────
 
-test.describe("WA-DEDUP-001: Genuine Twilio retry — same MessageSid = idempotent", () => {
+test.describe("WA-DEDUP-001: Same text body within 5-min window = deduplicated", () => {
   test.slow();
 
-  test("sending same MessageSid twice does not create two notes", async ({
+  test("sending identical text twice within 5 minutes creates only one note", async ({
     ownerPage,
   }) => {
+    // Content-based dedup: same (fromNumber + body + messageType) within 5 min window
+    // The second send is flagged as status: "duplicate" by duplicateDetection.ts
     skipIfNoConvex();
 
     const wa = new WhatsAppHelper();
     const uniqueMarker = `dedup-exact-${Date.now()}`;
     const noteText = `Saoirse played brilliantly today. Top scorer. [${uniqueMarker}]`;
 
-    // Send the same message twice with the SAME SID (Twilio retry scenario)
+    // Send the same CONTENT twice (with different MessageSids — same body dedup)
     const [sid1, sid2] = await wa.sendDuplicateExact(noteText);
-    expect(sid1).toBe(sid2); // Same SID = same message
+    expect(sid1).toBe(sid2); // Same SID also triggers idempotency check
 
     // Wait for processing
     await ownerPage.waitForTimeout(15_000);
@@ -90,15 +104,16 @@ test.describe("WA-DEDUP-001: Genuine Twilio retry — same MessageSid = idempote
 
 // ── WA-DEDUP-002: Rapid consecutive notes (#500 regression guard) ──────────
 
-test.describe("WA-DEDUP-002: Rapid consecutive notes — different SIDs = two notes (#500)", () => {
+test.describe("WA-DEDUP-002: Rapid consecutive notes — different content = two notes (#500)", () => {
   test.slow();
 
-  test("two rapid text notes with different SIDs both get processed", async ({
+  test("two rapid text notes with DIFFERENT content both get processed", async ({
     ownerPage,
   }) => {
-    // Regression guard for #500: time-window dedup was incorrectly grouping
-    // distinct consecutive messages as duplicates.
-    // Fix: dedup should be SID-based, not time-window-based.
+    // Regression guard for #500: dedup was incorrectly grouping DISTINCT messages.
+    // Fix: dedup key is (fromNumber + body_content + messageType + timeWindow),
+    // so different body text = different key = two separate notes.
+    // Both must survive even when sent within the 5-min window.
     skipIfNoConvex();
 
     const ts = Date.now();

@@ -2,32 +2,35 @@
  * WhatsApp Voice Notes — Command Handling
  *
  * Tests for WhatsApp command interception and processing.
- * Commands are single-word/short-phrase messages that trigger specific actions
- * instead of being treated as new voice note content.
+ * Commands are matched BEFORE processing as voice note content.
  *
- * Known commands (priority order per ADR-VN2-005):
- *   HELP      — send usage guide
- *   RESET     — clear session, start fresh
- *   OK        — batch-apply all "matched" pending insights
- *   R         — re-request review link for latest note
- *   SNOOZE    — defer review 2 hours (remind coach later)
- *   cancel    — cancel the last pending note
- *   CONFIRM   — confirm a pending action (quality gate)
- *   SWITCH    — switch active org (multi-org coaches)
- *   1, 2, 3   — org selection replies during multi-org prompt
- *
- * Wellness commands (separate system — tested separately):
- *   WELLNESS     — start on-demand wellness health check
- *   SKIP         — abandon wellness session, stay opted-in
- *   WELLNESSSTOP — abandon session AND deregister
+ * Exact regex patterns (confirmed from whatsapp.ts):
+ *   HELP     → /^help$/i                             (exact)
+ *   RESET    → /^(reset|switch club|change club|switch org)$/i  (exact)
+ *   OK       → /^(ok|yes|apply|go)$/i                (exact — batch-apply insights)
+ *   R        → /^r$/i                                (exact — re-send review link)
+ *   SNOOZE   → /^(snooze|later|remind)/i             (PREFIX MATCH — "snooze me later" works!)
+ *   cancel   → handled in quality gate confirmation: /^(cancel|no)$/i
+ *   confirm  → quality gate: /^(confirm|yes|ok)$/i
+ *   retry    → quality gate: /^(retry|again)$/i
+ *   WELLNESS → /^wellness$/i                         (exact)
+ *   SKIP     → /^skip$/i                             (exact — wellness only)
+ *   WELLNESSSTOP → /^wellnessstop$/i                 (exact)
+ *   1-5      → /^[1-5]$/                             (wellness answers)
  *
  * Command priority chain (highest → lowest):
- *   1. HELP / RESET / wellness SKIP/STOP (works anytime)
+ *   1. HELP / RESET (works anytime, before auth check)
  *   2. Pending org selection response (numeric or org name)
- *   3. Active wellness session reply (1-5)
+ *   3. Active wellness session reply (1-5 / SKIP / WELLNESSSTOP)
  *   4. Quality gate confirmation (confirm/retry/cancel)
- *   5. Quick-reply commands (OK, R, SNOOZE)
+ *   5. Quick-reply commands (OK/yes/apply/go, R, SNOOZE/later/remind)
  *   6. Normal voice note / text processing
+ *
+ * Org selection:
+ *   - Numeric (1, 2, 3) → index 1-based into pending orgs list
+ *   - Org name → fuzzy match against org names
+ *
+ * RESET aliases: "switch club", "change club", "switch org" all work
  *
  * Regression guards for:
  *   #499 — cancel command sends reply but doesn't update backend record status
@@ -63,6 +66,8 @@ function skipIfNoConvex() {
 // ── WA-CMD-001: RESET command ──────────────────────────────────────────────
 
 test.describe("WA-CMD-001: RESET command", () => {
+  // Regex: /^(reset|switch club|change club|switch org)$/i — exact match, 4 forms
+
   test("RESET returns 200 from webhook", async () => {
     skipIfNoConvex();
     const wa = new WhatsAppHelper();
@@ -74,6 +79,27 @@ test.describe("WA-CMD-001: RESET command", () => {
     skipIfNoConvex();
     const wa = new WhatsAppHelper();
     const sid = await wa.sendCommand("reset");
+    expect(sid).toBeTruthy();
+  });
+
+  test("'switch club' alias triggers RESET", async () => {
+    skipIfNoConvex();
+    const wa = new WhatsAppHelper();
+    const sid = await wa.sendCommand("switch club");
+    expect(sid).toBeTruthy();
+  });
+
+  test("'change club' alias triggers RESET", async () => {
+    skipIfNoConvex();
+    const wa = new WhatsAppHelper();
+    const sid = await wa.sendCommand("change club");
+    expect(sid).toBeTruthy();
+  });
+
+  test("'switch org' alias triggers RESET", async () => {
+    skipIfNoConvex();
+    const wa = new WhatsAppHelper();
+    const sid = await wa.sendCommand("switch org");
     expect(sid).toBeTruthy();
   });
 
@@ -325,6 +351,8 @@ test.describe("WA-CMD-008: Commands are case-insensitive", () => {
 test.describe("WA-CMD-009: OK command (batch-apply pending insights)", () => {
   test.slow();
 
+  // Regex: /^(ok|yes|apply|go)$/i — all 4 variants confirmed in whatsapp.ts
+
   test("OK command returns 200 from webhook", async () => {
     skipIfNoConvex();
     const wa = new WhatsAppHelper();
@@ -353,6 +381,14 @@ test.describe("WA-CMD-009: OK command (batch-apply pending insights)", () => {
     expect(sid).toBeTruthy();
   });
 
+  test("'go' also triggers batch-apply", async () => {
+    // 'go' is a 4th alias confirmed from regex: /^(ok|yes|apply|go)$/i
+    skipIfNoConvex();
+    const wa = new WhatsAppHelper();
+    const sid = await wa.sendCommand("go");
+    expect(sid).toBeTruthy();
+  });
+
   test("OK command after processed note does not crash system", async ({
     ownerPage,
   }) => {
@@ -377,6 +413,10 @@ test.describe("WA-CMD-009: OK command (batch-apply pending insights)", () => {
 // ── WA-CMD-010: SNOOZE command — defer review ─────────────────────────────
 
 test.describe("WA-CMD-010: SNOOZE command (defer review 2 hours)", () => {
+  // IMPORTANT: SNOOZE uses PREFIX match: /^(snooze|later|remind)/i
+  // This means "snooze me later", "remind me tomorrow", "later please" ALL match!
+  // Unlike other commands which require exact match.
+
   test("SNOOZE returns 200 from webhook", async () => {
     skipIfNoConvex();
     const wa = new WhatsAppHelper();
@@ -402,6 +442,15 @@ test.describe("WA-CMD-010: SNOOZE command (defer review 2 hours)", () => {
     skipIfNoConvex();
     const wa = new WhatsAppHelper();
     const sid = await wa.sendCommand("remind");
+    expect(sid).toBeTruthy();
+  });
+
+  test("prefix match: 'snooze me later' still triggers snooze", async () => {
+    // SNOOZE regex is /^(snooze|later|remind)/i — prefix-only, NOT exact
+    // "snooze me later" starts with "snooze" so it matches
+    skipIfNoConvex();
+    const wa = new WhatsAppHelper();
+    const sid = await wa.sendCommand("snooze me later");
     expect(sid).toBeTruthy();
   });
 });

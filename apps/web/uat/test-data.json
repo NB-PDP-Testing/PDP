@@ -125,5 +125,20 @@
       "ageGroup": "U18",
       "team": "U18 Female"
     }
-  ]
+  ],
+
+  "whatsapp": {
+    "_comment": "Configure WA_TEST_PHONE and WA_TEST_MULTI_ORG_PHONE env vars, OR set values here. Phone numbers must be registered in the local dev database.",
+    "coachPhone": "",
+    "multiOrgCoachPhone": "",
+    "_setup": [
+      "1. Register a phone number for neil.b@blablablak.com in local dev:",
+      "   - Go to /orgs/[orgId]/coach/voice-notes and set your WhatsApp phone number",
+      "   - OR run: npx convex run scripts/dev:setCoachPhone --phone '+353851234567' --email 'neil.b@blablablak.com'",
+      "2. For multi-org tests: register a second phone for a coach in 2+ orgs",
+      "3. Set WA_TEST_PHONE=+353851234567 in your .env.local",
+      "4. Set WA_TEST_MULTI_ORG_PHONE=+353852345678 in your .env.local",
+      "5. Set NEXT_PUBLIC_CONVEX_URL in your .env.local"
+    ]
+  }
 }

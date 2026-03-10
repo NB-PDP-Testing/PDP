@@ -3,10 +3,11 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, Loader2, WifiOff } from "lucide-react";
+import { CheckCircle2, Heart, Loader2, WifiOff } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -386,25 +387,6 @@ export default function PlayerHealthCheckPage() {
     return streak;
   }, [wellnessHistory]);
 
-  // Monitor online/offline
-  useEffect(() => {
-    const handleOffline = () => setIsOffline(true);
-    const handleOnline = () => {
-      setIsOffline(false);
-      // Auto-sync if there's a pending check-in
-      if (pendingSyncKey.current) {
-        syncPendingCheckin(pendingSyncKey.current);
-      }
-    };
-    window.addEventListener("offline", handleOffline);
-    window.addEventListener("online", handleOnline);
-    return () => {
-      window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("online", handleOnline);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const syncPendingCheckin = async (key: string) => {
     try {
       const data = await getPendingCheckin(key);
@@ -429,6 +411,25 @@ export default function PlayerHealthCheckPage() {
       // Sync will be retried on next 'online' event
     }
   };
+
+  // Monitor online/offline
+  useEffect(() => {
+    const handleOffline = () => setIsOffline(true);
+    const handleOnline = () => {
+      setIsOffline(false);
+      // Auto-sync if there's a pending check-in
+      if (pendingSyncKey.current) {
+        syncPendingCheckin(pendingSyncKey.current);
+      }
+    };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncPendingCheckin]);
 
   const handleCyclePhaseTap = (phase: CyclePhaseKey) => {
     if (!hasCycleConsent) {
@@ -646,14 +647,22 @@ export default function PlayerHealthCheckPage() {
       />
 
       {/* Header */}
-      <div>
-        <h1 className="font-bold text-2xl">Daily Wellness</h1>
-        <p className="text-muted-foreground text-sm">
-          {isAlreadySubmitted
-            ? "You've already checked in today. You can update your answers below."
-            : "Rate how you're feeling today across each dimension."}
-        </p>
-      </div>
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        gradientTo="secondary"
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          <Heart className="h-7 w-7 flex-shrink-0" />
+          <div>
+            <h1 className="font-bold text-xl md:text-2xl">Daily Wellness</h1>
+            <p className="text-sm opacity-90">
+              {isAlreadySubmitted
+                ? "You've already checked in today. You can update your answers below."
+                : "Rate how you're feeling today across each dimension."}
+            </p>
+          </div>
+        </div>
+      </OrgThemedGradient>
 
       {/* Offline banner */}
       {isOffline && (
@@ -756,7 +765,10 @@ export default function PlayerHealthCheckPage() {
                       }
                       type="button"
                     >
-                      <span aria-hidden="true" className="text-xl leading-none">
+                      <span
+                        aria-hidden="true"
+                        className="text-4xl leading-none"
+                      >
                         {scale.emoji}
                       </span>
                       <span className="sr-only">

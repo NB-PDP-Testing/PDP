@@ -311,6 +311,11 @@ export default defineSchema({
     // Merge tracking (set when this identity has been merged into another)
     mergedInto: v.optional(v.id("playerIdentities")),
 
+    // Adult player privacy/sharing settings (self-managed, equivalent to guardian settings)
+    allowGlobalPassportDiscovery: v.optional(v.boolean()), // Allow coaches at any org to discover this player's passport
+    allowCrossOrgSharing: v.optional(v.boolean()), // Allow other orgs to see cross-org enrollment
+    allowEnrollmentVisibility: v.optional(v.boolean()), // Allow other orgs to see this player is enrolled at multiple orgs
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),

@@ -6,13 +6,7 @@ import { useQuery } from "convex/react";
 import { Heart, Info, Loader2, User } from "lucide-react";
 import { useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 
@@ -40,8 +34,6 @@ function ScoreBadge({ score }: { score: number }) {
 }
 
 // Per-child wellness card. Each child's wellness data is fetched individually.
-// TODO: Phase 7 — when parentChildAuthorizations is built, pass accessGranted
-// from getChildWellnessForParent to show real data instead of the placeholder.
 function ChildWellnessCard({
   playerIdentityId,
   firstName,
@@ -53,8 +45,6 @@ function ChildWellnessCard({
   lastName: string;
   ageGroup?: string;
 }) {
-  // TODO: Phase 7 — getChildWellnessForParent will return accessGranted: true
-  // once parentChildAuthorizations.includeWellnessAccess is set for this child.
   const wellnessData = useQuery(
     api.models.playerHealthChecks.getChildWellnessForParent,
     {
@@ -84,7 +74,6 @@ function ChildWellnessCard({
             Loading…
           </div>
         ) : wellnessData.accessGranted ? (
-          /* Phase 7+ — show real wellness history */
           <div className="space-y-2">
             {wellnessData.history.length === 0 ? (
               <p className="text-center text-muted-foreground text-sm">
@@ -105,19 +94,15 @@ function ChildWellnessCard({
             )}
           </div>
         ) : (
-          /* TODO: Phase 7 — replace this block with real wellness data once
-             parentChildAuthorizations.includeWellnessAccess is in place */
           <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
             <div>
               <p className="font-medium text-amber-800 text-sm">
-                Wellness access not yet enabled
+                Wellness access not enabled
               </p>
               <p className="mt-1 text-amber-700 text-xs">
-                Wellness tracking access for under-18 players will be
-                configurable in Phase 7 (parent authorizations). Once enabled,
-                you&apos;ll see your child&apos;s daily wellness scores and
-                individual dimension values here.
+                Wellness access for this child has not been granted yet. Contact
+                your organisation&apos;s administrator to enable it.
               </p>
             </div>
           </div>
@@ -159,23 +144,6 @@ export default function ParentWellnessPage() {
           </div>
         </div>
       </div>
-
-      {/* Info banner — Phase 7 pending */}
-      <Card className="border-blue-200 bg-blue-50">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-blue-800 text-sm">
-            <Info className="h-4 w-4" />
-            About Child Wellness Access
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CardDescription className="text-blue-700">
-            Daily wellness check-ins are available to youth players once their
-            parent has granted wellness access. Full per-dimension visibility
-            will be configurable in a future update (Phase 7 authorizations).
-          </CardDescription>
-        </CardContent>
-      </Card>
 
       {/* Per-child wellness cards */}
       {identityChildren.length === 0 ? (

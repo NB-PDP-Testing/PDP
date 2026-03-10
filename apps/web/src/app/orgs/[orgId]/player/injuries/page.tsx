@@ -3,7 +3,13 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Activity, AlertTriangle, Loader2, Plus } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  Plus,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -187,25 +193,127 @@ export default function PlayerInjuriesPage() {
 
   return (
     <div className="container mx-auto max-w-3xl space-y-6 p-4 md:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-bold text-2xl">My Injuries</h1>
-          <p className="text-muted-foreground text-sm">
-            Track and manage your injury history
-          </p>
+      <div className="rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 p-4 text-white shadow-md md:p-6">
+        <div className="flex items-center justify-between gap-2 md:gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Activity className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">My Injuries</h1>
+              <p className="text-amber-100 text-sm">
+                Track and manage your injury history
+              </p>
+            </div>
+          </div>
+          <Button
+            className="shrink-0 border-white/30 bg-white/20 text-white hover:bg-white/30"
+            onClick={() => setShowDialog(true)}
+            size="sm"
+            variant="outline"
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            Report Injury
+          </Button>
         </div>
-        <Button onClick={() => setShowDialog(true)} size="sm">
-          <Plus className="mr-1 h-4 w-4" />
-          Report Injury
-        </Button>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-red-200 bg-red-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <AlertTriangle className="text-red-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {injuries?.filter((i) => i.status === "active").length ?? 0}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Active
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-red-100">
+              <div
+                className="h-1 rounded-full bg-red-600"
+                style={{
+                  width:
+                    (injuries?.filter((i) => i.status === "active").length ??
+                      0) > 0
+                      ? "100%"
+                      : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-orange-200 bg-orange-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Activity className="text-orange-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {injuries?.filter((i) => i.status === "recovering").length ?? 0}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Recovering
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-orange-100">
+              <div
+                className="h-1 rounded-full bg-orange-600"
+                style={{
+                  width:
+                    (injuries?.filter((i) => i.status === "recovering")
+                      .length ?? 0) > 0
+                      ? "100%"
+                      : "0%",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <CheckCircle2 className="text-green-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {pastInjuries.length}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Cleared / Healed
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div
+                className="h-1 rounded-full bg-green-600"
+                style={{ width: pastInjuries.length > 0 ? "100%" : "0%" }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <AlertTriangle className="text-blue-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {injuries?.length ?? 0}
+              </div>
+            </div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Total
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div
+                className="h-1 rounded-full bg-blue-600"
+                style={{ width: (injuries?.length ?? 0) > 0 ? "100%" : "0%" }}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Active injuries */}
       {activeInjuries.length > 0 && (
-        <Card className="border-red-200">
+        <Card className="border-amber-200 bg-amber-50/40">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
               Active Injuries
             </CardTitle>
           </CardHeader>

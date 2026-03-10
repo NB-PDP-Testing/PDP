@@ -68,6 +68,9 @@ const playerIdentityValidator = v.object({
   normalizedFirstName: v.optional(v.string()),
   normalizedLastName: v.optional(v.string()),
   mergedInto: v.optional(v.id("playerIdentities")),
+  allowGlobalPassportDiscovery: v.optional(v.boolean()),
+  allowCrossOrgSharing: v.optional(v.boolean()),
+  allowEnrollmentVisibility: v.optional(v.boolean()),
 });
 
 // ============================================================

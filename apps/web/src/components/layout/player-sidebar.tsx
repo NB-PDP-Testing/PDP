@@ -15,7 +15,6 @@ import {
   TrendingUp,
   Trophy,
   User,
-  Users,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -73,11 +72,6 @@ export function getPlayerNavItems(orgId: string): NavItem[] {
       icon: Target,
     },
     {
-      href: `/orgs/${orgId}/player/teams`,
-      label: "My Teams",
-      icon: Users,
-    },
-    {
       href: `/orgs/${orgId}/player/passports`,
       label: "My Passports",
       icon: Trophy,
@@ -91,6 +85,12 @@ export function getPlayerNavItems(orgId: string): NavItem[] {
       href: `/orgs/${orgId}/player/wellness-history`,
       label: "Wellness History",
       icon: BarChart2,
+    },
+    {
+      href: `/orgs/${orgId}/player/medical`,
+      label: "Medical Info",
+      icon: Heart,
+      hiddenForChildren: true,
     },
     {
       // Medical info — never shown for child accounts

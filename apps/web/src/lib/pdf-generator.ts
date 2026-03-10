@@ -1190,6 +1190,442 @@ export async function shareViaWhatsApp(
   return { shared: true, method: "fallback" };
 }
 
+// ============ MEDICAL CARD PDF ============
+
+export type MedicalCardPDFData = {
+  playerName: string;
+  dateOfBirth?: string;
+  organization?: string;
+  bloodType?: string;
+  allergies?: string[];
+  medications?: string[];
+  conditions?: string[];
+  emergencyContact1Name?: string;
+  emergencyContact1Phone?: string;
+  emergencyContact2Name?: string;
+  emergencyContact2Phone?: string;
+  doctorName?: string;
+  doctorPhone?: string;
+  insuranceCovered?: boolean;
+  lastMedicalCheck?: string;
+  notes?: string;
+};
+
+export async function generateMedicalCardPDF(
+  data: MedicalCardPDFData
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const margin = 50;
+  const contentWidth = pageWidth - margin * 2;
+
+  const page = pdfDoc.addPage([pageWidth, pageHeight]);
+
+  // Colors
+  const redColor = rgb(0.78, 0.1, 0.1); // #c71a1a
+  const textColor = rgb(0.2, 0.2, 0.2);
+  const lightGray = rgb(0.6, 0.6, 0.6);
+  const white = rgb(1, 1, 1);
+  const orangeColor = rgb(0.9, 0.45, 0.0);
+  const blueColor = rgb(0.1, 0.4, 0.8);
+  const purpleColor = rgb(0.5, 0.1, 0.8);
+  const greenColor = rgb(0.1, 0.6, 0.3);
+
+  // ============ HEADER ============
+  page.drawRectangle({
+    x: 0,
+    y: pageHeight - 100,
+    width: pageWidth,
+    height: 100,
+    color: redColor,
+  });
+
+  // Organization name (top-right)
+  if (data.organization) {
+    const orgWidth = helveticaBold.widthOfTextAtSize(data.organization, 11);
+    page.drawText(data.organization, {
+      x: pageWidth - margin - orgWidth,
+      y: pageHeight - 30,
+      font: helveticaBold,
+      size: 11,
+      color: rgb(0.9, 0.9, 0.9),
+    });
+  }
+
+  // Title
+  page.drawText("MEDICAL INFORMATION CARD", {
+    x: margin,
+    y: pageHeight - 40,
+    font: helveticaBold,
+    size: 20,
+    color: white,
+  });
+
+  // Player name
+  page.drawText(data.playerName, {
+    x: margin,
+    y: pageHeight - 62,
+    font: helveticaBold,
+    size: 16,
+    color: rgb(1.0, 0.8, 0.8),
+  });
+
+  const generatedDate = new Date().toLocaleDateString("en-IE", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  page.drawText(`Generated: ${generatedDate}`, {
+    x: margin,
+    y: pageHeight - 82,
+    font: helvetica,
+    size: 9,
+    color: rgb(0.8, 0.7, 0.7),
+  });
+
+  let yPosition = pageHeight - 130;
+
+  // ============ PATIENT INFO ROW ============
+  const infoItems: { label: string; value: string }[] = [];
+  if (data.dateOfBirth) {
+    infoItems.push({ label: "Date of Birth", value: data.dateOfBirth });
+  }
+  if (data.insuranceCovered !== undefined) {
+    infoItems.push({
+      label: "Insurance",
+      value: data.insuranceCovered ? "Covered" : "Not Covered",
+    });
+  }
+  if (data.lastMedicalCheck) {
+    infoItems.push({
+      label: "Last Medical Check",
+      value: data.lastMedicalCheck,
+    });
+  }
+
+  if (infoItems.length > 0) {
+    let xOff = margin;
+    for (const item of infoItems) {
+      page.drawText(item.label, {
+        x: xOff,
+        y: yPosition,
+        font: helvetica,
+        size: 8,
+        color: lightGray,
+      });
+      page.drawText(item.value, {
+        x: xOff,
+        y: yPosition - 14,
+        font: helveticaBold,
+        size: 10,
+        color: textColor,
+      });
+      xOff += 165;
+    }
+    yPosition -= 40;
+  }
+
+  // Separator
+  page.drawLine({
+    start: { x: margin, y: yPosition },
+    end: { x: pageWidth - margin, y: yPosition },
+    thickness: 1,
+    color: rgb(0.85, 0.85, 0.85),
+  });
+  yPosition -= 20;
+
+  // ============ BLOOD TYPE (prominent) ============
+  if (data.bloodType) {
+    // Draw blood type box
+    page.drawRectangle({
+      x: margin,
+      y: yPosition - 50,
+      width: 90,
+      height: 60,
+      color: rgb(1.0, 0.93, 0.93),
+      borderColor: redColor,
+      borderWidth: 2,
+    });
+    page.drawText("BLOOD TYPE", {
+      x: margin + 6,
+      y: yPosition - 14,
+      font: helveticaBold,
+      size: 8,
+      color: redColor,
+    });
+    const btWidth = helveticaBold.widthOfTextAtSize(data.bloodType, 28);
+    page.drawText(data.bloodType, {
+      x: margin + (90 - btWidth) / 2,
+      y: yPosition - 40,
+      font: helveticaBold,
+      size: 28,
+      color: redColor,
+    });
+
+    yPosition -= 70;
+  }
+
+  // ============ EMERGENCY CONTACTS ============
+  yPosition -= 5;
+  page.drawText("EMERGENCY CONTACTS (ICE)", {
+    x: margin,
+    y: yPosition,
+    font: helveticaBold,
+    size: 13,
+    color: redColor,
+  });
+  yPosition -= 20;
+
+  const drawContact = (
+    name: string | undefined,
+    phone: string | undefined,
+    label: string
+  ) => {
+    if (!(name || phone)) {
+      return;
+    }
+    page.drawText(label, {
+      x: margin,
+      y: yPosition,
+      font: helveticaBold,
+      size: 9,
+      color: lightGray,
+    });
+    if (name) {
+      page.drawText(name, {
+        x: margin,
+        y: yPosition - 14,
+        font: helveticaBold,
+        size: 11,
+        color: textColor,
+      });
+    }
+    if (phone) {
+      page.drawText(phone, {
+        x: margin + 200,
+        y: yPosition - 14,
+        font: helveticaBold,
+        size: 13,
+        color: redColor,
+      });
+    }
+    yPosition -= 30;
+  };
+
+  drawContact(
+    data.emergencyContact1Name,
+    data.emergencyContact1Phone,
+    "Primary Contact"
+  );
+  drawContact(
+    data.emergencyContact2Name,
+    data.emergencyContact2Phone,
+    "Secondary Contact"
+  );
+
+  // Doctor
+  if (data.doctorName || data.doctorPhone) {
+    page.drawText("FAMILY DOCTOR", {
+      x: margin,
+      y: yPosition,
+      font: helveticaBold,
+      size: 9,
+      color: lightGray,
+    });
+    if (data.doctorName) {
+      page.drawText(data.doctorName, {
+        x: margin,
+        y: yPosition - 14,
+        font: helveticaBold,
+        size: 11,
+        color: textColor,
+      });
+    }
+    if (data.doctorPhone) {
+      page.drawText(data.doctorPhone, {
+        x: margin + 200,
+        y: yPosition - 14,
+        font: helveticaBold,
+        size: 13,
+        color: blueColor,
+      });
+    }
+    yPosition -= 30;
+  }
+
+  yPosition -= 10;
+  page.drawLine({
+    start: { x: margin, y: yPosition },
+    end: { x: pageWidth - margin, y: yPosition },
+    thickness: 1,
+    color: rgb(0.85, 0.85, 0.85),
+  });
+  yPosition -= 20;
+
+  // ============ ALLERGIES ============
+  if (data.allergies && data.allergies.length > 0) {
+    page.drawText("[!] ALLERGIES", {
+      x: margin,
+      y: yPosition,
+      font: helveticaBold,
+      size: 12,
+      color: orangeColor,
+    });
+    yPosition -= 18;
+    const allergyText = data.allergies.join("  •  ");
+    page.drawText(allergyText, {
+      x: margin,
+      y: yPosition,
+      font: helveticaBold,
+      size: 10,
+      color: textColor,
+    });
+    yPosition -= 25;
+  }
+
+  // ============ MEDICATIONS ============
+  if (data.medications && data.medications.length > 0) {
+    page.drawText("Rx MEDICATIONS", {
+      x: margin,
+      y: yPosition,
+      font: helveticaBold,
+      size: 12,
+      color: blueColor,
+    });
+    yPosition -= 18;
+    for (const med of data.medications) {
+      page.drawText(`• ${med}`, {
+        x: margin + 10,
+        y: yPosition,
+        font: helvetica,
+        size: 10,
+        color: textColor,
+      });
+      yPosition -= 15;
+    }
+    yPosition -= 5;
+  }
+
+  // ============ CONDITIONS ============
+  if (data.conditions && data.conditions.length > 0) {
+    page.drawText("MEDICAL CONDITIONS", {
+      x: margin,
+      y: yPosition,
+      font: helveticaBold,
+      size: 12,
+      color: purpleColor,
+    });
+    yPosition -= 18;
+    for (const condition of data.conditions) {
+      page.drawText(`• ${condition}`, {
+        x: margin + 10,
+        y: yPosition,
+        font: helvetica,
+        size: 10,
+        color: textColor,
+      });
+      yPosition -= 15;
+    }
+    yPosition -= 5;
+  }
+
+  // ============ NOTES ============
+  if (data.notes) {
+    yPosition -= 5;
+    page.drawText("ADDITIONAL NOTES", {
+      x: margin,
+      y: yPosition,
+      font: helveticaBold,
+      size: 11,
+      color: textColor,
+    });
+    yPosition -= 18;
+    // Simple text wrapping for notes
+    const words = data.notes.split(" ");
+    let line = "";
+    for (const word of words) {
+      const testLine = line + (line ? " " : "") + word;
+      if (helvetica.widthOfTextAtSize(testLine, 10) > contentWidth && line) {
+        page.drawText(line, {
+          x: margin,
+          y: yPosition,
+          font: helvetica,
+          size: 10,
+          color: textColor,
+        });
+        line = word;
+        yPosition -= 14;
+      } else {
+        line = testLine;
+      }
+    }
+    if (line) {
+      page.drawText(line, {
+        x: margin,
+        y: yPosition,
+        font: helvetica,
+        size: 10,
+        color: textColor,
+      });
+      yPosition -= 14;
+    }
+  }
+
+  // ============ FOOTER ============
+  const footerY = 40;
+  page.drawRectangle({
+    x: 0,
+    y: 0,
+    width: pageWidth,
+    height: footerY + 10,
+    color: rgb(0.98, 0.98, 0.98),
+  });
+
+  page.drawText("Powered by PlayerARC", {
+    x: margin,
+    y: footerY,
+    font: helveticaBold,
+    size: 9,
+    color: redColor,
+  });
+
+  page.drawText("Medical information — handle with care", {
+    x: margin,
+    y: footerY - 12,
+    font: helvetica,
+    size: 7,
+    color: lightGray,
+  });
+
+  // Green insurance badge bottom right
+  const insText = data.insuranceCovered
+    ? "Insurance: Covered"
+    : "Insurance: Not Covered";
+  const insColor = data.insuranceCovered ? greenColor : lightGray;
+  const insWidth = helvetica.widthOfTextAtSize(insText, 8);
+  page.drawText(insText, {
+    x: pageWidth - margin - insWidth,
+    y: footerY,
+    font: helvetica,
+    size: 8,
+    color: insColor,
+  });
+
+  page.drawText("Confidential - Authorized use only", {
+    x: pageWidth - margin - 120,
+    y: footerY - 12,
+    font: helvetica,
+    size: 7,
+    color: lightGray,
+  });
+
+  return pdfDoc.save();
+}
+
 export async function shareViaNative(
   pdfBytes: Uint8Array,
   name: string

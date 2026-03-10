@@ -13,12 +13,14 @@ import {
   Search,
   Target,
   Trash2,
+  TrendingUp,
   Undo2,
   User,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -129,6 +131,15 @@ const formatStatus = (status: string) =>
 const formatCategory = (category: string) =>
   category.charAt(0).toUpperCase() + category.slice(1);
 
+const formatSportName = (code: string) =>
+  code.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+
+const fmtDateShort = (date: string) =>
+  new Date(date).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
+
 export default function PlayerGoalsPage() {
   const { orgId } = useParams<{ orgId: string }>();
   const { data: session } = authClient.useSession();
@@ -145,6 +156,7 @@ export default function PlayerGoalsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("active");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [selectedSport, setSelectedSport] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<GoalWithSource | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -225,9 +237,32 @@ export default function PlayerGoalsPage() {
     }
   }, [goalsWithSource, selectedGoal]);
 
+  // Deduplicate active passports by sport code (import bug can create duplicates)
+  const activePassports = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          (passports ?? [])
+            .filter((p) => p.status === "active")
+            .map((p) => [p.sportCode, p])
+        ).values()
+      ),
+    [passports]
+  );
+
+  // Passport for selected sport (null = all sports)
+  const selectedPassportObj = selectedSport
+    ? (activePassports.find((p) => p.sportCode === selectedSport) ?? null)
+    : null;
+
   // Filter and sort goals
   const filteredGoals = useMemo(() => {
     let result = goalsWithSource;
+
+    // Sport filter
+    if (selectedPassportObj) {
+      result = result.filter((g) => g.passportId === selectedPassportObj._id);
+    }
 
     if (statusFilter === "active") {
       result = result.filter(
@@ -260,25 +295,38 @@ export default function PlayerGoalsPage() {
       }
       return b.progress - a.progress;
     });
-  }, [goalsWithSource, statusFilter, categoryFilter, searchTerm]);
+  }, [
+    goalsWithSource,
+    selectedPassportObj,
+    statusFilter,
+    categoryFilter,
+    searchTerm,
+  ]);
 
-  // Stats (across all goals, not just filtered)
+  // Stats scoped to selected sport (or all sports)
+  const statsBase = useMemo(() => {
+    if (!selectedPassportObj) {
+      return goalsWithSource;
+    }
+    return goalsWithSource.filter(
+      (g) => g.passportId === selectedPassportObj._id
+    );
+  }, [goalsWithSource, selectedPassportObj]);
+
   const stats = useMemo(() => {
-    if (!goalsWithSource.length) {
+    if (!statsBase.length) {
       return { total: 0, inProgress: 0, completed: 0, avgProgress: 0 };
     }
-    const total = goalsWithSource.length;
-    const inProgress = goalsWithSource.filter(
+    const total = statsBase.length;
+    const inProgress = statsBase.filter(
       (g) => g.status === "in_progress"
     ).length;
-    const completed = goalsWithSource.filter(
-      (g) => g.status === "completed"
-    ).length;
+    const completed = statsBase.filter((g) => g.status === "completed").length;
     const avgProgress = Math.round(
-      goalsWithSource.reduce((sum, g) => sum + g.progress, 0) / total
+      statsBase.reduce((sum, g) => sum + g.progress, 0) / total
     );
     return { total, inProgress, completed, avgProgress };
-  }, [goalsWithSource]);
+  }, [statsBase]);
 
   // Handlers
   const handleCompleteMilestone = async (
@@ -384,70 +432,174 @@ export default function PlayerGoalsPage() {
     );
   }
 
-  const activePassports = (passports ?? []).filter(
-    (p) => p.status === "active"
-  );
-
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Target className="h-8 w-8 text-blue-600" />
-          <div>
-            <h1 className="font-bold text-3xl tracking-tight">My Goals</h1>
-            <p className="text-muted-foreground">
-              Track your personal development goals
-            </p>
+      <OrgThemedGradient
+        className="rounded-lg p-4 shadow-md md:p-6"
+        gradientTo="secondary"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Target className="h-7 w-7 flex-shrink-0" />
+            <div>
+              <h1 className="font-bold text-xl md:text-2xl">My Goals</h1>
+              <p className="text-sm opacity-90">
+                Track your personal development goals
+              </p>
+            </div>
           </div>
+          {(!isChildAccount || isViewInteract) && (
+            <Button
+              className="shrink-0 border-current/20 bg-white/20 hover:bg-white/30"
+              disabled={activePassports.length === 0}
+              onClick={() => setShowCreateDialog(true)}
+              variant="outline"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Goal
+            </Button>
+          )}
         </div>
-        {/* Hide goal creation for view_only child accounts */}
-        {(!isChildAccount || isViewInteract) && (
-          <Button
-            disabled={activePassports.length === 0}
-            onClick={() => setShowCreateDialog(true)}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Goal
-          </Button>
-        )}
-      </div>
+      </OrgThemedGradient>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="font-bold text-3xl text-gray-800">
-              {stats.total}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card className="border-purple-200 bg-purple-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <Target className="text-purple-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.total}
+              </div>
             </div>
-            <div className="text-muted-foreground text-sm">Total Goals</div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Total Goals
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+              <div className="h-1 w-full rounded-full bg-purple-600" />
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="font-bold text-3xl text-blue-600">
-              {stats.inProgress}
+        <Card className="border-blue-200 bg-blue-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <TrendingUp className="text-blue-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.inProgress}
+              </div>
             </div>
-            <div className="text-muted-foreground text-sm">In Progress</div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              In Progress
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+              <div
+                className="h-1 rounded-full bg-blue-600"
+                style={{
+                  width:
+                    stats.total > 0
+                      ? `${(stats.inProgress / stats.total) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="font-bold text-3xl text-green-600">
-              {stats.completed}
+        <Card className="border-green-200 bg-green-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <CheckCircle className="text-green-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.completed}
+              </div>
             </div>
-            <div className="text-muted-foreground text-sm">Completed</div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Completed
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+              <div
+                className="h-1 rounded-full bg-green-600"
+                style={{
+                  width:
+                    stats.total > 0
+                      ? `${(stats.completed / stats.total) * 100}%`
+                      : "0%",
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="font-bold text-3xl text-purple-600">
-              {stats.avgProgress}%
+        <Card className="border-orange-200 bg-orange-50 pt-0 transition-all duration-200 hover:shadow-lg">
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center justify-between">
+              <TrendingUp className="text-orange-600" size={20} />
+              <div className="font-bold text-gray-800 text-xl md:text-2xl">
+                {stats.avgProgress}%
+              </div>
             </div>
-            <div className="text-muted-foreground text-sm">Avg Progress</div>
+            <div className="font-medium text-gray-600 text-xs md:text-sm">
+              Avg Progress
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full bg-orange-100">
+              <div
+                className="h-1 rounded-full bg-orange-600"
+                style={{ width: `${stats.avgProgress}%` }}
+              />
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Sport Selector — only shown when player has multiple passports */}
+      {activePassports.length > 1 && (
+        <div
+          className={`grid gap-3 ${
+            activePassports.length === 2
+              ? "grid-cols-2"
+              : "grid-cols-2 md:grid-cols-3"
+          }`}
+        >
+          {activePassports.map((p) => {
+            const isSelected = selectedSport === p.sportCode;
+            const sportGoalCount = goalsWithSource.filter(
+              (g) => g.passportId === p._id
+            ).length;
+            return (
+              <button
+                className="cursor-pointer rounded-lg border p-3 text-left transition-all duration-200 hover:shadow-md"
+                key={p._id}
+                onClick={() =>
+                  setSelectedSport(isSelected ? null : p.sportCode)
+                }
+                style={{
+                  backgroundColor: isSelected
+                    ? "rgba(var(--org-primary-rgb), 0.12)"
+                    : "rgba(var(--org-primary-rgb), 0.04)",
+                  borderColor: isSelected
+                    ? "rgba(var(--org-primary-rgb), 0.6)"
+                    : "rgba(var(--org-primary-rgb), 0.2)",
+                  outline: isSelected
+                    ? "2px solid rgba(var(--org-primary-rgb), 0.5)"
+                    : undefined,
+                }}
+                type="button"
+              >
+                <p className="truncate font-semibold text-gray-900 text-sm">
+                  {formatSportName(p.sportCode)}
+                </p>
+                <p className="mt-1 text-gray-500 text-xs">
+                  {sportGoalCount} goal{sportGoalCount !== 1 ? "s" : ""}
+                </p>
+                {p.lastAssessmentDate && (
+                  <p className="text-gray-500 text-xs">
+                    Last assessed: {fmtDateShort(p.lastAssessmentDate)}
+                  </p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
@@ -1209,9 +1361,6 @@ function CreateGoalDialog({
       setSubmitting(false);
     }
   };
-
-  const formatSportName = (code: string) =>
-    code.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
   return (
     <Dialog onOpenChange={onClose} open={open}>

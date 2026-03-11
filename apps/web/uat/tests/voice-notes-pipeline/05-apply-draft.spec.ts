@@ -389,7 +389,7 @@ test.describe("WA-APPLY-003: Apply draft via review microsite /r/[code]", () => 
         .first()
         .isVisible({ timeout: 5_000 })
         .catch(() => false);
-      console.log(`Section '${section.name}': ${isVisible ? "visible" : "not visible (no content or not applicable)'`}`);
+      console.log(`Section '${section.name}': ${isVisible ? "visible" : "not visible (no content or not applicable)"}`);
       if (isVisible) visibleSections++;
     }
 

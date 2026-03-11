@@ -48,6 +48,7 @@ export default function GAAImportPage() {
     api.models.orgPlayerEnrollments.getPlayersForOrg,
     {
       organizationId: orgId,
+      status: "active",
     }
   );
 

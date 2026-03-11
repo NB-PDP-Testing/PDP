@@ -29,11 +29,11 @@ export const getGuardianRelationshipsForOrg = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    // Get all players enrolled in this org
+    // Get only active players enrolled in this org
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
       )
       .collect();
 
@@ -124,11 +124,11 @@ export const getGuardianStatsForOrg = query({
     duplicateEmails: v.number(),
   }),
   handler: async (ctx, args) => {
-    // Get all players in org
+    // Get only active players in org
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
       )
       .collect();
 
@@ -218,11 +218,11 @@ export const getGuardiansForOrg = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    // Get all players in org
+    // Get only active players in org
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
       )
       .collect();
 
@@ -312,8 +312,8 @@ export const getPlayersWithoutGuardians = query({
   handler: async (ctx, args) => {
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
       )
       .collect();
 

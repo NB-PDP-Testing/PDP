@@ -50,6 +50,7 @@ export function EditInvitationModal({
   });
   const players = useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, {
     organizationId,
+    status: "active",
   });
 
   // Initialize state from invitation data returned by getPendingInvitationsWithAssignments.

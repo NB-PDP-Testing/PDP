@@ -131,7 +131,7 @@ export default function DisambiguationPage({
 
   const orgPlayers = useQuery(
     api.models.orgPlayerEnrollments.getPlayersForOrg,
-    { organizationId: orgId }
+    { organizationId: orgId, status: "active" }
   );
 
   const resolveEntity = useMutation(

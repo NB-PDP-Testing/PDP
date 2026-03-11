@@ -2187,9 +2187,33 @@ export const attemptOrgDetectionFromAudio = internalAction({
       }
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       const file = await OpenAI.toFile(audioBuffer, "voice-note.ogg");
+
+      // Use the DB-configured transcription model (same as voiceNotes.ts transcribeAudio).
+      // Hardcoded whisper-1 was inconsistent with production model and got worse accuracy.
+      const transcriptionConfig = await ctx.runQuery(
+        internal.models.aiModelConfig.getConfigForFeatureInternal,
+        {
+          feature: "voice_transcription",
+          organizationId: args.availableOrgs[0]?.id,
+        }
+      );
+      const transcriptionModel =
+        transcriptionConfig?.modelId ??
+        process.env.OPENAI_MODEL_TRANSCRIPTION ??
+        "whisper-1";
+
+      // Build a brief org/club prompt so the model recognises team/player names
+      // in the audio — the same Layer 1 strategy as the main transcribeAudio action.
+      const orgNames = args.availableOrgs.map((o) => o.name).join(", ");
+      const autoDetectPrompt = orgNames
+        ? `Sports coaching note for one of these clubs: ${orgNames}.`
+        : undefined;
+
       const transcription = await client.audio.transcriptions.create({
-        model: "whisper-1",
+        model: transcriptionModel,
         file,
+        language: "en",
+        ...(autoDetectPrompt ? { prompt: autoDetectPrompt } : {}),
       });
 
       const transcriptText = transcription.text?.trim();

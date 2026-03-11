@@ -69,6 +69,7 @@ export default function OverridesManagementPage() {
   );
   const players = useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, {
     organizationId: orgId,
+    status: "active",
   });
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,

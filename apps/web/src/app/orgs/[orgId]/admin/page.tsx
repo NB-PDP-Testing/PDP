@@ -44,7 +44,7 @@ export default function OrgAdminOverviewPage() {
   // Use NEW identity system to get player enrollments
   const playerEnrollments = useQuery(
     api.models.orgPlayerEnrollments.getPlayersForOrg,
-    { organizationId: orgId }
+    { organizationId: orgId, status: "active" }
   );
   // Get teams count
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {

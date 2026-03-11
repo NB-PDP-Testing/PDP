@@ -137,6 +137,7 @@ export default function ManageUsersPage() {
     api.models.orgPlayerEnrollments.getPlayersForOrg,
     {
       organizationId: orgId,
+      status: "active",
     }
   );
 

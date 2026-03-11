@@ -519,11 +519,12 @@ export default function ManageTeamsPage() {
     return sportCodeToName.get(sportCode) || sportCode;
   };
 
-  // Get all players for player assignment (using NEW identity system)
+  // Get active players for player assignment (using NEW identity system)
   const allPlayers = useQuery(
     api.models.orgPlayerEnrollments.getPlayersForOrg,
     {
       organizationId: orgId,
+      status: "active",
     }
   );
 

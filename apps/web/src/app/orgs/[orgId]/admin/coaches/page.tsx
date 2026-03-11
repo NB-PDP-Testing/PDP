@@ -60,6 +60,7 @@ export default function ManageCoachesPage() {
     api.models.orgPlayerEnrollments.getPlayersForOrg,
     {
       organizationId: orgId,
+      status: "active",
     }
   );
 

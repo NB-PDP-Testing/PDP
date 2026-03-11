@@ -1596,7 +1596,11 @@ export const assignPlayerFromReview = mutation({
     playerIdentityId: v.id("playerIdentities"),
   },
   returns: v.union(
-    v.object({ success: v.literal(true), playerName: v.string() }),
+    v.object({
+      success: v.literal(true),
+      playerName: v.string(),
+      nameWasCorrected: v.boolean(),
+    }),
     v.object({ success: v.literal(false), reason: v.string() })
   ),
   handler: async (ctx, args) => {
@@ -1618,6 +1622,77 @@ export const assignPlayerFromReview = mutation({
     }
 
     const playerName = `${player.firstName} ${player.lastName}`;
+    const originalPlayerName = insight.playerName;
+
+    // Correct player name in insight text using pattern matching (mirrors assignPlayerToInsight)
+    let correctedTitle = insight.title;
+    let correctedDescription = insight.description;
+    let correctedRecommendedUpdate = insight.recommendedUpdate;
+    let nameWasCorrected = false;
+
+    if (originalPlayerName && originalPlayerName !== playerName) {
+      const escRe = (s: string) =>
+        s.replace(REGEX_SPECIAL_CHARS_PATTERN, "\\$&");
+      const wrongParts = originalPlayerName.split(WHITESPACE_PATTERN);
+      const wrongFirst = wrongParts[0] ?? "";
+      const applyPatterns = (
+        text: string
+      ): { out: string; changed: boolean } => {
+        let out = text;
+        let changed = false;
+        // Full name
+        if (originalPlayerName.length > 1) {
+          const re = new RegExp(escRe(originalPlayerName), "gi");
+          if (re.test(out)) {
+            out = out.replace(re, playerName);
+            changed = true;
+          }
+        }
+        // First name possessive then standalone
+        if (wrongFirst.length > 1) {
+          const rePos = new RegExp(`${escRe(wrongFirst)}'s\\b`, "gi");
+          if (rePos.test(out)) {
+            out = out.replace(rePos, `${player.firstName}'s`);
+            changed = true;
+          }
+          const reName = new RegExp(`\\b${escRe(wrongFirst)}\\b`, "gi");
+          if (reName.test(out)) {
+            out = out.replace(reName, player.firstName);
+            changed = true;
+          }
+        }
+        return { out, changed };
+      };
+
+      const titleRes = applyPatterns(insight.title);
+      const descRes = applyPatterns(insight.description);
+      correctedTitle = titleRes.out;
+      correctedDescription = descRes.out;
+      nameWasCorrected = titleRes.changed || descRes.changed;
+
+      if (insight.recommendedUpdate) {
+        const recRes = applyPatterns(insight.recommendedUpdate);
+        correctedRecommendedUpdate = recRes.out;
+        nameWasCorrected = nameWasCorrected || recRes.changed;
+      }
+
+      // If pattern matching didn't find the name, schedule AI correction as fallback
+      if (!nameWasCorrected) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.voiceNotes.correctInsightPlayerName,
+          {
+            noteId: args.voiceNoteId,
+            insightId: args.insightId,
+            wrongName: originalPlayerName,
+            correctName: playerName,
+            originalTitle: insight.title,
+            originalDescription: insight.description,
+            originalRecommendedUpdate: insight.recommendedUpdate,
+          }
+        );
+      }
+    }
 
     const updatedInsights = note.insights.map((i) => {
       if (i.id === args.insightId) {
@@ -1625,13 +1700,99 @@ export const assignPlayerFromReview = mutation({
           ...i,
           playerIdentityId: args.playerIdentityId,
           playerName,
+          title: correctedTitle,
+          description: correctedDescription,
+          recommendedUpdate: correctedRecommendedUpdate,
         };
       }
       return i;
     });
 
     await ctx.db.patch(note._id, { insights: updatedInsights });
-    return { success: true as const, playerName };
+
+    // Layer 2: Store coach-player alias for future auto-resolution (feature parity
+    // with assignPlayerToInsight in voiceNotes.ts — same alias table, same logic).
+    if (
+      originalPlayerName &&
+      originalPlayerName !== playerName &&
+      note.coachId
+    ) {
+      const aliasNow = Date.now();
+      const normalized = originalPlayerName.toLowerCase().trim();
+      const existingAlias = await ctx.db
+        .query("coachPlayerAliases")
+        .withIndex("by_coach_org_rawText", (q) =>
+          q
+            .eq("coachUserId", note.coachId as string)
+            .eq("organizationId", note.orgId)
+            .eq("rawText", normalized)
+        )
+        .first();
+      if (existingAlias) {
+        await ctx.db.patch(existingAlias._id, {
+          resolvedEntityId: String(args.playerIdentityId),
+          resolvedEntityName: playerName,
+          useCount: existingAlias.useCount + 1,
+          lastUsedAt: aliasNow,
+        });
+      } else {
+        await ctx.db.insert("coachPlayerAliases", {
+          coachUserId: note.coachId as string,
+          organizationId: note.orgId,
+          rawText: normalized,
+          resolvedEntityId: String(args.playerIdentityId),
+          resolvedEntityName: playerName,
+          useCount: 1,
+          lastUsedAt: aliasNow,
+          createdAt: aliasNow,
+        });
+      }
+    }
+
+    // Schedule parent summary generation (same as assignPlayerToInsight)
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.coachParentSummaries.processVoiceNoteInsight,
+      {
+        voiceNoteId: args.voiceNoteId,
+        insightId: args.insightId,
+        insightTitle: correctedTitle,
+        insightDescription: correctedDescription,
+        playerIdentityId: args.playerIdentityId,
+        organizationId: note.orgId,
+        coachId: note.coachId,
+      }
+    );
+
+    // Feature parity with assignPlayerToInsight: update voiceNoteInsights table
+    // and re-check auto-apply eligibility now that a player has been assigned.
+    const voiceNoteInsight = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_voice_note_and_insight", (q) =>
+        q.eq("voiceNoteId", args.voiceNoteId).eq("insightId", args.insightId)
+      )
+      .first();
+
+    if (voiceNoteInsight && voiceNoteInsight.status === "pending") {
+      await ctx.db.patch(voiceNoteInsight._id, {
+        playerIdentityId: args.playerIdentityId,
+        playerName,
+        title: correctedTitle,
+        description: correctedDescription,
+        recommendedUpdate: correctedRecommendedUpdate,
+        wasManuallyCorrected: true,
+        manuallyCorrectedAt: Date.now(),
+        correctionType: "player_assigned",
+        updatedAt: Date.now(),
+      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voiceNotes.recheckAutoApply,
+        { voiceNoteInsightId: voiceNoteInsight._id }
+      );
+    }
+
+    return { success: true as const, playerName, nameWasCorrected };
   },
 });
 

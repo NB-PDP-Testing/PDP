@@ -3994,3 +3994,307 @@ Not performed — no dev browser session active. The frontend wiring is confirme
   - **Problem:** Better Auth uses `user._id`, not `user.id`
   - **Fix:** Replace `user.id` with `user._id`
 
+
+
+## Auto Quality Check - 2026-03-11 21:06:25
+### File: /home/user/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+## Auto Quality Check - 2026-03-11 21:06:25
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+
+## Auto Quality Check - 2026-03-11 21:06:25
+### File: /home/user/PDP/packages/backend/convex/models/players.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+## Auto Quality Check - 2026-03-11 21:06:25
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:06:25
+### File: /home/user/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-03-11 21:06:37
+### File: /home/user/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+
+## Auto Quality Check - 2026-03-11 21:06:37
+### File: /home/user/PDP/packages/backend/convex/models/players.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+## Auto Quality Check - 2026-03-11 21:06:37
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+
+## Auto Quality Check - 2026-03-11 21:06:37
+### File: /home/user/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+## Auto Quality Check - 2026-03-11 21:06:37
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:06:55
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-11 21:06:55
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:06:56
+### File: /home/user/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:07:25
+### File: /home/user/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-11 21:07:25
+### File: /home/user/PDP/packages/backend/convex/models/players.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:07:25
+### File: /home/user/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-03-11 21:07:26
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-11 21:07:26
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:07:53
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-11 21:07:53
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:07:53
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-11 21:07:54
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:07:54
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-11 21:07:54
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:07:58
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-11 21:07:58
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:08:22
+### File: /home/user/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-11 21:08:22
+### File: /home/user/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:08:39
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-11 21:08:40
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:09:46
+### File: /home/user/PDP/packages/backend/convex/models/guardianManagement.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:09:56
+### File: /home/user/PDP/packages/backend/convex/models/guardianManagement.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:09:56
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-11 21:09:56
+### File: /home/user/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:10:26
+### File: /home/user/PDP/packages/backend/convex/models/guardianManagement.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:10:33
+### File: /home/user/PDP/packages/backend/convex/models/guardianManagement.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:10:41
+### File: /home/user/PDP/packages/backend/convex/models/guardianManagement.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-11 21:10:51
+### File: /home/user/PDP/packages/backend/convex/models/guardianManagement.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

@@ -595,6 +595,58 @@ async function cascadeCleanupForOrg(
       });
     }
   }
+
+  // 5. Deactivate eligibility overrides for this org
+  const overrides = await ctx.db
+    .query("ageGroupEligibilityOverrides")
+    .withIndex("by_player", (q) => q.eq("playerIdentityId", playerIdentityId))
+    .collect();
+
+  for (const override of overrides) {
+    if (
+      override.organizationId === organizationId &&
+      override.isActive
+    ) {
+      await ctx.db.patch(override._id, {
+        isActive: false,
+        updatedAt: Date.now(),
+      });
+    }
+  }
+
+  // 6. Delete skill assessments for this org
+  const assessments = await ctx.db
+    .query("skillAssessments")
+    .withIndex("by_playerIdentityId", (q) =>
+      q.eq("playerIdentityId", playerIdentityId)
+    )
+    .collect();
+
+  for (const assessment of assessments) {
+    if (assessment.organizationId === organizationId) {
+      await ctx.db.delete(assessment._id);
+    }
+  }
+
+  // 7. Mark player graduations for this org as dismissed
+  const graduations = await ctx.db
+    .query("playerGraduations")
+    .withIndex("by_player", (q) =>
+      q.eq("playerIdentityId", playerIdentityId)
+    )
+    .collect();
+
+  for (const graduation of graduations) {
+    if (
+      graduation.organizationId === organizationId &&
+      graduation.status !== "dismissed"
+    ) {
+      await ctx.db.patch(graduation._id, {
+        status: "dismissed" as const,
+        dismissedAt: Date.now(),
+      });
+    }
+  }
 }
 
 // ============================================================

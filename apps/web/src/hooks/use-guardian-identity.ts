@@ -99,7 +99,7 @@ export function useGuardianChildrenInOrg(
   // Get enrollments for all players in this org
   const enrollmentsQuery = useQuery(
     api.models.orgPlayerEnrollments.getEnrollmentsForOrg,
-    organizationId ? { organizationId } : "skip"
+    organizationId ? { organizationId, status: "active" as const } : "skip"
   );
 
   // Ensure typed array for enrollments

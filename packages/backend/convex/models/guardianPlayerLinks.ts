@@ -915,7 +915,7 @@ export const deleteGuardianPlayerLink = mutation({
       )
       .first();
 
-    // If no remaining links, reset the guardian identity
+    // If no remaining links, reset the guardian identity and clean up orphaned data
     // This ensures parent must re-acknowledge if re-linked later
     if (!remainingLinksForGuardian) {
       await ctx.db.patch(guardianIdentityId, {
@@ -923,8 +923,31 @@ export const deleteGuardianPlayerLink = mutation({
         verificationStatus: "unverified",
         updatedAt: Date.now(),
       });
+
+      // Clean up org guardian profiles for this guardian
+      const profiles = await ctx.db
+        .query("orgGuardianProfiles")
+        .withIndex("by_guardianIdentityId", (q) =>
+          q.eq("guardianIdentityId", guardianIdentityId)
+        )
+        .collect();
+      for (const profile of profiles) {
+        await ctx.db.delete(profile._id);
+      }
+
+      // Clean up parent notification preferences
+      const notifPrefs = await ctx.db
+        .query("parentNotificationPreferences")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", guardianIdentityId)
+        )
+        .collect();
+      for (const pref of notifPrefs) {
+        await ctx.db.delete(pref._id);
+      }
+
       console.log(
-        `[deleteGuardianPlayerLink] Reset guardian identity ${guardianIdentityId} - last link deleted, parent must re-claim if re-linked`
+        `[deleteGuardianPlayerLink] Reset guardian identity ${guardianIdentityId} - last link deleted, cleaned up orphaned profiles and preferences`
       );
     }
 

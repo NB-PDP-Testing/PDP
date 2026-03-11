@@ -34,7 +34,7 @@ export function GuardianSettingsPrivacy({ orgId }: Props) {
 
   const orgEnrollments = useQuery(
     api.models.orgPlayerEnrollments.getEnrollmentsForOrg,
-    { organizationId: orgId }
+    { organizationId: orgId, status: "active" }
   );
 
   const enrollmentVisibility = useQuery(

@@ -71,6 +71,8 @@ const assessmentValidator = v.object({
   source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
   voiceNoteId: v.optional(v.id("voiceNotes")),
   createdAt: v.number(),
+  isDeleted: v.optional(v.boolean()),
+  deletedAt: v.optional(v.number()),
   retentionExpiresAt: v.optional(v.number()),
   retentionExpired: v.optional(v.boolean()),
   retentionExpiredAt: v.optional(v.number()),
@@ -108,7 +110,7 @@ export const getAssessmentsForPassport = query({
         )
         .order("desc")
         .collect();
-      return results.filter((r) => !r.retentionExpired);
+      return results.filter((r) => !(r.retentionExpired || r.isDeleted));
     }
 
     const results = await ctx.db
@@ -116,7 +118,7 @@ export const getAssessmentsForPassport = query({
       .withIndex("by_passportId", (q) => q.eq("passportId", args.passportId))
       .order("desc")
       .collect();
-    return results.filter((r) => !r.retentionExpired);
+    return results.filter((r) => !(r.retentionExpired || r.isDeleted));
   },
 });
 
@@ -136,7 +138,7 @@ export const getLatestAssessmentsForPassport = query({
     // Get latest non-erased assessment for each skill
     const latestBySkill = new Map<string, (typeof allAssessments)[number]>();
     for (const assessment of allAssessments) {
-      if (assessment.retentionExpired) {
+      if (assessment.retentionExpired || assessment.isDeleted) {
         continue;
       }
       if (!latestBySkill.has(assessment.skillCode)) {
@@ -167,7 +169,7 @@ export const getSkillHistory = query({
       .order("desc")
       .collect();
 
-    const active = results.filter((r) => !r.retentionExpired);
+    const active = results.filter((r) => !(r.retentionExpired || r.isDeleted));
     return args.limit ? active.slice(0, args.limit) : active;
   },
 });
@@ -193,7 +195,7 @@ export const getAssessmentsForPlayer = query({
         )
         .order("desc")
         .collect();
-      return results.filter((r) => !r.retentionExpired);
+      return results.filter((r) => !(r.retentionExpired || r.isDeleted));
     }
 
     const results = await ctx.db
@@ -203,7 +205,7 @@ export const getAssessmentsForPlayer = query({
       )
       .order("desc")
       .collect();
-    return results.filter((r) => !r.retentionExpired);
+    return results.filter((r) => !(r.retentionExpired || r.isDeleted));
   },
 });
 
@@ -261,7 +263,7 @@ export const getAssessmentHistory = query({
       .order("desc")
       .collect();
     const assessments = rawAssessments
-      .filter((r) => !r.retentionExpired)
+      .filter((r) => !(r.retentionExpired || r.isDeleted))
       .slice(0, args.limit ?? 100);
 
     const skillDefinitions = await ctx.db
@@ -325,7 +327,7 @@ export const getAssessmentHistoryAllSports = query({
       .order("desc")
       .collect();
     const assessments = rawAssessments
-      .filter((r) => !r.retentionExpired)
+      .filter((r) => !(r.retentionExpired || r.isDeleted))
       .slice(0, args.limit ?? 100);
 
     // Get all skill definitions to map codes to names
@@ -355,11 +357,13 @@ export const getAssessmentsByAssessor = query({
   },
   returns: v.array(assessmentValidator),
   handler: async (ctx, args) => {
-    let assessments = await ctx.db
-      .query("skillAssessments")
-      .withIndex("by_assessor", (q) => q.eq("assessedBy", args.assessedBy))
-      .order("desc")
-      .collect();
+    let assessments = (
+      await ctx.db
+        .query("skillAssessments")
+        .withIndex("by_assessor", (q) => q.eq("assessedBy", args.assessedBy))
+        .order("desc")
+        .collect()
+    ).filter((a) => !a.isDeleted);
 
     if (args.startDate) {
       const startDate = args.startDate;
@@ -386,13 +390,15 @@ export const getOrgAssessments = query({
   },
   returns: v.array(assessmentValidator),
   handler: async (ctx, args) => {
-    let assessments = await ctx.db
-      .query("skillAssessments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
-      )
-      .order("desc")
-      .collect();
+    let assessments = (
+      await ctx.db
+        .query("skillAssessments")
+        .withIndex("by_organizationId", (q) =>
+          q.eq("organizationId", args.organizationId)
+        )
+        .order("desc")
+        .collect()
+    ).filter((a) => !a.isDeleted);
 
     if (args.startDate) {
       const startDate = args.startDate;

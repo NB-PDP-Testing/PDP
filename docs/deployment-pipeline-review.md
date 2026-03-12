@@ -463,3 +463,236 @@ Decisions resolved on 2026-03-12:
 ### Action Required
 
 - [ ] **Decision 4**: Verify Convex plan supports staging + production deployments. Check pricing at [convex.dev/pricing](https://convex.dev/pricing) or in the Convex dashboard.
+
+---
+
+## 9. Agentic Capabilities Inventory
+
+This project has a multi-layered agentic system that can be integrated into the deployment pipeline. Below is a complete catalog of what exists, what's active, and how each capability maps to pipeline stages.
+
+### 9.1 Ralph — Autonomous Development Orchestrator
+
+**Location:** `scripts/ralph/ralph.sh`
+**Status:** Active infrastructure
+
+Ralph is an autonomous loop that implements features from a PRD without manual intervention. Each iteration spawns a fresh Claude Code CLI session with persistent memory.
+
+**How it works:**
+1. Reads `prd.json` for uncompleted stories (priority order)
+2. Spawns Claude Code CLI → implements the story
+3. Runs quality checks (types, lint)
+4. Commits if all checks pass, updates PRD
+5. Repeats until all stories complete or max iterations reached
+
+**Four-layer learning system:**
+- Codebase patterns (consolidated at top of `progress.txt`)
+- Structured progress entries per iteration
+- Git history (actual code changes)
+- Conversation logs (`~/.claude/projects/`)
+
+**Pipeline integration opportunity:** Ralph branches could auto-trigger the staging deploy + UAT pipeline on completion, creating a fully autonomous develop → test → review loop.
+
+### 9.2 Ralph Monitoring Agents (6 Background Agents)
+
+Six bash scripts that run on intervals alongside Ralph, writing findings to `scripts/ralph/agents/output/feedback.md` which Ralph reads each iteration.
+
+| Agent | File | Interval | What It Does |
+|-------|------|----------|--------------|
+| **Quality Monitor** | `quality-monitor.sh` | 60s | Convex codegen, type checks, Biome lint |
+| **PRD Auditor** | `prd-auditor.sh` | 90s | Verifies completed stories match implementation |
+| **Documenter** | `documenter.sh` | 120s | Generates feature docs at milestones |
+| **Test Runner** | `test-runner.sh` | 30s | Fastest feedback — types, lint, schema validation on new commits |
+| **Security Tester** | `security-tester.sh` | 120s | Grep-based pattern detection + AI security analysis |
+| **Code Review Gate** | `code-review-gate.sh` | 45s | Pattern checks (`.filter()`, N+1, auth), AI code review on commits |
+
+**Start/stop:** `scripts/ralph/agents/start-all.sh` / `stop-all.sh`
+
+**Pipeline integration opportunity:** These agents could be adapted to run as CI jobs or post-deploy checks, providing the same quality gates in the pipeline that Ralph gets during development.
+
+### 9.3 Claude Code AI Agents (On-Demand)
+
+Defined in `.claude/agents/`, these are AI-powered agents invoked via Claude Code commands. Each uses a specific model and has deep domain knowledge.
+
+| Agent | Model | Purpose | Invoked Via |
+|-------|-------|---------|-------------|
+| **Architect** | opus | Pre-phase architectural review, ADR generation | `/architect-review` |
+| **Architecture Reviewer** | sonnet | Multi-phase validation with memory (`agent-memory/`) | Automatic |
+| **Code Reviewer** | sonnet | Quality + security review (CRITICAL/HIGH/MEDIUM/LOW) | `/code-review` |
+| **Security Reviewer** | sonnet | Deep OWASP Top 10 analysis, auth/authz patterns | `/review-security` |
+| **QA Tester** | sonnet | Verifies implementations work (not just compile) | Post-story |
+| **Test Generator** | sonnet | Generates UAT scenarios, unit tests, edge cases | Post-story |
+| **Quality Auditor** | sonnet | Deep code quality beyond linting (patterns, perf, UX) | On-demand |
+| **Build Error Resolver** | — | Diagnoses and fixes build failures | `/build-fix` |
+| **AI Documenter** | sonnet | Comprehensive feature documentation synthesis | `/document-phase` |
+| **Parent Summary Agent** | — | Specialized for parent communication features | On-demand |
+
+**Pipeline integration opportunity:** These agents can serve as AI-powered CI gates — e.g., run `/review-security` automatically on PRs that touch auth code, or `/code-review` as a pre-merge check.
+
+### 9.4 Claude Code Hooks (Automatic Triggers)
+
+Defined in `.claude/settings.json`, these fire automatically during development sessions without manual invocation.
+
+**PostToolUse (after file edit/write):**
+- Auto-format with `npx ultracite fix`
+- Biome lint check
+- TypeScript type check
+- Smart quality analysis for backend files
+
+**PostToolUse (after git commit via Bash):**
+- Security review on committed files
+- Vulnerability pattern scanning
+
+**PreToolUse (before Bash execution):**
+- Blocks destructive commands (`git reset --hard`, `git clean -f`, `rm -rf`)
+- Warns on `.md` file creation outside expected locations
+
+**SessionStart:**
+- Ralph project status check
+- Detects new PRD phases (the notification you see at session start)
+- Agent status dashboard
+
+**SessionEnd:**
+- Session summary
+- Leftover `console.log` check
+- Feedback status
+
+### 9.5 Pre-Commit Hooks
+
+**Location:** `.husky/pre-commit` + `.lintstagedrc.json`
+**Status:** Active on every commit
+
+Runs `npx lint-staged` which executes `npx biome check --diagnostic-level=error` on staged `.ts/.tsx/.js/.jsx` files. Blocks commit if linting fails.
+
+### 9.6 Slash Commands (User-Invocable Skills)
+
+Defined in `.claude/commands/`, these are quick-access commands for common operations.
+
+| Command | Purpose |
+|---------|---------|
+| `/architect-review` | Full architectural analysis before a phase |
+| `/review-security` | Deep security review of recent changes |
+| `/code-review` | Review uncommitted code for quality + patterns |
+| `/e2e` | Run or generate Playwright E2E tests |
+| `/bugfix` | Fix a bug from a GitHub issue |
+| `/build-fix` | Fix TypeScript and build errors |
+| `/refactor-clean` | Remove dead code, unused deps, duplicates |
+| `/document-phase` | Generate comprehensive phase documentation |
+| `/check-prd` | Show PRD phase status and story breakdown |
+| `/session-setup` | Pre-implementation session checks |
+| `/review-fix` | Full review-and-fix pipeline on current branch |
+| `/simplify` | Review changed code for reuse and efficiency |
+
+### 9.7 Playwright E2E Tests
+
+**Location:** `apps/web/uat/tests/`
+**Config:** `apps/web/uat/playwright.config.ts`
+**Status:** Comprehensive suite defined, **CI execution disabled** (`if: false` in `uat-tests.yml`)
+
+**Test suites available:**
+- Onboarding (7 phases)
+- Voice notes pipeline
+- Platform admin flows
+- Player portal
+- Accessibility
+- Injury, email verification, compliance
+
+**CI capabilities (when enabled):**
+- Manual dispatch with test category selection (auth, admin, coach, flows, player, parent, org)
+- HTML reports + JSON results + screenshots on failure
+- 30-day artifact retention for reports, 7 days for screenshots
+
+### 9.8 GitHub Actions Workflows
+
+| Workflow | File | Status | Triggers |
+|----------|------|--------|----------|
+| **CI** | `ci.yml` | Active | PR to main, push to main |
+| **PR Preview** | `pr-preview.yml` | Partial | PR open/sync (quality report disabled) |
+| **UAT Tests** | `uat-tests.yml` | Disabled | (Would run on staging deploy) |
+| **Dependency Updates** | `dependency-updates.yml` | Active | Weekly Monday 9 AM UTC |
+| **Dependabot** | `dependabot.yml` | Active | Weekly, max 10 PRs |
+
+---
+
+## 10. Agentic Pipeline Integration Opportunities
+
+How the existing agentic capabilities map to deployment pipeline stages:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    AGENTIC PIPELINE INTEGRATION MAP                      │
+│                                                                          │
+│  STAGE               EXISTING CAPABILITY            STATUS               │
+│  ─────               ────────────────────            ──────               │
+│                                                                          │
+│  Pre-Development                                                         │
+│  ├─ Phase Planning    Architect Agent (opus)          ✅ Available        │
+│  ├─ PRD Validation    validate-prd.sh                 ✅ Available        │
+│  └─ Arch Review       Architecture Reviewer           ✅ Available        │
+│                                                                          │
+│  During Development (Ralph Loop)                                         │
+│  ├─ Quality           Quality Monitor (60s)           ✅ Active           │
+│  ├─ Tests             Test Runner (30s)               ✅ Active           │
+│  ├─ Security          Security Tester (120s)          ✅ Active           │
+│  ├─ Code Review       Code Review Gate (45s)          ✅ Active           │
+│  ├─ PRD Compliance    PRD Auditor (90s)               ✅ Active           │
+│  └─ Documentation     Documenter (120s)               ✅ Active           │
+│                                                                          │
+│  Pre-Commit                                                              │
+│  ├─ Lint              Husky + lint-staged             ✅ Active           │
+│  ├─ Format            Ultracite (via hooks)           ✅ Active           │
+│  └─ Destructive Guard PreToolUse hook                 ✅ Active           │
+│                                                                          │
+│  Pull Request                                                            │
+│  ├─ CI Checks         ci.yml                          ✅ Active           │
+│  ├─ AI Code Review    Code Reviewer agent             ⚡ Manual trigger  │
+│  ├─ AI Security       Security Reviewer agent         ⚡ Manual trigger  │
+│  └─ Preview Deploy    pr-preview.yml                  ⚠️ Partial          │
+│                                                                          │
+│  Staging Deploy                                                          │
+│  ├─ Schema Validation Convex deploy                   🔴 Not separated   │
+│  ├─ E2E Tests         Playwright suite                🔴 Disabled in CI  │
+│  ├─ QA Verification   QA Tester agent                 ⚡ Manual trigger  │
+│  └─ Smoke Tests       (not built)                     🔴 Missing          │
+│                                                                          │
+│  Production Promotion                                                    │
+│  ├─ Approval Gate     (not configured)                🔴 Missing          │
+│  ├─ Deploy            Vercel auto-deploy              ⚠️ No gate          │
+│  └─ Post-Deploy Check (not built)                     🔴 Missing          │
+│                                                                          │
+│  Ongoing                                                                 │
+│  ├─ Dependency Scan   dependency-updates.yml          ✅ Active           │
+│  ├─ Dependabot PRs    dependabot.yml                  ✅ Active           │
+│  └─ Phase Docs        AI Documenter agent             ⚡ Manual trigger  │
+│                                                                          │
+│  Legend: ✅ Active  ⚡ Available (manual)  ⚠️ Partial  🔴 Missing/Off   │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.1 Quick Wins — Activate What Exists
+
+These require minimal effort because the tooling is already built:
+
+| Opportunity | Effort | Impact |
+|-------------|--------|--------|
+| Enable Playwright in CI (`uat-tests.yml`) | Small — remove `if: false`, add staging secrets | E2E coverage on every PR |
+| Run `/code-review` as PR check | Small — GitHub Action calling Claude Code CLI | AI-powered review on every PR |
+| Run `/review-security` on auth-related PRs | Small — path-filter trigger + Claude Code CLI | Automated security for sensitive code |
+| Connect Ralph branch completion → PR creation | Small — add `gh pr create` to `ralph.sh` epilogue | Auto-PRs from autonomous development |
+
+### 10.2 Medium Effort — Extend Existing Agents
+
+| Opportunity | Effort | Impact |
+|-------------|--------|--------|
+| Adapt Ralph monitoring agents as CI jobs | Medium — containerize bash scripts for GitHub Actions | Same quality gates in CI that Ralph uses |
+| QA Tester as post-deploy verification | Medium — run against staging URL after deploy | Verify features actually work, not just build |
+| Test Generator as PR enrichment | Medium — auto-generate test suggestions on PR | Improve test coverage systematically |
+| Build Error Resolver as CI recovery | Medium — on build failure, auto-attempt fix + new commit | Self-healing builds |
+
+### 10.3 Larger Opportunities — Full Agentic Pipeline
+
+| Opportunity | Effort | Impact |
+|-------------|--------|--------|
+| **Autonomous patch pipeline:** Ralph branch → auto-PR → CI → staging deploy → Playwright → auto-merge | Large | Bugfixes land without human intervention |
+| **AI-gated production promotion:** QA Tester + Security Reviewer must both pass before prod deploy | Large | AI-powered production safety net |
+| **Continuous architecture validation:** Architecture Reviewer runs on every PR, flags structural drift | Medium-Large | Prevents architectural decay over time |
+| **Self-documenting releases:** AI Documenter auto-generates release notes from PRD + git history | Medium | Always-current documentation |

@@ -603,10 +603,7 @@ async function cascadeCleanupForOrg(
     .collect();
 
   for (const override of overrides) {
-    if (
-      override.organizationId === organizationId &&
-      override.isActive
-    ) {
+    if (override.organizationId === organizationId && override.isActive) {
       await ctx.db.patch(override._id, {
         isActive: false,
         updatedAt: Date.now(),
@@ -614,7 +611,7 @@ async function cascadeCleanupForOrg(
     }
   }
 
-  // 6. Delete skill assessments for this org
+  // 6. Soft-delete skill assessments for this org (preserve history, hide from active views)
   const assessments = await ctx.db
     .query("skillAssessments")
     .withIndex("by_playerIdentityId", (q) =>
@@ -623,17 +620,18 @@ async function cascadeCleanupForOrg(
     .collect();
 
   for (const assessment of assessments) {
-    if (assessment.organizationId === organizationId) {
-      await ctx.db.delete(assessment._id);
+    if (assessment.organizationId === organizationId && !assessment.isDeleted) {
+      await ctx.db.patch(assessment._id, {
+        isDeleted: true,
+        deletedAt: Date.now(),
+      });
     }
   }
 
   // 7. Mark player graduations for this org as dismissed
   const graduations = await ctx.db
     .query("playerGraduations")
-    .withIndex("by_player", (q) =>
-      q.eq("playerIdentityId", playerIdentityId)
-    )
+    .withIndex("by_player", (q) => q.eq("playerIdentityId", playerIdentityId))
     .collect();
 
   for (const graduation of graduations) {

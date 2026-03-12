@@ -745,6 +745,10 @@ export default defineSchema({
     ),
     createdAt: v.number(),
 
+    // Soft-delete support — set when player is unenrolled from org
+    isDeleted: v.optional(v.boolean()),
+    deletedAt: v.optional(v.number()),
+
     // Data retention fields (Phase 9)
     retentionExpiresAt: v.optional(v.number()),
     retentionExpired: v.optional(v.boolean()),

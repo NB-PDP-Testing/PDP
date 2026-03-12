@@ -5370,3 +5370,123 @@ Not performed — no dev browser session active. The frontend wiring is confirme
   - **Problem:** Better Auth uses `user._id`, not `user.id`
   - **Fix:** Replace `user.id` with `user._id`
 
+
+## Auto Quality Check - 2026-03-12 07:57:57
+### File: /home/user/PDP/packages/backend/convex/scripts/seed/orchestrator.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-12 07:58:00
+### File: /home/user/PDP/packages/backend/convex/scripts/seed/passports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-12 07:58:01
+### File: /home/user/PDP/packages/backend/convex/scripts/fullReset.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-12 07:58:01
+### File: /home/user/PDP/packages/backend/convex/scripts/fullReset.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-03-12 07:58:06
+### File: /home/user/PDP/packages/backend/convex/scripts/fullResetOptimized.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-12 07:58:06
+### File: /home/user/PDP/packages/backend/convex/scripts/fullResetOptimized.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-03-12 07:58:06
+### File: /home/user/PDP/packages/backend/convex/scripts/stagedReset.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-03-12 07:58:06
+### File: /home/user/PDP/packages/backend/convex/scripts/deleteAllPlayers.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-12 07:58:07
+### File: /home/user/PDP/packages/backend/convex/scripts/deleteAllPlayers.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-03-12 07:58:07
+### File: /home/user/PDP/packages/backend/convex/scripts/deleteUser.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-03-12 07:58:07
+### File: /home/user/PDP/packages/backend/convex/scripts/deleteUser.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-12 07:58:07
+### File: /home/user/PDP/packages/backend/convex/scripts/deleteUser.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-03-12 07:58:07
+### File: /home/user/PDP/packages/backend/convex/scripts/deleteUser.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-03-12 07:58:12
+### File: /home/user/PDP/packages/backend/convex/auth.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-03-12 07:58:26
+### File: /home/user/PDP/packages/backend/convex/migrations/importBenchmarksCLI.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+

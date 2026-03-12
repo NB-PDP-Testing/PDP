@@ -73,114 +73,283 @@ Developer laptop
 
 ---
 
-## 2. Proposed Environment Architecture
+## 2. Target End State
 
-### 2.1 Three-Environment Model
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        ENVIRONMENTS                              │
-├──────────────┬──────────────────┬────────────────────────────────┤
-│  Development │    Staging        │    Production                  │
-├──────────────┼──────────────────┼────────────────────────────────┤
-│ Vercel:      │ Vercel:           │ Vercel:                        │
-│  Preview     │  staging branch   │  main branch                   │
-│  deploys     │  auto-deploy      │  auto-deploy                   │
-├──────────────┼──────────────────┼────────────────────────────────┤
-│ Convex:      │ Convex:           │ Convex:                        │
-│  Personal    │  Staging          │  Production                    │
-│  dev         │  deployment       │  deployment                    │
-│  instances   │  (shared)         │  (shared)                      │
-├──────────────┼──────────────────┼────────────────────────────────┤
-│ Who:         │ Who:              │ Who:                           │
-│  Developers  │  Testers,         │  End users,                    │
-│              │  design partners, │  live clubs                    │
-│              │  QA, internal     │                                │
-├──────────────┼──────────────────┼────────────────────────────────┤
-│ Data:        │ Data:             │ Data:                          │
-│  Personal    │  Seeded test      │  Real user                     │
-│  test data   │  data (reset-able)│  data                          │
-└──────────────┴──────────────────┴────────────────────────────────┘
-```
-
-### 2.2 Git Branch Strategy
+### 2.1 Environment Architecture
 
 ```
-feature branches ──► PR to main ──► CI checks pass
-                                        │
-                         Vercel Preview  │  (uses Staging Convex)
-                                        │
-                                   merge to main
-                                        │
-                              ┌─────────┴─────────┐
-                              │                     │
-                     auto-deploy to            auto-deploy to
-                     Staging Vercel            Production Vercel
-                     + Staging Convex          + Production Convex
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│                              TARGET ARCHITECTURE                                      │
+│                                                                                       │
+│  ┌─────────────────┐     ┌─────────────────────┐     ┌────────────────────────┐      │
+│  │   DEVELOPMENT    │     │      STAGING         │     │     PRODUCTION          │      │
+│  │                  │     │                      │     │                         │      │
+│  │  Vercel: N/A     │     │  Vercel: Preview     │     │  Vercel: Production     │      │
+│  │  (localhost:3000) │     │  deploys (per PR)    │     │  (main branch)          │      │
+│  │                  │     │  + staging subdomain  │     │  playerarc.com          │      │
+│  │  Convex: Personal│     │                      │     │                         │      │
+│  │  dev instances   │     │  Convex: Staging      │     │  Convex: Production     │      │
+│  │  (convex dev)    │     │  deployment           │     │  deployment             │      │
+│  │                  │     │  (shared instance)    │     │  (shared instance)      │      │
+│  │  Data: Personal  │     │                      │     │                         │      │
+│  │  throwaway data  │     │  Data: Seeded test    │     │  Data: Real user data   │      │
+│  │                  │     │  org + accounts       │     │  (live clubs)           │      │
+│  │  OAuth: N/A      │     │                      │     │                         │      │
+│  │  (email/pw only) │     │  OAuth: Staging apps  │     │  OAuth: Production apps │      │
+│  │                  │     │  (Google/MSFT test)   │     │  (Google/MSFT live)     │      │
+│  │  Email: Console  │     │                      │     │                         │      │
+│  │  logs only       │     │  Email: Resend test   │     │  Email: Resend prod     │      │
+│  │                  │     │  domain               │     │  verified domain        │      │
+│  └────────┬─────────┘     └──────────┬───────────┘     └────────────┬────────────┘      │
+│           │                          │                              │                   │
+│           │ git push                 │ PR merge to main             │ Promotion gate    │
+│           ▼                          ▼                              ▼                   │
+│  ┌──────────────────────────────────────────────────────────────────────────────┐      │
+│  │                         DEPLOYMENT FLOW                                       │      │
+│  │                                                                               │      │
+│  │   feature/* ─── PR ──► CI checks ──► Staging deploy ──► UAT tests ──► Prod   │      │
+│  │                  │                        │                  │           │      │      │
+│  │                  │                        │                  │           │      │      │
+│  │             typecheck              Vercel Preview       Playwright   Manual    │      │
+│  │             lint                   + Convex Staging     E2E suite   approval   │      │
+│  │             build                  auto-deploy          runs here   or auto    │      │
+│  │             security                                                           │      │
+│  └──────────────────────────────────────────────────────────────────────────────┘      │
+└──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Option A (Simpler — Recommended for now):**
-- `main` branch deploys to **both** staging and production
-- Staging deploys first; production deploys after staging succeeds
-- Use Vercel's "Promote to Production" for manual prod gate if needed
+### 2.2 What Changes from Today
 
-**Option B (More control — for later):**
-- `main` → staging auto-deploy
-- `release/*` or manual promotion → production
-- Requires more process overhead
+| Aspect | Today | End State |
+|--------|-------|-----------|
+| **Convex deployments** | 1 (production) | 2 (staging + production) |
+| **Vercel environments** | All share same env vars | Production and Preview have separate keys |
+| **PR previews** | Deploy Convex to prod | Deploy Convex to staging |
+| **CI build** | Uses dummy keys | Uses staging keys (real validation) |
+| **UAT tests** | Disabled (`if: false`) | Run automatically against staging |
+| **Branch protection** | None | Required reviews + passing CI |
+| **Deploy to production** | Auto on push to main | Gate: staging UAT must pass first |
+| **Test data** | None in shared env | Seeded test org in staging |
+| **Dead workflow code** | 4+ disabled jobs, 1 backup file | Clean — no `if: false` stubs |
 
 ---
 
-## 3. Implementation Plan
+## 3. Data Strategy
 
-### Phase 1: Foundation (Week 1)
+### 3.1 Data Isolation by Environment
 
-#### 1A. Create Convex Staging Deployment
-- In Convex Dashboard, create a second deployment for the project (staging)
-- Generate a `CONVEX_DEPLOY_KEY` for the staging deployment
-- The staging deployment gets its own URL: `https://staging-xxx.convex.cloud`
-
-#### 1B. Configure Vercel Environments
-- **Production environment** (Vercel): `CONVEX_DEPLOY_KEY` → production Convex key
-- **Preview environment** (Vercel): `CONVEX_DEPLOY_KEY` → staging Convex key
-- This way preview deployments deploy Convex changes to staging, not production
-- Set `NEXT_PUBLIC_CONVEX_URL` per environment (Vercel handles this automatically via `--cmd-url-env-var-name`)
-
-#### 1C. Fix `vercel.json` buildCommand for Environment Safety
-The current buildCommand always runs `convex deploy`. We need it to be environment-aware:
-
-```json
-{
-  "buildCommand": "cd ../../packages/backend && npx convex deploy --cmd 'cd ../../apps/web && turbo run build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
-}
+```
+┌────────────────────────────────────────────────────────────────┐
+│                      DATA TOPOLOGY                              │
+│                                                                 │
+│  PRODUCTION CONVEX                  STAGING CONVEX              │
+│  ─────────────────                  ────────────────            │
+│                                                                 │
+│  Real clubs:                        Test org: "Demo Club"       │
+│  ├─ Grange RFC                      ├─ 6 teams (3 sports)      │
+│  ├─ St. Mary's GAA                  ├─ 60 seeded players       │
+│  └─ ...                             ├─ 5 test user accounts    │
+│                                     ├─ Benchmarks (all sports) │
+│  Real users:                        └─ Skill definitions       │
+│  ├─ Coaches, parents                                           │
+│  ├─ Actual player data              Test users (known creds):  │
+│  └─ Assessment history              ├─ owner@test.playerarc.com│
+│                                     ├─ admin@test.playerarc.com│
+│  Reference data:                    ├─ coach@test.playerarc.com│
+│  ├─ Sport definitions               ├─ parent@test.playerarc.com│
+│  ├─ Skill benchmarks                └─ member@test.playerarc.com│
+│  └─ NGB standards                                              │
+│                                     Reset-able:                 │
+│  NEVER reset.                       ├─ fullReset script exists │
+│  NEVER seed test data here.         ├─ stagedReset for safety  │
+│                                     └─ Re-seed after reset     │
+│                                                                 │
+│  DEV INSTANCES (per developer)                                  │
+│  ──────────────────────────────                                 │
+│  Personal `convex dev` instances.                               │
+│  Completely independent databases.                              │
+│  Developers can reset freely.                                   │
+│  No shared state.                                               │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-This actually works as-is — `convex deploy` uses whichever `CONVEX_DEPLOY_KEY` is set. The fix is entirely in Vercel environment variable configuration:
-- Production env vars → prod Convex key
-- Preview env vars → staging Convex key
+### 3.2 Staging Data Requirements
 
-#### 1D. Configure GitHub Secrets
-Add to GitHub repository secrets:
-- `CONVEX_DEPLOY_KEY_STAGING` — for CI to validate against staging
-- `STAGING_URL` — Vercel staging URL
-- `STAGING_CONVEX_URL` — staging Convex cloud URL
-- Test user credentials (for UAT):
-  - `TEST_OWNER_EMAIL` / `TEST_OWNER_PASSWORD`
-  - `TEST_ADMIN_EMAIL` / `TEST_ADMIN_PASSWORD`
-  - `TEST_COACH_EMAIL` / `TEST_COACH_PASSWORD`
-  - `TEST_PARENT_EMAIL` / `TEST_PARENT_PASSWORD`
+The staging environment needs a complete, realistic dataset. Existing tooling covers most of this:
 
-### Phase 2: Pipeline Hardening (Week 1-2)
+| Data Category | Source | Script / Process |
+|---------------|--------|------------------|
+| **Sport definitions** | Migration scripts | `importSoccerBenchmarks`, `importRugbyBenchmarks`, `importGAAFootballBenchmarks`, `importIrishDancingBenchmarks` |
+| **Skill benchmarks** | Migration scripts | `importSoccerLevelDescriptors`, `importRugbyLevelDescriptors`, `importGAAFootballLevelDescriptors` |
+| **Test organization** | Seed orchestrator | `convex/scripts/seed/orchestrator.ts` — creates "Demo Club" with 6 teams, 60 players |
+| **Player passports** | Seed orchestrator | Creates assessments, goals, milestones at 3 stages (beginner/developing/advanced) |
+| **Test user accounts** | Manual + script | Users sign up via web UI, then `bootstrapPlatformStaff` elevates permissions |
+| **Guardian-player links** | Seed orchestrator | Creates parent-child relationships |
+| **Coach assignments** | Seed orchestrator | Assigns coaches to teams |
 
-#### 2A. Clean Up Dead Workflow Code
-- Delete `ci-old.yml.bak`
-- Remove disabled `if: false` jobs or re-enable them properly
-- Consolidate PR preview into CI workflow
+#### What's Missing (Needs to Be Built)
 
-#### 2B. Update CI to Validate Against Staging Convex
-Replace dummy keys in CI build with staging keys:
+| Gap | What's Needed | Effort |
+|-----|---------------|--------|
+| **Staging seed script** | A single `seed-staging.sh` that runs all migration + seed scripts against the staging Convex deployment in the correct order | Small — orchestrate existing scripts |
+| **Test user provisioning** | Automated creation of 5 test accounts with known passwords and role assignments (not just manual signup) | Medium — extend `orchestrator.ts` or create a dedicated script |
+| **Voice note test data** | Sample voice notes with transcriptions and AI-extracted insights | Small — add to orchestrator |
+| **Injury test data** | Sample injuries across severity levels and statuses | Small — add to orchestrator |
+| **Cross-org test data** | A second test org to validate org isolation and cross-org features (injuries, player graduation) | Medium — run orchestrator twice with different params |
+
+### 3.3 Staging Data Lifecycle
+
+```
+┌─────────────────────────────────────────────────────┐
+│              STAGING DATA LIFECYCLE                   │
+│                                                      │
+│  1. INITIAL SETUP (one-time)                        │
+│     ├─ Create Convex staging deployment             │
+│     ├─ Run benchmark migrations                     │
+│     ├─ Create test users (signup + bootstrap)       │
+│     └─ Run seed orchestrator                        │
+│                                                      │
+│  2. ONGOING                                          │
+│     ├─ Schema changes deploy via Vercel preview     │
+│     ├─ Data accumulates from tester activity        │
+│     └─ New reference data via migration scripts     │
+│                                                      │
+│  3. RESET WHEN NEEDED                               │
+│     ├─ Run stagedReset (safest, avoids timeouts)    │
+│     ├─ Re-run benchmark migrations                  │
+│     ├─ Re-create test users                         │
+│     └─ Re-run seed orchestrator                     │
+│                                                      │
+│  4. PER-TESTER ISOLATION                            │
+│     ├─ Each tester gets their own org               │
+│     ├─ Shared "Demo Club" for read-only reference   │
+│     └─ Testers can create/delete within their org   │
+└─────────────────────────────────────────────────────┘
+```
+
+### 3.4 Data Migration Safety
+
+Schema changes are a key risk when deploying to staging vs production:
+
+```
+                    Schema Change Flow
+                    ──────────────────
+
+  Developer adds new table/field
+         │
+         ▼
+  PR created → CI builds (validates schema compiles)
+         │
+         ▼
+  Vercel Preview deploys → convex deploy to STAGING
+         │                    │
+         │                    ├─ Additive changes (new tables, new fields): Safe
+         │                    ├─ Removing fields: Breaks staging if data exists
+         │                    └─ Index changes: May require backfill
+         │
+         ▼
+  Merge to main → convex deploy to PRODUCTION
+                        │
+                        ├─ Same schema validated on staging first
+                        └─ Data migration scripts run manually if needed
+```
+
+**Rules:**
+1. Additive schema changes (new tables, optional fields) are safe to auto-deploy
+2. Destructive changes (removing fields, changing types) need a migration script
+3. Migration scripts should always support `dryRun: true` first
+4. Run migrations on staging first, validate, then run on production with `--prod`
+
+---
+
+## 4. Third-Party Service Configuration per Environment
+
+### 4.1 Convex Environment Variables
+
+Each Convex deployment (staging and production) needs its own set of env vars:
+
+| Convex Env Var | Staging | Production | Notes |
+|----------------|---------|------------|-------|
+| `SITE_URL` | `https://staging.playerarc.com` | `https://playerarc.com` | Used by Better Auth for OAuth callbacks and trusted origins |
+| `GOOGLE_CLIENT_ID` | Staging OAuth app | Production OAuth app | Separate Google Cloud projects or same project with both redirect URIs |
+| `GOOGLE_CLIENT_SECRET` | Staging secret | Production secret | |
+| `MICROSOFT_CLIENT_ID` | Staging OAuth app | Production OAuth app | Separate Azure app registrations recommended |
+| `MICROSOFT_CLIENT_SECRET` | Staging secret | Production secret | |
+| `RESEND_API_KEY` | Test API key | Production API key | Resend supports test keys that don't send real emails |
+| `EMAIL_FROM_ADDRESS` | `noreply@staging.playerarc.com` | `noreply@playerarc.com` | Needs verified domain in Resend |
+| `ANTHROPIC_API_KEY` | Shared or separate key | Production key | Can share; AI features work the same |
+| `TWILIO_ACCOUNT_SID` | Test credentials | Production credentials | Twilio has test mode for SMS/WhatsApp |
+| `TWILIO_AUTH_TOKEN` | Test credentials | Production credentials | |
+| `TWILIO_VERIFY_SERVICE_SID` | Test service | Production service | |
+| `META_WEBHOOK_VERIFY_TOKEN` | Staging token | Production token | WhatsApp webhook verification |
+| `FEDERATION_ENCRYPTION_KEY` | Staging key | Production key | Must be different — encrypts federation data |
+| `POSTHOG_API_KEY` | Staging project key | Production project key | Separate PostHog projects to avoid polluting analytics |
+
+### 4.2 Vercel Environment Variables
+
+| Vercel Env Var | Preview | Production | Notes |
+|----------------|---------|------------|-------|
+| `CONVEX_DEPLOY_KEY` | Staging deploy key | Production deploy key | **Critical separation** |
+| `NEXT_PUBLIC_CONVEX_URL` | Auto-set by `convex deploy` | Auto-set by `convex deploy` | `--cmd-url-env-var-name` handles this |
+| `NEXT_PUBLIC_CONVEX_SITE_URL` | Staging URL | Production URL | Used for client-side Convex connection |
+| `BETTER_AUTH_SECRET` | Staging secret | Production secret | **Must be different** — session tokens |
+| `BETTER_AUTH_URL` | Staging URL | Production URL | |
+| `ANTHROPIC_API_KEY` | Shared or staging key | Production key | Server-side only |
+| `NEXT_PUBLIC_POSTHOG_KEY` | Staging project | Production project | Client-side analytics |
+| `NEXT_PUBLIC_POSTHOG_HOST` | `https://eu.i.posthog.com` | `https://eu.i.posthog.com` | Same (EU region) |
+| `NEXT_PUBLIC_USE_REAL_AI` | `true` | `true` | |
+| `NEXT_PUBLIC_SESSION_PLAN_CACHE_HOURS` | `0.05` (3 min — for testing) | `1` | Shorter cache for testers |
+
+### 4.3 OAuth Provider Setup
+
+Each environment needs its own OAuth redirect URIs registered:
+
+**Google Cloud Console:**
+```
+Production:  https://playerarc.com/api/auth/callback/google
+Staging:     https://staging.playerarc.com/api/auth/callback/google
+             https://*.vercel.app/api/auth/callback/google   (for PR previews)
+```
+
+**Microsoft Azure Portal:**
+```
+Production:  https://playerarc.com/api/auth/callback/microsoft
+Staging:     https://staging.playerarc.com/api/auth/callback/microsoft
+             https://*.vercel.app/api/auth/callback/microsoft  (for PR previews)
+```
+
+**Decision needed:** Use one OAuth app with multiple redirect URIs, or separate OAuth apps per environment? Separate is cleaner but more to manage.
+
+### 4.4 PostHog Analytics
+
+Create two PostHog projects:
+- **PlayerARC - Staging**: Captures tester activity without polluting production metrics
+- **PlayerARC - Production**: Clean data from real users only
+
+Both in EU region (`eu.i.posthog.com`) for GDPR compliance.
+
+---
+
+## 5. GitHub Actions Workflow End State
+
+### 5.1 Workflow Files (Target)
+
+| File | Purpose | Trigger |
+|------|---------|---------|
+| `ci.yml` | Typecheck, lint, build, security scan | PR to main, push to main |
+| `uat-tests.yml` | Playwright E2E against staging | After staging deploy, manual dispatch |
+| `dependency-updates.yml` | Weekly outdated + audit report | Monday 9 AM UTC, manual |
+
+**Files to remove:**
+- `ci-old.yml.bak` — dead backup
+- `pr-preview.yml` — consolidate the useful PR comment into `ci.yml`
+
+### 5.2 CI Workflow Changes
 
 ```yaml
+# Key changes to ci.yml:
+
+# 1. Build uses REAL staging keys (not dummy)
 - name: Build for production
   run: npm run build
   env:
@@ -188,152 +357,107 @@ Replace dummy keys in CI build with staging keys:
     NEXT_PUBLIC_CONVEX_URL: ${{ secrets.STAGING_CONVEX_URL }}
     BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_STAGING }}
     BETTER_AUTH_URL: ${{ secrets.STAGING_URL }}
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+# 2. Security scan re-enabled (was disabled "during sprint")
+- name: Run security audit
+  if: matrix.check == 'security'    # Removed: && github.ref == 'refs/heads/main'
+  run: |
+    npm audit --audit-level=high || exit 1
 ```
 
-#### 2C. Enable Branch Protection on `main`
-Configure in GitHub repo settings:
-- Require PR reviews before merging
-- Require status checks to pass (CI Success job)
-- Require branches to be up to date before merging
-- No direct pushes to `main`
+### 5.3 Branch Protection Rules
 
-#### 2D. Add Deployment Status Notifications
-Add a workflow step that posts deployment status to a Slack channel or GitHub Discussions so testers know when staging is updated.
-
-### Phase 3: UAT Pipeline Activation (Week 2-3)
-
-#### 3A. Seed Staging Convex with Test Data
-- Use existing seed scripts (`scripts/seed-session-plans.ts`, `seed/orchestrator.ts`) to populate staging
-- Create a dedicated test organization with known test users
-- Document the test data setup process
-
-#### 3B. Enable UAT Workflow
-- Remove `if: false` from `uat-tests` job
-- Point `PLAYWRIGHT_BASE_URL` at the staging Vercel URL
-- Configure test user credentials in GitHub Secrets
-- Run on PR merges to `main` (after staging deploy completes)
-
-#### 3C. Add Staging Deploy Verification Workflow
-New workflow: `deploy-staging.yml`
-
-```yaml
-name: Deploy & Verify Staging
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  wait-for-deploy:
-    name: Wait for Vercel Staging Deploy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Wait for Vercel deployment
-        # Use Vercel CLI or API to check deployment status
-        run: |
-          # Poll Vercel API until staging deployment is ready
-          echo "Waiting for staging deployment..."
-
-  smoke-test:
-    name: Staging Smoke Test
-    needs: wait-for-deploy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Health check
-        run: |
-          curl -f ${{ secrets.STAGING_URL }}/api/health || exit 1
-
-  run-uat:
-    name: UAT on Staging
-    needs: smoke-test
-    uses: ./.github/workflows/uat-tests.yml
-    secrets: inherit
+```
+main branch:
+  ├─ Require pull request before merging
+  │   └─ Required approvals: 1
+  ├─ Require status checks to pass
+  │   ├─ CI Success (from ci.yml)
+  │   └─ UAT Tests (from uat-tests.yml) — optional initially
+  ├─ Require branches to be up to date
+  └─ Restrict who can push: no direct pushes
 ```
 
-### Phase 4: Production Safety (Week 3-4)
+---
 
-#### 4A. Add Production Deploy Workflow
-Create `deploy-production.yml` with:
-- Manual approval gate (GitHub Environments with required reviewers)
-- Run UAT against staging first
-- Only deploy to production after staging UAT passes
-- Post-deploy smoke test against production
+## 6. Implementation Phases
 
-#### 4B. Add Rollback Documentation
-Document how to:
-- Roll back a Vercel deployment (instant via Vercel dashboard)
-- Roll back Convex schema changes (requires `convex deploy` with previous code)
-- Handle data migrations that need reversal
+### Phase 1: Environment Foundation (Dashboard Work)
 
-#### 4C. Add Monitoring Hooks
-- PostHog error tracking (already partially configured)
-- Convex function error alerting
-- Vercel deployment failure notifications
+**Convex Dashboard:**
+1. Create staging deployment for the project
+2. Copy deploy key and URL
+3. Set all env vars listed in Section 4.1 on the staging deployment
+4. Run benchmark migration scripts against staging
+
+**Vercel Dashboard:**
+1. Edit `CONVEX_DEPLOY_KEY` — set Production value and Preview value separately
+2. Edit `BETTER_AUTH_SECRET` — different values per environment
+3. Edit `BETTER_AUTH_URL` — staging URL for Preview, prod URL for Production
+4. Add `NEXT_PUBLIC_POSTHOG_KEY` per environment
+
+**Google Cloud / Azure:**
+1. Add staging redirect URIs to OAuth apps (or create staging OAuth apps)
+
+**GitHub Settings:**
+1. Add secrets: `CONVEX_DEPLOY_KEY_STAGING`, `STAGING_URL`, `STAGING_CONVEX_URL`, `BETTER_AUTH_SECRET_STAGING`
+2. Add test user credential secrets
+3. Enable branch protection on `main`
+
+### Phase 2: Seed Staging Data
+
+1. Sign up 5 test users on staging via the web UI
+2. Run `bootstrapPlatformStaff` to make owner a platform admin
+3. Run benchmark migrations (soccer, rugby, GAA, Irish dancing)
+4. Run seed orchestrator to create "Demo Club" with 60 players
+5. Verify all roles work (owner, admin, coach, parent, member)
+6. Document the staging URLs and test credentials
+
+### Phase 3: Pipeline Code Changes
+
+1. Delete `ci-old.yml.bak`
+2. Update `ci.yml` to use staging secrets instead of dummy keys
+3. Re-enable security scanning in `ci.yml`
+4. Remove `uat-tests.yml` disabled placeholder job, enable real job
+5. Merge useful parts of `pr-preview.yml` into `ci.yml`, delete `pr-preview.yml`
+6. Create `seed-staging.sh` script to automate the seeding process
+
+### Phase 4: Production Safety Gates
+
+1. Configure Vercel to not auto-promote previews
+2. Add GitHub Environment "production" with required reviewers
+3. Create post-deploy smoke test
+4. Document rollback procedures
 
 ---
 
-## 4. Environment Variable Matrix
-
-| Variable | Local Dev | CI | Staging (Vercel Preview) | Production (Vercel) |
-|----------|-----------|-----|--------------------------|---------------------|
-| `CONVEX_DEPLOY_KEY` | N/A (uses `convex dev`) | Staging key | Staging key | **Production key** |
-| `NEXT_PUBLIC_CONVEX_URL` | Local dev URL | Staging URL | Staging URL | **Production URL** |
-| `BETTER_AUTH_SECRET` | Local secret | Staging secret | Staging secret | **Production secret** |
-| `BETTER_AUTH_URL` | `localhost:3000` | Staging URL | Staging URL | **Production URL** |
-| `ANTHROPIC_API_KEY` | Dev key | Staging key | Staging key | **Production key** |
-| `NEXT_PUBLIC_POSTHOG_KEY` | Optional | N/A | Staging project | **Production project** |
-
----
-
-## 5. Immediate Action Items (Manual Steps Required)
-
-These require access to Vercel Dashboard and Convex Dashboard — they can't be done via code:
-
-### Vercel Dashboard
-1. Go to Project Settings → Environment Variables
-2. For each env var, set **separate values** for "Production" vs "Preview" environments
-3. Specifically: set `CONVEX_DEPLOY_KEY` for Preview to use the staging Convex deployment key
-
-### Convex Dashboard
-1. Create a new deployment for the project (this becomes "staging")
-2. Copy the staging deployment URL and deploy key
-3. Seed the staging deployment with test data
-4. Set environment variables on the staging deployment (ANTHROPIC_API_KEY, RESEND_API_KEY, etc.)
-
-### GitHub Repository Settings
-1. Settings → Branches → Add branch protection rule for `main`
-2. Settings → Secrets → Add staging secrets listed in Phase 1D
-3. Settings → Environments → Create "staging" and "production" environments
-
----
-
-## 6. Risk Assessment
+## 7. Risk Assessment
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Preview deploys pushing to prod Convex | **HIGH** — schema changes hit production | Phase 1B fixes this immediately |
-| No branch protection | **MEDIUM** — untested code can reach prod | Phase 2C adds required checks |
-| UAT tests disabled | **MEDIUM** — no automated E2E validation | Phase 3 enables this |
-| Single deploy key in CI | **LOW** — CI build doesn't validate real Convex | Phase 2B fixes with staging key |
-| Test data leaking to prod | **LOW** — environment separation prevents this | Phase 1 creates boundary |
+| Preview deploys pushing to prod Convex | **HIGH** — schema changes hit production | Phase 1 fixes immediately (separate deploy keys) |
+| No branch protection | **MEDIUM** — untested code can reach prod | Phase 1 enables branch protection |
+| UAT tests disabled | **MEDIUM** — no automated E2E validation | Phase 3 enables UAT |
+| Staging data drift from production | **LOW** — staging schema matches prod via same deploy pipeline | Reset + re-seed when needed |
+| OAuth redirect mismatch | **MEDIUM** — SSO login breaks on staging | Phase 1 adds staging redirect URIs |
+| Test data in production | **LOW** — environment separation prevents this | Phase 1 creates the boundary |
+| Convex schema migration breaks staging | **LOW** — staging is reset-able, prod is not | Always deploy to staging first |
 
 ---
 
-## 7. Summary of Priorities
+## 8. Decision Points
 
-**Do first (this week):**
-1. Create Convex staging deployment
-2. Split Vercel env vars by environment (Preview vs Production)
-3. Enable branch protection on `main`
-4. Delete `ci-old.yml.bak`
+Before starting implementation, these decisions are needed:
 
-**Do next (next 1-2 weeks):**
-5. Seed staging with test data
-6. Enable UAT tests against staging
-7. Clean up disabled workflow jobs
-8. Add staging deploy verification
+1. **Staging URL**: Use a Vercel subdomain (`staging-playerarc.vercel.app`) or a custom subdomain (`staging.playerarc.com`)?
 
-**Do later (weeks 3-4):**
-9. Production deploy approval gates
-10. Rollback documentation
-11. Monitoring and alerting
+2. **OAuth apps**: One Google/Microsoft OAuth app with multiple redirect URIs, or separate apps per environment?
+
+3. **Production deploy gate**: Auto-deploy to production after staging UAT passes, or require manual "Promote to Production" approval?
+
+4. **Convex plan**: Does the current Convex plan support multiple deployments? Need to verify pricing.
+
+5. **PostHog**: Create a separate staging project, or use the same project with environment filtering?
+
+6. **Email (Resend)**: Use Resend test mode for staging, or set up a staging subdomain for real email delivery testing?

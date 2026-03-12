@@ -1,7 +1,7 @@
 # Deployment Pipeline Review & Environment Strategy
 
 **Date:** 2026-03-12
-**Status:** Proposal — awaiting approval
+**Status:** Decisions resolved — pending Convex plan verification before implementation
 
 ---
 
@@ -446,18 +446,19 @@ main branch:
 
 ---
 
-## 8. Decision Points
+## 8. Decision Log
 
-Before starting implementation, these decisions are needed:
+Decisions resolved on 2026-03-12:
 
-1. **Staging URL**: Use a Vercel subdomain (`staging-playerarc.vercel.app`) or a custom subdomain (`staging.playerarc.com`)?
+| # | Decision | Choice | Rationale |
+|---|----------|--------|-----------|
+| 1 | **Staging URL** | `staging.playerarc.com` (custom subdomain) | Professional, stable URL. Better for OAuth redirects and bookmarking. Requires DNS config. |
+| 2 | **OAuth apps** | Separate apps per environment | Cleaner isolation. Each environment gets its own client ID/secret. Better audit trail. |
+| 3 | **Production deploy gate** | Manual approval required | Human clicks "Promote to Production" in GitHub. Safest while team is small. |
+| 4 | **Convex plan** | **Pending verification** | Need to check Convex dashboard/pricing to confirm multiple deployments are supported on current plan. |
+| 5 | **PostHog** | Separate staging project | Two PostHog projects (both EU region). Clean production analytics with no test noise. |
+| 6 | **Email (Resend)** | Resend test mode for staging | No real emails sent from staging. Emails visible in Resend dashboard. No domain setup needed. |
 
-2. **OAuth apps**: One Google/Microsoft OAuth app with multiple redirect URIs, or separate apps per environment?
+### Action Required
 
-3. **Production deploy gate**: Auto-deploy to production after staging UAT passes, or require manual "Promote to Production" approval?
-
-4. **Convex plan**: Does the current Convex plan support multiple deployments? Need to verify pricing.
-
-5. **PostHog**: Create a separate staging project, or use the same project with environment filtering?
-
-6. **Email (Resend)**: Use Resend test mode for staging, or set up a staging subdomain for real email delivery testing?
+- [ ] **Decision 4**: Verify Convex plan supports staging + production deployments. Check pricing at [convex.dev/pricing](https://convex.dev/pricing) or in the Convex dashboard.

@@ -5331,6 +5331,16 @@ Not performed — no dev browser session active. The frontend wiring is confirme
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
+## Auto Quality Check - 2026-03-12 19:49:12
+### File: /home/user/PDP/packages/backend/convex/models/skillBenchmarks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-03-12 19:49:12
+### File: /home/user/PDP/packages/backend/convex/models/skillBenchmarks.ts
 ## Auto Quality Check - 2026-03-12 07:41:57
 ### File: /home/user/PDP/packages/backend/convex/auth.ts
 
@@ -5363,6 +5373,8 @@ Not performed — no dev browser session active. The frontend wiring is confirme
   - **Fix:** Add organizationId to query args and use in .withIndex()
 
 
+## Auto Quality Check - 2026-03-12 19:49:12
+### File: /home/user/PDP/packages/backend/convex/models/skillAssessments.ts
 ## Auto Quality Check - 2026-03-12 07:43:56
 ### File: /home/user/PDP/packages/backend/convex/auth.ts
 
@@ -5379,6 +5391,8 @@ Not performed — no dev browser session active. The frontend wiring is confirme
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
+## Auto Quality Check - 2026-03-12 19:49:17
+### File: /home/user/PDP/packages/backend/convex/lib/import/benchmarkApplicator.ts
 ## Auto Quality Check - 2026-03-12 07:58:00
 ### File: /home/user/PDP/packages/backend/convex/scripts/seed/passports.ts
 
@@ -5387,6 +5401,7 @@ Not performed — no dev browser session active. The frontend wiring is confirme
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
+## Auto Quality Check - 2026-03-12 19:49:38
 ## Auto Quality Check - 2026-03-12 07:58:01
 ### File: /home/user/PDP/packages/backend/convex/scripts/fullReset.ts
 
@@ -5491,6 +5506,8 @@ Not performed — no dev browser session active. The frontend wiring is confirme
   - **Fix:** Add organizationId to query args and use in .withIndex()
 
 
+## Auto Quality Check - 2026-03-12 19:49:47
+### File: /home/user/PDP/packages/backend/convex/models/referenceData.ts
 ## Auto Quality Check - 2026-03-12 08:07:21
 ### File: /home/user/PDP/packages/backend/convex/seed/defaultRateLimits.ts
 

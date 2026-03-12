@@ -117,11 +117,11 @@ export const getAllForOrganization = query({
     })
   ),
   handler: async (ctx, args) => {
-    // Get all enrollments for this organization (NEW identity system)
+    // Get all ACTIVE enrollments for this organization (NEW identity system)
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
       )
       .collect();
 
@@ -257,11 +257,11 @@ export const getOrganizationStats = query({
     profileCompletionRate: v.number(),
   }),
   handler: async (ctx, args) => {
-    // Get all enrollments for this organization (NEW identity system)
+    // Get all ACTIVE enrollments for this organization (NEW identity system)
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
       )
       .collect();
 

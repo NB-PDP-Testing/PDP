@@ -454,10 +454,11 @@ Decisions resolved on 2026-03-12:
 |---|----------|--------|-----------|
 | 1 | **Staging URL** | `staging.playerarc.com` (custom subdomain) | Professional, stable URL. Better for OAuth redirects and bookmarking. Requires DNS config. |
 | 2 | **OAuth apps** | Separate apps per environment | Cleaner isolation. Each environment gets its own client ID/secret. Better audit trail. |
-| 3 | **Production deploy gate** | Manual approval required | Human clicks "Promote to Production" in GitHub. Safest while team is small. |
+| 3 | **Production deploy gate** | Auto for patches, manual for features | Bugfix branches auto-promote after staging UAT passes. Feature branches require manual approval. Balanced speed vs safety. |
 | 4 | **Convex plan** | **Pending verification** | Need to check Convex dashboard/pricing to confirm multiple deployments are supported on current plan. |
 | 5 | **PostHog** | Separate staging project | Two PostHog projects (both EU region). Clean production analytics with no test noise. |
 | 6 | **Email (Resend)** | Resend test mode for staging | No real emails sent from staging. Emails visible in Resend dashboard. No domain setup needed. |
+| 7 | **Notifications** | GitHub Discussions/Issues | Deploy status, test failures, and security alerts posted as GitHub comments/discussion threads. No extra tooling. |
 
 ### Action Required
 

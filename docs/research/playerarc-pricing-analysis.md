@@ -95,7 +95,23 @@ GAA Football (16 skills), Soccer (29 skills), Rugby (42 skills), Athletics (mult
 
 **Takeaway:** Performance/analytics platforms charge **$400-1,600/team/year** — and they only do ONE thing (video, GPS, or coaching). PlayerARC does assessments, AI insights, wellness, messaging, passports, and more. PlayerARC's value is comparable to or exceeds these platforms.
 
-### 2.4 Pricing Positioning Summary
+### 2.4 Player Development & AI Platforms (Closest Competitors)
+
+| Platform | Pricing | What's Included | Notes |
+|----------|---------|-----------------|-------|
+| **SkillShark** | $5/player/yr (blocks of 25); first 25 free | Player evaluation/assessment only | Closest feature overlap — but NO AI, NO passports, NO wellness |
+| **360Player** | $49/mo/club ($588/yr); up to 1,000 users | Registration, scheduling, video, player development | Raised $25M (Nov 2024); broad but shallow features |
+| **CoachNow** | $60/yr (Analyze); $40/mo (PRO); custom (Academy) | Video analysis, coaching spaces, templates | Coach-centric; free for athletes/parents |
+| **Playermaker** | $199 kit + $149/yr renewal | AI soccer tracking (foot-mounted sensors) | Hardware-dependent; soccer only |
+| **Catapult One** | $180/player/yr (min 10, 2yr commit) | GPS wearable + AI physical analytics | Hardware + software; ~$2,000+/team/yr |
+| **MOJO Sports** | Free (coaches); $20/yr (MOJO+ families) | AI practice plans, drill videos, team mgmt | Youth-focused; NFL/NBA/MLS partnerships |
+
+**Critical comparison — SkillShark at $5/player/yr:**
+- 200-player club = $1,000/yr just for evaluations
+- PlayerARC includes evaluations PLUS AI voice insights, passports, wellness, messaging, GDPR, parent dashboard
+- PlayerARC at $1,200/yr for a 200-player club is **$6/player/yr** — comparable to SkillShark but with 10x the features
+
+### 2.5 Pricing Positioning Summary
 
 ```
 Free ────── $500/yr ────── $1,000/yr ────── $2,000/yr ────── $5,000+/yr
@@ -168,7 +184,16 @@ This means:
 - 2,000+ clubs using Clubforce; 1,000+ using ClubZap
 - Strong government support (€85M boost to Irish sport sector)
 
-### 4.3 Club Technology Budget Benchmarks
+### 4.3 Market Size Data
+- **Global youth sports market:** $56B (2025), projected $154.5B by 2035 (CAGR 10.7%)
+- **Youth sports software market:** $1.36B (2025), projected $3.93B by 2034 (CAGR 12.5%)
+- **Sports management software:** $369M (2025), projected $1.25B by 2032 (CAGR 19.1%)
+- **AI in sports market:** $2.2B (2022), projected $29.7B by 2032 (CAGR 30.1%)
+- **62% of youth programs** have adopted sports technology
+- **20-25% of community/rural leagues** still cannot afford any software — opportunity for entry-level tier
+- 200+ clubs adopted integrated platforms in 2024 alone (~15% increase in digital adoption)
+
+### 4.4 Club Technology Budget Benchmarks
 - No hard data on per-club tech budgets, but indicators suggest:
   - Small clubs: **€500-1,500/year** total tech spend
   - Medium clubs (200-500 members): **€1,500-5,000/year**
@@ -417,11 +442,19 @@ At $1,200/club/yr (list price): **Break-even at ~5-7 clubs**
 - [GameChanger Team Pass](https://gc.com/pricing/team-pass)
 - [Catapult Pricing](https://www.catapult.com/pricing)
 - [ClubZap Pricing](https://clubzap.com/pricing/)
+- [SkillShark Pricing](https://skillshark.com/pricing)
+- [360Player Pricing](https://www.360player.com/pricing)
+- [CoachNow Pricing](https://coachnow.com/pricing)
+- [Jersey Watch Pricing](https://www.jerseywatch.com/pricing)
+- [SportsFirst — League Software Pricing Guide](https://www.sportsfirst.net/post/league-management-software-pricing-in-the-us-what-leagues-actually-pay)
 
 ### Market Data
 - [Aspen Institute — Family Sports Spending 2024](https://projectplay.org/news/2025/2/24/project-play-survey-family-spending-on-youth-sports-rises-46-over-five-years)
 - [GAA Coaching Investment](https://www.gaa.ie/article/gaa-invested-13-2m-in-coaching-and-games-development-in-2023)
 - [Clubforce — Technology in GAA](https://clubforce.com/latest-news/technology-has-become-the-backbone-of-the-gaa/)
+- [Business Research Insights — Youth Sports Software Market](https://www.businessresearchinsights.com/market-reports/youth-sports-software-market-122833)
+- [Fortune Business Insights — Sports Technology Market](https://www.fortunebusinessinsights.com/sports-technology-market-112896)
+- [Capstone Partners — Sports Tech M&A Update](https://www.capstonepartners.com/insights/report-sports-technology-market-update/)
 - [Irish Sports Tech Startups](https://www.thinkbusiness.ie/articles/irish-sports-tech-start-ups-to-watch-in-2026/)
 
 ### SaaS Pricing Strategy

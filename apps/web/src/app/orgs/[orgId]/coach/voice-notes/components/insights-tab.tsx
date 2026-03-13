@@ -784,11 +784,16 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
       insight.category === "team_culture" && !(insight as any).teamId;
     const isTodoWithoutAssignee =
       insight.category === "todo" && !(insight as any).assigneeUserId;
+    const isPlayerCategoryWithoutPlayer = !(
+      TEAM_LEVEL_CATEGORIES.includes(insight.category as string) ||
+      insight.playerIdentityId
+    );
     const needsAction =
       isUnmatched ||
       isUncategorized ||
       isTeamWithoutTeamId ||
-      isTodoWithoutAssignee;
+      isTodoWithoutAssignee ||
+      isPlayerCategoryWithoutPlayer;
 
     // Determine card styling based on type
     const cardStyles = {
@@ -1119,11 +1124,13 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
                 needsAction
                   ? isUnmatched
                     ? "Assign a player first to apply this insight"
-                    : isTeamWithoutTeamId
-                      ? "Assign to a team first to apply this insight"
-                      : isTodoWithoutAssignee
-                        ? "Assign to a coach first to apply this insight"
-                        : "Classify this insight first to apply"
+                    : isPlayerCategoryWithoutPlayer
+                      ? "Assign a player first"
+                      : isTeamWithoutTeamId
+                        ? "Assign to a team first to apply this insight"
+                        : isTodoWithoutAssignee
+                          ? "Assign to a coach first to apply this insight"
+                          : "Classify this insight first to apply"
                   : "Apply insight"
               }
               variant="default"

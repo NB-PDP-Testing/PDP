@@ -141,7 +141,7 @@
       "title": "Fix button context-awareness in InsightsTab",
       "description": "As a coach reviewing insights, I should only see actions relevant to the insight type — not all buttons for every insight regardless of category.",
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Edit apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insights-tab.tsx",
         "Hide 'Engage Team' button for non-team categories (only show for team_culture, todo)",

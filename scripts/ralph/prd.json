@@ -126,7 +126,7 @@
       "title": "Document duplicate mutation patterns across components",
       "description": "As a developer planning future cleanup, I need documentation of where the same mutations are called from multiple components so we can plan shared hooks.",
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Add a 'Duplication Inventory' section to docs/features/voice-notes/known-issues-gaps.md",
         "List updateInsightStatus callers: insights-tab.tsx, team-insights-tab.tsx, review-tab.tsx, swipeable-insight-card.tsx, board-insight-card.tsx",

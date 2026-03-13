@@ -118,17 +118,17 @@ Entity resolution only matches against player roster. Coaches mentioned in voice
 
 ## Duplication Inventory
 
-### updateInsightStatus Callers (5 components)
+### updateInsightStatus Callers
 
-| Component | File | Context |
-|-----------|------|---------|
-| InsightsTab | `coach/voice-notes/components/insights-tab.tsx` | Main insight review (Apply/Dismiss) |
-| TeamInsightsTab | `coach/voice-notes/components/team-insights-tab.tsx` | Team insights (Apply to Profile/Dismiss) |
-| SwipeableInsightCard | `coach/voice-notes/components/swipeable-insight-card.tsx` | Mobile swipe gestures |
-| BoardInsightCard | `coach/voice-notes/components/board-insight-card.tsx` | Kanban board view |
-| review-tab.tsx | `coach/voice-notes/components/review-tab.tsx` | **DELETED** - was legacy dead code |
+| Component | File | Line | Calls Mutation Directly? |
+|-----------|------|------|------------------------|
+| InsightsTab | `insights-tab.tsx` | :242 | Yes - `useMutation(api.models.voiceNotes.updateInsightStatus)` |
+| TeamInsightsTab | `team-insights-tab.tsx` | :78 | Yes - `useMutation(api.models.voiceNotes.updateInsightStatus)` |
+| SwipeableInsightCard | `swipeable-insight-card.tsx` | :18-19 | No - receives `onApply`/`onDismiss` props from InsightsTab |
+| BoardInsightCard | `board-insight-card.tsx` | - | No - receives action props from InsightsTab |
+| review-tab.tsx | _(deleted)_ | - | Was direct caller - **DELETED** (US-VR-006) |
 
-**No shared hook exists.** Each component implements its own handler with error handling and toast notifications.
+**2 direct mutation callers remain** (InsightsTab, TeamInsightsTab). SwipeableInsightCard and BoardInsightCard are child components that delegate to InsightsTab's handlers. No shared hook exists.
 
 ### approveSummary/suppressSummary Callers (3 components)
 

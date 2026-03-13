@@ -1,179 +1,100 @@
+/**
+ * Import Lawn Bowling benchmarks from JSON file
+ * Run with: npx convex run migrations/importLawnBowlingBenchmarks:run --prod
+ */
+
+import benchmarksData from "../../scripts/lawn-bowling-benchmarks-IMPORT.json";
 import { internalMutation } from "../_generated/server";
 
-export const importLawnBowlingBenchmarks = internalMutation({
-	args: {},
-	handler: async (ctx) => {
-		const benchmarksData = {
-			source: "World Bowls / Bowls England / Coach Bowls",
-			sourceDocument:
-				"Lawn Bowling Benchmark System v1.0 - Compiled from World Bowls Skills & Drills, Bowls Canada LTAD, Coach Bowls Framework, English Bowls Coaching Society",
-			sourceUrl:
-				"https://www.worldbowls.com/wp-content/uploads/2024/05/Skills-and-Drills.pdf",
-			sourceYear: 2026,
-		};
+export const run = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let created = 0;
+    let skipped = 0;
+    const errors: Array<{ benchmark: string; error: string }> = [];
+    const now = Date.now();
 
-		// Skill definitions for lawn bowling
-		const skills = [
-			"draw_shot",
-			"delivery_technique",
-			"line_control",
-			"weight_control",
-			"yard_on_shot",
-			"drive_shot",
-			"positional_play",
-			"tactical_awareness",
-			"green_reading",
-			"mental_resilience",
-			"team_play",
-			"etiquette_sportsmanship",
-		];
+    console.log(
+      `Starting import of ${benchmarksData.benchmarks.length} Lawn Bowling benchmarks...`
+    );
 
-		const ageGroups = ["u18", "u25", "senior", "veteran"];
-		const levels = ["recreational", "competitive", "elite"] as const;
+    for (const benchmark of benchmarksData.benchmarks) {
+      try {
+        // Check if benchmark already exists
+        const existing = await ctx.db
+          .query("skillBenchmarks")
+          .withIndex("by_context", (q) =>
+            q
+              .eq("sportCode", benchmark.sportCode)
+              .eq("skillCode", benchmark.skillCode)
+              .eq("ageGroup", benchmark.ageGroup)
+              .eq("gender", benchmark.gender as "all" | "male" | "female")
+              .eq(
+                "level",
+                benchmark.level as
+                  | "development"
+                  | "recreational"
+                  | "competitive"
+                  | "elite"
+              )
+          )
+          .first();
 
-		// Base expected ratings by skill, age group, and level
-		// Format: [recreational, competitive, elite]
-		const ratingMatrix: Record<
-			string,
-			Record<string, [number, number, number]>
-		> = {
-			draw_shot: {
-				u18: [2.0, 2.5, 0],
-				u25: [2.5, 3.0, 4.0],
-				senior: [2.5, 3.5, 4.5],
-				veteran: [2.5, 3.5, 0],
-			},
-			delivery_technique: {
-				u18: [2.0, 2.5, 0],
-				u25: [2.5, 3.0, 4.0],
-				senior: [2.5, 3.5, 4.5],
-				veteran: [2.5, 3.5, 0],
-			},
-			line_control: {
-				u18: [1.5, 2.5, 0],
-				u25: [2.0, 3.0, 4.0],
-				senior: [2.5, 3.5, 4.5],
-				veteran: [2.5, 3.5, 0],
-			},
-			weight_control: {
-				u18: [1.5, 2.5, 0],
-				u25: [2.0, 3.0, 4.0],
-				senior: [2.5, 3.5, 4.5],
-				veteran: [2.5, 3.5, 0],
-			},
-			yard_on_shot: {
-				u18: [1.5, 2.0, 0],
-				u25: [2.0, 3.0, 3.5],
-				senior: [2.0, 3.0, 4.0],
-				veteran: [2.0, 3.0, 0],
-			},
-			drive_shot: {
-				u18: [1.0, 2.0, 0],
-				u25: [1.5, 2.5, 3.5],
-				senior: [1.5, 3.0, 4.0],
-				veteran: [1.5, 2.5, 0],
-			},
-			positional_play: {
-				u18: [1.5, 2.0, 0],
-				u25: [2.0, 3.0, 3.5],
-				senior: [2.0, 3.5, 4.5],
-				veteran: [2.5, 3.5, 0],
-			},
-			tactical_awareness: {
-				u18: [1.5, 2.0, 0],
-				u25: [2.0, 3.0, 3.5],
-				senior: [2.5, 3.5, 4.5],
-				veteran: [2.5, 3.5, 0],
-			},
-			green_reading: {
-				u18: [1.5, 2.0, 0],
-				u25: [2.0, 3.0, 3.5],
-				senior: [2.5, 3.5, 4.5],
-				veteran: [2.5, 3.5, 0],
-			},
-			mental_resilience: {
-				u18: [1.5, 2.0, 0],
-				u25: [2.0, 3.0, 3.5],
-				senior: [2.5, 3.5, 4.5],
-				veteran: [2.5, 3.5, 0],
-			},
-			team_play: {
-				u18: [1.5, 2.0, 0],
-				u25: [2.0, 3.0, 3.5],
-				senior: [2.5, 3.5, 4.5],
-				veteran: [2.5, 3.5, 0],
-			},
-			etiquette_sportsmanship: {
-				u18: [2.0, 2.5, 0],
-				u25: [2.5, 3.5, 4.0],
-				senior: [3.0, 4.0, 4.5],
-				veteran: [3.5, 4.0, 0],
-			},
-		};
+        if (existing?.isActive) {
+          skipped += 1;
+          continue;
+        }
 
-		let imported = 0;
-		const errors: Array<{ benchmark: string; error: string }> = [];
+        // Insert benchmark
+        await ctx.db.insert("skillBenchmarks", {
+          sportCode: benchmark.sportCode,
+          skillCode: benchmark.skillCode,
+          ageGroup: benchmark.ageGroup,
+          gender: benchmark.gender as "male" | "female" | "all",
+          level: benchmark.level as "recreational" | "competitive" | "elite",
+          expectedRating: benchmark.expectedRating,
+          minAcceptable: benchmark.minAcceptable,
+          developingThreshold: benchmark.developingThreshold,
+          excellentThreshold: benchmark.excellentThreshold,
+          source: benchmarksData.source,
+          sourceDocument: benchmarksData.sourceDocument,
+          sourceUrl: benchmarksData.sourceUrl,
+          sourceYear: benchmarksData.sourceYear,
+          notes: benchmark.notes || undefined,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        });
 
-		for (const skillCode of skills) {
-			for (const ageGroup of ageGroups) {
-				const ratings = ratingMatrix[skillCode]?.[ageGroup];
-				if (!ratings) continue;
+        created += 1;
 
-				for (let i = 0; i < levels.length; i++) {
-					const expectedRating = ratings[i];
-					// Skip if rating is 0 (not applicable for this age/level combo)
-					if (expectedRating === 0) continue;
+        // Progress logging every 20 benchmarks
+        if (created % 20 === 0) {
+          console.log(`Progress: ${created} benchmarks created...`);
+        }
+      } catch (error) {
+        errors.push({
+          benchmark: `${benchmark.skillCode} - ${benchmark.ageGroup} ${benchmark.level}`,
+          error: String(error),
+        });
+      }
+    }
 
-					const level = levels[i];
-					const minAcceptable = Math.max(1.0, expectedRating - 1.0);
-					const developingThreshold = Math.max(
-						1.0,
-						expectedRating - 0.5,
-					);
-					const excellentThreshold = Math.min(
-						5.0,
-						expectedRating + 1.0,
-					);
+    console.log("\nImport complete!");
+    console.log(`Created: ${created}`);
+    console.log(`Skipped (already exist): ${skipped}`);
+    console.log(`Errors: ${errors.length}`);
 
-					try {
-						await ctx.db.insert("skillBenchmarks", {
-							sportCode: "lawn_bowling",
-							skillCode,
-							ageGroup,
-							gender: "all",
-							level,
-							expectedRating,
-							minAcceptable,
-							developingThreshold,
-							excellentThreshold,
-							source: benchmarksData.source,
-							sourceDocument: benchmarksData.sourceDocument,
-							sourceUrl: benchmarksData.sourceUrl,
-							sourceYear: benchmarksData.sourceYear,
-							notes: `${ageGroup.toUpperCase()} ${level} - ${skillCode.replace(/_/g, " ")}`,
-							isActive: true,
-							createdAt: Date.now(),
-							updatedAt: Date.now(),
-						});
-						imported++;
-					} catch (error) {
-						errors.push({
-							benchmark: `${skillCode}-${ageGroup}-all-${level}`,
-							error:
-								error instanceof Error
-									? error.message
-									: String(error),
-						});
-					}
-				}
-			}
-		}
+    if (errors.length > 0) {
+      console.log(
+        "\nError details:",
+        JSON.stringify(errors.slice(0, 10), null, 2)
+      );
+      if (errors.length > 10) {
+        console.log(`... and ${errors.length - 10} more errors`);
+      }
+    }
 
-		return {
-			success: errors.length === 0,
-			imported,
-			totalExpected: skills.length * ageGroups.length * levels.length,
-			errors,
-		};
-	},
+    return { created, skipped, errors };
+  },
 });

@@ -4,7 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Mic, Trash2 } from "lucide-react";
+import { Loader2, Mic, Phone, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -163,6 +163,15 @@ export function ProcessingTab({ orgId }: ProcessingTabProps) {
                         variant="default"
                       >
                         WhatsApp
+                      </Badge>
+                    )}
+                    {note.source === "voicemail" && (
+                      <Badge
+                        className="flex items-center gap-1 bg-blue-600 text-white text-xs hover:bg-blue-600"
+                        variant="default"
+                      >
+                        <Phone className="h-3 w-3" />
+                        Phone
                       </Badge>
                     )}
                     <Badge

@@ -711,32 +711,32 @@ export const processVoiceNoteInsight = internalAction({
         return null;
       }
 
-      // Step 3: Get player's sport from passport
+      // Step 3: Resolve sport from passport — optional, continue without if absent
       const passport = await ctx.runQuery(
         internal.models.sportPassports.getByPlayerIdentityId,
         { playerIdentityId: args.playerIdentityId }
       );
 
-      if (!passport) {
-        console.error(
-          "❌ No sport passport found for player:",
-          args.playerIdentityId
-        );
-        return null;
-      }
-
-      // Step 4: Get sport info for context
-      const sport = await ctx.runQuery(
-        internal.models.sports.getByCodeInternal,
-        {
-          code: passport.sportCode,
+      // Infer sportId/sportName via IIFE so TypeScript types sport._id correctly
+      const [resolvedSportId, sportName] = await (async () => {
+        if (!passport) {
+          console.warn(
+            `[processVoiceNoteInsight] No sport passport for player ${args.playerIdentityId} — continuing without sport context`
+          );
+          return [undefined, "Sports"] as const;
         }
-      );
-
-      if (!sport) {
-        console.error("❌ Sport not found:", passport.sportCode);
-        return null;
-      }
+        const sport = await ctx.runQuery(
+          internal.models.sports.getByCodeInternal,
+          { code: passport.sportCode }
+        );
+        if (!sport) {
+          console.warn(
+            `[processVoiceNoteInsight] Sport not found for code: ${passport.sportCode} — continuing without sport context`
+          );
+          return [undefined, "Sports"] as const;
+        }
+        return [sport._id, sport.name] as const;
+      })();
 
       // Step 4: Generate parent-friendly summary
       const summary = await ctx.runAction(
@@ -745,7 +745,7 @@ export const processVoiceNoteInsight = internalAction({
           insightTitle: args.insightTitle,
           insightDescription: args.insightDescription,
           playerFirstName: player.firstName,
-          sportName: sport.name,
+          sportName,
           organizationId: args.organizationId,
           coachId: args.coachId || "unknown", // Should always be present, fallback just in case
           playerId: undefined, // Note: We have playerIdentityId but not orgPlayerEnrollments ID here
@@ -773,7 +773,7 @@ export const processVoiceNoteInsight = internalAction({
           sensitivityReason: classification.reason,
           sensitivityConfidence: classification.confidence,
           playerIdentityId: args.playerIdentityId,
-          sportId: sport._id,
+          sportId: resolvedSportId,
         }
       );
 

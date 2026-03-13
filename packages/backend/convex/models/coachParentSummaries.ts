@@ -236,7 +236,7 @@ export const createParentSummary = internalMutation({
     ),
     sensitivityReason: v.optional(v.string()),
     sensitivityConfidence: v.optional(v.number()),
-    sportId: v.id("sports"),
+    sportId: v.optional(v.id("sports")),
   },
   returns: v.id("coachParentSummaries"),
   handler: async (ctx, args) => {
@@ -812,7 +812,9 @@ export const getCoachPendingSummaries = query({
     const summariesWithInfo = await Promise.all(
       summaries.map(async (summary) => {
         const player = await ctx.db.get(summary.playerIdentityId);
-        const sport = await ctx.db.get(summary.sportId);
+        const sport = summary.sportId
+          ? await ctx.db.get(summary.sportId)
+          : null;
 
         // Calculate if this summary would auto-approve at current trust level
         // Level 0/1: Never auto-approve (always false)
@@ -1196,10 +1198,11 @@ function groupSummariesBySport(
 ) {
   const bySport = new Map<string, Doc<"coachParentSummaries">[]>();
   for (const summary of playerSummaries) {
-    if (!bySport.has(summary.sportId)) {
-      bySport.set(summary.sportId, []);
+    const key = summary.sportId ?? "unknown";
+    if (!bySport.has(key)) {
+      bySport.set(key, []);
     }
-    const bucket = bySport.get(summary.sportId);
+    const bucket = bySport.get(key);
     if (bucket) {
       bucket.push(summary);
     }

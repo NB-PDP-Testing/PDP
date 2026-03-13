@@ -21,7 +21,8 @@ const sourceChannelValidator = v.union(
   v.literal("whatsapp_audio"),
   v.literal("whatsapp_text"),
   v.literal("app_recorded"),
-  v.literal("app_typed")
+  v.literal("app_typed"),
+  v.literal("voicemail")
 );
 
 const statusValidator = v.union(

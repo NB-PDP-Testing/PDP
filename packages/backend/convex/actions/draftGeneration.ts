@@ -296,7 +296,22 @@ export const generateDrafts = internalAction({
 
       const claimResolutions =
         resolutionsByClaimId.get(claim._id as unknown as string) ?? [];
-      const playerResolution = findPlayerResolution(claimResolutions);
+      // Phase 5 (entity resolution) stores resolutions in voiceNoteEntityResolutions.
+      // Phase 4 (claims extraction) may resolve inline by setting claim.resolvedPlayerIdentityId
+      // directly — fall back to that if no Phase 5 record exists.
+      const playerResolution =
+        findPlayerResolution(claimResolutions) ??
+        (claim.resolvedPlayerIdentityId
+          ? ({
+              claimId: claim._id,
+              mentionType: "player_name",
+              status: "auto_resolved",
+              rawText: claim.resolvedPlayerName ?? "",
+              resolvedEntityId: claim.resolvedPlayerIdentityId,
+              resolvedEntityName: claim.resolvedPlayerName,
+              candidates: [{ score: 0.9 }],
+            } satisfies ResolutionRecord)
+          : undefined);
 
       if (!playerResolution?.resolvedEntityId) {
         continue;

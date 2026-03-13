@@ -361,6 +361,26 @@ async function resolveClaimPlayer(
   return {};
 }
 
+// ── Resolve entityMentions with fallback to playerName ────────
+
+function resolveEntityMentions(
+  claim: z.infer<typeof claimsExtractionSchema>["claims"][number]
+): Array<{
+  mentionType: "player_name" | "team_name" | "group_reference" | "coach_name";
+  rawText: string;
+  position: number;
+}> {
+  if (claim.entityMentions.length > 0) {
+    return claim.entityMentions;
+  }
+  if (claim.playerName) {
+    return [
+      { mentionType: "player_name", rawText: claim.playerName, position: 0 },
+    ];
+  }
+  return [];
+}
+
 // ── Build a ClaimRecord from parsed AI output ─────────────────
 
 function buildClaimRecord(opts: {
@@ -380,7 +400,10 @@ function buildClaimRecord(opts: {
     description: opts.claim.description,
     recommendedAction: opts.claim.recommendedAction ?? undefined,
     timeReference: opts.claim.timeReference ?? undefined,
-    entityMentions: opts.claim.entityMentions,
+    // If the AI provided a playerName but didn't include it in entityMentions
+    // (LLMs sometimes do this), synthesize a mention so Phase 5 entity
+    // resolution can still attempt to resolve the player via fuzzy matching.
+    entityMentions: resolveEntityMentions(opts.claim),
     resolvedPlayerIdentityId: opts.player.id,
     resolvedPlayerName: opts.player.name,
     resolvedTeamId: opts.claim.teamId ?? undefined,

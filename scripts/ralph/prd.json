@@ -67,7 +67,7 @@
       "title": "Create data flow and table relationships documentation",
       "description": "As a developer, I need a single reference showing what writes where across the 31 voice-related tables, which categories auto-apply, and where the type-specific application gap exists.",
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Create docs/features/voice-notes/data-flow-tables.md",
         "Group tables by category: Core (5), v2 Pipeline (6), Parent Communication (6), Trust (3), Monitoring (3), WhatsApp (5), Team/Cost (3+)",

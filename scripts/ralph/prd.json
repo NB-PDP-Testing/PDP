@@ -156,7 +156,7 @@
       "title": "Audit Sent to Parents tab visibility and trust gate display",
       "description": "As a coach, the Sent to Parents tab should appear/hide correctly based on trust gates, and status badges should render accurately.",
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Read auto-approved-tab.tsx and voice-notes-dashboard.tsx trust gate logic",
         "Verify tab visibility matches Flow 7 in audit: admin block → self-disable → trust gates disabled → admin override → trust level ≥ 2",
@@ -171,7 +171,7 @@
       "title": "Audit My Impact dashboard data accuracy",
       "description": "As a coach, My Impact metrics should accurately reflect my activity — voice notes created, insights applied, summaries sent, and parent engagement.",
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Read my-impact-tab.tsx and getCoachImpactSummary query in voiceNotes.ts",
         "Check if autoAppliedInsights are included in the applied count (audit says they're missing)",

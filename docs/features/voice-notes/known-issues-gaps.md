@@ -172,12 +172,38 @@ Each renders team insights with different UIs, filters, and actions.
 
 ---
 
-## My Impact Data Gaps
+## Sent to Parents Tab Audit (US-VR-009)
 
-- `getCoachImpactSummary` does NOT query `autoAppliedInsights` table -- auto-applied counts missing from totals
-- Because 11 categories don't write to domain tables, "applied" counts don't reflect actual data changes
-- Parent view rate depends on `coachParentSummaries.viewedAt` which requires parent to open the summary
-- CSV export should include both manual and auto-applied insights but may only include manual
+**Trust gate visibility:** Verified correct. `checkCoachParentAccess` in `trustGatePermissions.ts:104` implements the cascade:
+1. Admin blanket block -> HIDDEN (no request option)
+2. Individual admin block -> HIDDEN (no request option)
+3. Coach self-disabled -> HIDDEN (can toggle back on)
+4. Trust gates disabled for org -> VISIBLE
+5. Admin blanket override -> VISIBLE
+6. Trust level >= 2 -> VISIBLE
+7. Individual override / AI control rights -> VISIBLE (with expiry check)
+8. Otherwise -> HIDDEN + "Request Access"
+
+**Status badges:** Verified correct in `auto-approved-tab.tsx:199-237`:
+- Revoked: red (destructive variant) with XCircle icon
+- Viewed: green-600 with Eye icon
+- Delivered: blue-600 with Check icon
+- Pending Delivery: secondary/gray with Clock icon
+
+**No discrepancies found.** Both trust gates and status badges match expected behavior.
+
+---
+
+## My Impact Data Accuracy Audit (US-VR-010)
+
+**Audit correction:** The audit incorrectly stated `getCoachImpactSummary` does NOT query `autoAppliedInsights`. It **DOES** query this table (voiceNotes.ts:2487-2492) and includes auto-applied skill changes in the skillChanges array.
+
+**insightsApplied count:** Correctly includes both `"applied"` and `"auto_applied"` statuses (voiceNotes.ts:2451-2454).
+
+**Remaining gaps:**
+- Because 11 of 16 categories don't write to domain tables, "applied" counts don't reflect actual data changes for those categories
+- Parent view rate depends on `coachParentSummaries.viewedAt` which requires parent to actually open the summary
+- Date range filtering is done in-memory after full index scan (Convex limitation), which may be slow for coaches with many insights
 
 ---
 

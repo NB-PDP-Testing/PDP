@@ -186,7 +186,7 @@
       "title": "Create voice insights UAT test plan",
       "description": "As QA, I need manual test scripts for voice notes so we can systematically verify each workflow before release.",
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Create docs/features/voice-notes/uat-test-plan.md",
         "Write test scripts for: record voice note, type text note, apply insight (per category), dismiss insight, assign player, parent summary approval, parent summary suppression",
@@ -201,7 +201,7 @@
       "title": "Create market-readiness checklist",
       "description": "As the product team, I need a go/no-go checklist evaluating whether voice insights is ready for market based on feature completeness, known blockers, and quality assessment.",
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Create docs/features/voice-notes/market-readiness-checklist.md",
         "Score each workflow: in-app recording, WhatsApp, parent summaries, trust gates, auto-apply, review microsite, My Impact",

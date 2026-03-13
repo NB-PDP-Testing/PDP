@@ -384,4 +384,287 @@ http.route({
   }),
 });
 
+// ============================================================
+// TWILIO VOICE WEBHOOKS (Voicemail)
+// ============================================================
+
+const WHATSAPP_PREFIX_RE = /^whatsapp:/;
+
+/**
+ * Twilio Voice incoming call handler
+ * Coach dials PlayerARC number → look up by phone → greet by name → record
+ *
+ * Three caller scenarios:
+ * 1. Single-org coach: "Good morning Neil. Recording for Grange FC. Leave your notes after the beep."
+ * 2. Multi-org coach: "Good morning Neil. Leave your coaching notes after the beep." (generic)
+ * 3. Unknown caller: "This number is not registered with PlayerARC." → hangup
+ *
+ * Twilio sends form-urlencoded POST with:
+ * - CallSid: Unique call ID
+ * - From: E.164 caller phone number
+ */
+http.route({
+  path: "/twilio/voice/incoming",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    console.log("[Twilio Voice] Incoming call");
+
+    // Optional: Validate Twilio signature
+    // In production, verify X-Twilio-Signature header
+    // For now, we skip this (same as WhatsApp webhook)
+
+    try {
+      const formData = await request.formData();
+      const callSid = formData.get("CallSid") as string;
+      const from = formData.get("From") as string;
+
+      if (!(callSid && from)) {
+        console.error("[Twilio Voice] Missing required fields");
+        return twimlResponse(
+          "<Say>Sorry, something went wrong.</Say><Hangup/>"
+        );
+      }
+
+      console.log("[Twilio Voice] Call from:", from, "CallSid:", callSid);
+
+      // --- Feature flags: check both platform-wide flags up front ---
+      const voicemailEnabled = await ctx.runQuery(
+        internal.lib.featureFlags.isVoicemailEnabled,
+        {}
+      );
+      const nonCoachEnabled = await ctx.runQuery(
+        internal.lib.featureFlags.isVoicemailNonCoachEnabled,
+        {}
+      );
+
+      if (!voicemailEnabled) {
+        console.log("[Twilio Voice] Voicemail feature is disabled");
+        return twimlResponse(
+          `<Say voice="alice">Voicemail is not currently available on PlayerARC. Goodbye.</Say><Hangup/>`
+        );
+      }
+
+      // Strip whatsapp: prefix if present, normalize phone
+      const phoneNumber = from.replace(WHATSAPP_PREFIX_RE, "");
+
+      // Look up user by phone number (reuses WhatsApp coach lookup)
+      const coachContext = await ctx.runQuery(
+        internal.models.whatsappMessages.findCoachWithOrgContext,
+        { phoneNumber }
+      );
+
+      // --- Unknown caller ---
+      if (!coachContext) {
+        console.log("[Twilio Voice] Unknown caller:", phoneNumber);
+        return twimlResponse(
+          `<Say voice="alice">Sorry, this phone number is not registered with PlayerARC. Please register your phone number in your profile, or ask your club admin to add you. Goodbye.</Say><Hangup/>`
+        );
+      }
+
+      const firstName = coachContext.coachName.split(" ")[0] || "Coach";
+      const timeGreeting = getTimeOfDayGreeting();
+
+      // Resolve org: single-org uses it directly, multi-org defaults to first
+      const resolvedOrg =
+        coachContext.organization ?? coachContext.availableOrgs[0];
+      if (!resolvedOrg) {
+        console.error(
+          "[Twilio Voice] User has no organizations:",
+          coachContext.coachId
+        );
+        return twimlResponse(
+          `<Say voice="alice">Sorry, your account has no organizations configured. Please contact your admin. Goodbye.</Say><Hangup/>`
+        );
+      }
+
+      // --- Role check: is this user a coach? ---
+      const isCoach = await ctx.runQuery(
+        internal.models.voicemailCalls.isUserCoach,
+        { userId: coachContext.coachId }
+      );
+
+      if (!isCoach) {
+        if (!nonCoachEnabled) {
+          console.log(
+            "[Twilio Voice] Non-coach caller:",
+            firstName,
+            "— feature not yet available"
+          );
+          return twimlResponse(
+            `<Say voice="alice">${timeGreeting} ${escapeXml(firstName)}. Voicemail for non-coaching roles is a future feature coming soon to PlayerARC. Goodbye.</Say><Hangup/>`
+          );
+        }
+
+        // Non-coach with flag enabled — feature coming soon (not yet recording)
+        console.log(
+          "[Twilio Voice] Non-coach caller:",
+          firstName,
+          "— non-coach flag enabled but feature not yet live"
+        );
+
+        return twimlResponse(
+          `<Say voice="alice">${timeGreeting} ${escapeXml(firstName)}, welcome to PlayerARC. Voicemail for non-coaching roles is a future feature coming soon. We'll let you know when it's ready. Goodbye.</Say><Hangup/>`
+        );
+      }
+
+      // --- Scenario 1: Single-org coach (resolved org) ---
+      if (coachContext.organization) {
+        const org = coachContext.organization;
+
+        await ctx.runMutation(internal.models.voicemailCalls.createCall, {
+          callSid,
+          from: phoneNumber,
+          coachId: coachContext.coachId,
+          coachName: coachContext.coachName,
+          organizationId: org.id,
+          orgName: org.name,
+        });
+
+        console.log(
+          "[Twilio Voice] Single-org coach:",
+          firstName,
+          "→",
+          org.name
+        );
+
+        return twimlResponse(
+          `<Say voice="alice">${timeGreeting} ${escapeXml(firstName)}, welcome to PlayerARC. Recording for ${escapeXml(org.name)}. Leave your coaching notes after the beep. Hang up when you're done.</Say>
+  <Record maxLength="300" recordingStatusCallback="/twilio/voice/recording-complete" recordingStatusCallbackMethod="POST" transcribe="false" playBeep="true" />
+  <Say voice="alice">I didn't catch anything. Please call back and leave your message after the beep.</Say>`
+        );
+      }
+
+      // --- Scenario 2: Multi-org coach (no resolved org) ---
+      // Default to first org — coach can reassign in the UI if wrong
+      await ctx.runMutation(internal.models.voicemailCalls.createCall, {
+        callSid,
+        from: phoneNumber,
+        coachId: coachContext.coachId,
+        coachName: coachContext.coachName,
+        organizationId: resolvedOrg.id,
+        orgName: resolvedOrg.name,
+      });
+
+      console.log(
+        "[Twilio Voice] Multi-org coach:",
+        firstName,
+        "defaulting to",
+        resolvedOrg.name
+      );
+
+      return twimlResponse(
+        `<Say voice="alice">${timeGreeting} ${escapeXml(firstName)}, welcome to PlayerARC. Leave your coaching notes after the beep. Hang up when you're done.</Say>
+  <Record maxLength="300" recordingStatusCallback="/twilio/voice/recording-complete" recordingStatusCallbackMethod="POST" transcribe="false" playBeep="true" />
+  <Say voice="alice">I didn't catch anything. Please call back and leave your message after the beep.</Say>`
+      );
+    } catch (error) {
+      console.error("[Twilio Voice] Error:", error);
+      return twimlResponse(
+        "<Say>Sorry, an error occurred. Please try again later.</Say><Hangup/>"
+      );
+    }
+  }),
+});
+
+/**
+ * Twilio Voice recording-complete callback
+ * Called when recording is finished and ready for download
+ */
+http.route({
+  path: "/twilio/voice/recording-complete",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    console.log("[Twilio Voice] Recording complete callback");
+
+    try {
+      const formData = await request.formData();
+      const recordingUrl = formData.get("RecordingUrl") as string;
+      const recordingSid = formData.get("RecordingSid") as string;
+      const callSid = formData.get("CallSid") as string;
+      const recordingDuration = Number.parseInt(
+        (formData.get("RecordingDuration") as string) || "0",
+        10
+      );
+
+      if (!(recordingUrl && recordingSid && callSid)) {
+        console.error("[Twilio Voice] Missing recording fields");
+        return new Response("Missing required fields", { status: 400 });
+      }
+
+      console.log(
+        "[Twilio Voice] Recording",
+        recordingSid,
+        "duration:",
+        recordingDuration,
+        "s"
+      );
+
+      // Schedule async processing
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voicemail.processRecording,
+        { callSid, recordingSid, recordingUrl, recordingDuration }
+      );
+
+      return new Response("OK", { status: 200 });
+    } catch (error) {
+      console.error("[Twilio Voice] Recording callback error:", error);
+      return new Response("Internal server error", { status: 500 });
+    }
+  }),
+});
+
+/**
+ * Twilio Voice verification endpoint (GET)
+ */
+http.route({
+  path: "/twilio/voice/incoming",
+  method: "GET",
+  handler: httpAction(
+    async () =>
+      new Response("Twilio Voice webhook endpoint active", { status: 200 })
+  ),
+});
+
+// ============================================================
+// TWILIO VOICE HELPERS
+// ============================================================
+
+/** Build a TwiML XML response */
+function twimlResponse(body: string): Response {
+  return new Response(
+    `<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`,
+    { status: 200, headers: { "Content-Type": "application/xml" } }
+  );
+}
+
+/** Time-of-day greeting in Europe/Dublin timezone */
+function getTimeOfDayGreeting(): string {
+  const hour = Number.parseInt(
+    new Intl.DateTimeFormat("en-IE", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: "Europe/Dublin",
+    }).format(new Date()),
+    10
+  );
+  if (hour < 12) {
+    return "Good morning";
+  }
+  if (hour < 18) {
+    return "Good afternoon";
+  }
+  return "Good evening";
+}
+
+/** Escape special XML characters for TwiML <Say> content */
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 export default http;

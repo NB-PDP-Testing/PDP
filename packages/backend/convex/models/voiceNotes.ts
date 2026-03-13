@@ -77,7 +77,8 @@ const sourceValidator = v.optional(
     v.literal("app_recorded"),
     v.literal("app_typed"),
     v.literal("whatsapp_audio"),
-    v.literal("whatsapp_text")
+    v.literal("whatsapp_text"),
+    v.literal("voicemail")
   )
 );
 
@@ -703,7 +704,11 @@ export const createRecordedNote = mutation({
     audioStorageId: v.id("_storage"),
     noteType: noteTypeValidator,
     source: v.optional(
-      v.union(v.literal("app_recorded"), v.literal("whatsapp_audio"))
+      v.union(
+        v.literal("app_recorded"),
+        v.literal("whatsapp_audio"),
+        v.literal("voicemail")
+      )
     ),
     skipV2: v.optional(v.boolean()),
   },

@@ -324,9 +324,11 @@ export default function VoiceNotesAuditPage() {
                         {note.source === "whatsapp_audio" ||
                         note.source === "whatsapp_text"
                           ? "WhatsApp"
-                          : note.source === "app_recorded"
-                            ? "Recorded"
-                            : "Typed"}
+                          : note.source === "voicemail"
+                            ? "Phone"
+                            : note.source === "app_recorded"
+                              ? "Recorded"
+                              : "Typed"}
                       </Badge>
                     )}
                     {note.coachName && (

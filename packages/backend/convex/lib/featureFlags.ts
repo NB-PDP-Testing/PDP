@@ -174,6 +174,65 @@ export const shouldUseEntityResolution = internalQuery({
 });
 
 /**
+ * Evaluate whether voicemail (call-to-leave-notes) is enabled.
+ * Platform-wide setting only — org admins cannot toggle this.
+ *
+ * Cascade: env var → platform flag → default false
+ */
+export const isVoicemailEnabled = internalQuery({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const envOverride = process.env.VOICEMAIL_ENABLED_GLOBAL;
+    if (envOverride === "true") {
+      return true;
+    }
+    if (envOverride === "false") {
+      return false;
+    }
+
+    const platformFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_and_scope", (q) =>
+        q.eq("featureKey", "voicemail_enabled").eq("scope", "platform")
+      )
+      .first();
+
+    return platformFlag?.enabled ?? false;
+  },
+});
+
+/**
+ * Evaluate whether non-coach roles (parents, admins) can leave voicemails.
+ * Platform-wide setting only — org admins cannot toggle this.
+ * Only relevant when voicemail_enabled is true.
+ *
+ * Cascade: env var → platform flag → default false
+ */
+export const isVoicemailNonCoachEnabled = internalQuery({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const envOverride = process.env.VOICEMAIL_NON_COACH_GLOBAL;
+    if (envOverride === "true") {
+      return true;
+    }
+    if (envOverride === "false") {
+      return false;
+    }
+
+    const platformFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_and_scope", (q) =>
+        q.eq("featureKey", "voicemail_non_coach").eq("scope", "platform")
+      )
+      .first();
+
+    return platformFlag?.enabled ?? false;
+  },
+});
+
+/**
  * Generic feature flag lookup for any feature key.
  * Returns the enabled state or null if no flag is set.
  */

@@ -196,7 +196,11 @@ export const transcribeAudio = internalAction({
       // Determine file extension based on source
       // WhatsApp sends OGG audio, app recordings are WebM
       const fileExtension =
-        note.source === "whatsapp_audio" ? "voice-note.ogg" : "voice-note.webm";
+        note.source === "whatsapp_audio"
+          ? "voice-note.ogg"
+          : note.source === "voicemail"
+            ? "voice-note.wav"
+            : "voice-note.webm";
 
       // Layer 1: Build roster prompt to improve transcription accuracy.
       // gpt-4o-mini-transcribe supports instruction-following via the prompt

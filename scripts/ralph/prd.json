@@ -52,7 +52,7 @@
       "title": "Create UX button and action mapping documentation",
       "description": "As a developer fixing button confusion (#639), I need a document mapping every button in the voice notes UI to its mutation, visibility condition, and identified context-awareness issues.",
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Create docs/features/voice-notes/ux-button-action-map.md",
         "Map buttons across: InsightsTab, ParentsTab, TeamInsightsTab, DraftsTab, AutoApprovedTab, review microsite",

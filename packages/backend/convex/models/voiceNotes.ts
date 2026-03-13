@@ -77,7 +77,8 @@ const sourceValidator = v.optional(
     v.literal("app_recorded"),
     v.literal("app_typed"),
     v.literal("whatsapp_audio"),
-    v.literal("whatsapp_text")
+    v.literal("whatsapp_text"),
+    v.literal("voicemail")
   )
 );
 
@@ -703,7 +704,11 @@ export const createRecordedNote = mutation({
     audioStorageId: v.id("_storage"),
     noteType: noteTypeValidator,
     source: v.optional(
-      v.union(v.literal("app_recorded"), v.literal("whatsapp_audio"))
+      v.union(
+        v.literal("app_recorded"),
+        v.literal("whatsapp_audio"),
+        v.literal("voicemail")
+      )
     ),
     skipV2: v.optional(v.boolean()),
   },
@@ -1340,6 +1345,37 @@ export const updateInsightStatus = mutation({
     await ctx.db.patch(args.noteId, {
       insights: updatedInsights,
     });
+
+    // If the coach explicitly applied a player-specific insight, trigger a
+    // parent summary if one hasn't been created yet. This handles the case
+    // where auto-generation at insight-creation time was blocked (e.g. missing
+    // sport passport, rate/budget limit) and ensures parent notification always
+    // fires when the coach makes a deliberate Apply decision.
+    const appliedPlayerIdentityId = insight.playerIdentityId;
+    if (args.status === "applied" && appliedPlayerIdentityId && note.coachId) {
+      const existingForNote = await ctx.db
+        .query("coachParentSummaries")
+        .withIndex("by_voiceNote", (q) => q.eq("voiceNoteId", args.noteId))
+        .collect();
+      const parentSummaryAlreadyExists = existingForNote.some(
+        (s) => s.insightId === args.insightId
+      );
+      if (!parentSummaryAlreadyExists) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.coachParentSummaries.processVoiceNoteInsight,
+          {
+            voiceNoteId: args.noteId,
+            insightId: args.insightId,
+            insightTitle: insight.title,
+            insightDescription: insight.description,
+            playerIdentityId: appliedPlayerIdentityId,
+            organizationId: note.orgId,
+            coachId: note.coachId,
+          }
+        );
+      }
+    }
 
     return {
       success: true,

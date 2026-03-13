@@ -1736,7 +1736,8 @@ export default defineSchema({
         v.literal("app_recorded"), // Recorded via app microphone
         v.literal("app_typed"), // Typed directly in app
         v.literal("whatsapp_audio"), // Voice note from WhatsApp
-        v.literal("whatsapp_text") // Text message from WhatsApp
+        v.literal("whatsapp_text"), // Text message from WhatsApp
+        v.literal("voicemail") // Phone voicemail via Twilio
       )
     ),
     // Audio recording (optional - typed notes won't have this)
@@ -2397,7 +2398,7 @@ export default defineSchema({
     coachId: v.string(), // Better Auth user ID
     playerIdentityId: v.id("playerIdentities"),
     organizationId: v.string(), // Better Auth organization ID
-    sportId: v.id("sports"),
+    sportId: v.optional(v.id("sports")), // Optional — fallback when player has no sport passport yet
 
     // Private coach insight (not shown to parents)
     privateInsight: v.object({
@@ -4503,7 +4504,8 @@ export default defineSchema({
       v.literal("whatsapp_audio"),
       v.literal("whatsapp_text"),
       v.literal("app_recorded"),
-      v.literal("app_typed")
+      v.literal("app_typed"),
+      v.literal("voicemail")
     ),
     senderUserId: v.string(), // Better Auth user ID
     orgContextCandidates: v.array(
@@ -5957,4 +5959,29 @@ export default defineSchema({
   })
     .index("by_org", ["organizationId"])
     .index("by_org_and_status", ["organizationId", "status"]),
+
+  // ============================================================
+  // VOICEMAIL CALLS (Twilio Voice)
+  // Tracks CallSid → coach mapping since Twilio's recording
+  // callback doesn't include caller phone number
+  // ============================================================
+  voicemailCalls: defineTable({
+    callSid: v.string(),
+    from: v.string(), // E.164 phone number
+    coachId: v.string(), // Better Auth user ID
+    coachName: v.string(),
+    organizationId: v.string(),
+    orgName: v.string(),
+    status: v.union(
+      v.literal("recording"),
+      v.literal("processed"),
+      v.literal("failed")
+    ),
+    recordingSid: v.optional(v.string()),
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_callSid", ["callSid"])
+    .index("by_coachId_and_status", ["coachId", "status"]),
 });

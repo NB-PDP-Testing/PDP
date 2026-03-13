@@ -5,6 +5,8 @@ import { authComponent, createAuth } from "./auth";
 
 const http = httpRouter();
 
+const WHATSAPP_PREFIX_RE = /^whatsapp:/;
+
 // Register Better Auth routes
 authComponent.registerRoutes(http, createAuth);
 
@@ -383,5 +385,192 @@ http.route({
     });
   }),
 });
+
+// ============================================================
+// TWILIO VOICE WEBHOOKS (Voicemail)
+// ============================================================
+
+/**
+ * Twilio Voice incoming call handler
+ * Coach dials PlayerARC number → look up by phone → greet by name → record
+ *
+ * Twilio sends form-urlencoded POST with:
+ * - CallSid: Unique call ID
+ * - AccountSid: Twilio account ID
+ * - From: E.164 caller phone number
+ * - To: E.164 called number
+ */
+http.route({
+  path: "/twilio/voice/incoming",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    console.log("[Twilio Voice] Incoming call");
+
+    try {
+      const formData = await request.formData();
+      const callSid = formData.get("CallSid") as string;
+      const from = formData.get("From") as string;
+
+      if (!(callSid && from)) {
+        console.error("[Twilio Voice] Missing required fields");
+        return new Response(
+          `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, something went wrong.</Say><Hangup/></Response>`,
+          { status: 200, headers: { "Content-Type": "application/xml" } }
+        );
+      }
+
+      console.log("[Twilio Voice] Call from:", from, "CallSid:", callSid);
+
+      // Strip whatsapp: prefix if present, normalize phone
+      const phoneNumber = from.replace(WHATSAPP_PREFIX_RE, "");
+
+      // Look up coach by phone number (reuses WhatsApp coach lookup)
+      const coachContext = await ctx.runQuery(
+        internal.models.whatsappMessages.findCoachWithOrgContext,
+        { phoneNumber }
+      );
+
+      if (!coachContext) {
+        console.log("[Twilio Voice] Unknown caller:", phoneNumber);
+        return new Response(
+          `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice">Sorry, this phone number is not registered with PlayerARC. Please register your phone number in your PlayerARC profile and try again.</Say><Hangup/></Response>`,
+          { status: 200, headers: { "Content-Type": "application/xml" } }
+        );
+      }
+
+      // For multi-org coaches without resolved org, default to first available
+      const resolvedOrg =
+        coachContext.organization ?? coachContext.availableOrgs[0];
+      if (!resolvedOrg) {
+        console.error(
+          "[Twilio Voice] Coach has no organizations:",
+          coachContext.coachId
+        );
+        return new Response(
+          `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice">Sorry, your account has no organizations configured. Please contact support.</Say><Hangup/></Response>`,
+          { status: 200, headers: { "Content-Type": "application/xml" } }
+        );
+      }
+
+      // Store call context for recording-complete callback
+      await ctx.runMutation(internal.models.voicemailCalls.createCall, {
+        callSid,
+        from: phoneNumber,
+        coachId: coachContext.coachId,
+        coachName: coachContext.coachName,
+        organizationId: resolvedOrg.id,
+        orgName: resolvedOrg.name,
+      });
+
+      // Greet the coach by first name and org, then record
+      const firstName = coachContext.coachName.split(" ")[0] || "Coach";
+      const orgName = resolvedOrg.name;
+
+      console.log(
+        "[Twilio Voice] Greeting",
+        firstName,
+        "recording for",
+        orgName
+      );
+
+      return new Response(
+        `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="alice">Hi ${escapeXml(firstName)}. Recording for ${escapeXml(orgName)}. Leave your coaching notes after the beep. Hang up when you're done.</Say>
+  <Record maxLength="300" recordingStatusCallback="/twilio/voice/recording-complete" recordingStatusCallbackMethod="POST" transcribe="false" playBeep="true" />
+  <Say voice="alice">Sorry, I didn't catch that. Please call back and leave your message after the beep.</Say>
+</Response>`,
+        { status: 200, headers: { "Content-Type": "application/xml" } }
+      );
+    } catch (error) {
+      console.error("[Twilio Voice] Error:", error);
+      return new Response(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, an error occurred. Please try again later.</Say><Hangup/></Response>`,
+        { status: 200, headers: { "Content-Type": "application/xml" } }
+      );
+    }
+  }),
+});
+
+/**
+ * Twilio Voice recording-complete callback
+ * Called when recording is finished and ready for download
+ *
+ * Twilio sends form-urlencoded POST with:
+ * - RecordingUrl: URL to download the recording
+ * - RecordingSid: Unique recording ID
+ * - CallSid: Original call ID
+ * - RecordingDuration: Duration in seconds
+ */
+http.route({
+  path: "/twilio/voice/recording-complete",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    console.log("[Twilio Voice] Recording complete callback");
+
+    try {
+      const formData = await request.formData();
+      const recordingUrl = formData.get("RecordingUrl") as string;
+      const recordingSid = formData.get("RecordingSid") as string;
+      const callSid = formData.get("CallSid") as string;
+      const recordingDuration = Number.parseInt(
+        (formData.get("RecordingDuration") as string) || "0",
+        10
+      );
+
+      if (!(recordingUrl && recordingSid && callSid)) {
+        console.error("[Twilio Voice] Missing recording fields");
+        return new Response("Missing required fields", { status: 400 });
+      }
+
+      console.log(
+        "[Twilio Voice] Recording",
+        recordingSid,
+        "duration:",
+        recordingDuration,
+        "s"
+      );
+
+      // Schedule async processing
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voicemail.processRecording,
+        {
+          callSid,
+          recordingSid,
+          recordingUrl,
+          recordingDuration,
+        }
+      );
+
+      return new Response("OK", { status: 200 });
+    } catch (error) {
+      console.error("[Twilio Voice] Recording callback error:", error);
+      return new Response("Internal server error", { status: 500 });
+    }
+  }),
+});
+
+/**
+ * Twilio Voice verification endpoint (GET)
+ */
+http.route({
+  path: "/twilio/voice/incoming",
+  method: "GET",
+  handler: httpAction(
+    async () =>
+      new Response("Twilio Voice webhook endpoint active", { status: 200 })
+  ),
+});
+
+/** Escape special XML characters for TwiML <Say> content */
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
 
 export default http;

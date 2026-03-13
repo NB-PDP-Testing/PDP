@@ -148,6 +148,24 @@ export const resolveEntities = internalAction({
         (c) => !c.resolvedPlayerIdentityId
       );
 
+      // Update Phase 4 already-resolved claims' status from "extracted" to
+      // "resolved" so monitoring shows accurate pipeline state.
+      const phase4ResolvedClaims = claims.filter(
+        (c) => c.resolvedPlayerIdentityId
+      );
+      for (const claim of phase4ResolvedClaims) {
+        try {
+          await ctx.runMutation(
+            internal.models.voiceNoteClaims.updateClaimStatus,
+            { claimId: claim.claimId, status: "resolved" }
+          );
+        } catch (err) {
+          console.warn(
+            `[entityResolution] Failed to update Phase 4 claim status: ${err}`
+          );
+        }
+      }
+
       if (unresolvedClaims.length === 0) {
         console.info(
           "[entityResolution] All claims already resolved by Phase 4 — scheduling draft generation"
@@ -731,6 +749,13 @@ async function updateClaimStatuses(
     const claimResolutions =
       resolutionsByClaimId.get(claim._id as string) ?? [];
     if (claimResolutions.length === 0) {
+      // No resolution was produced for this claim (e.g. entityMentions was empty).
+      // Mark as needs_disambiguation so it surfaces to the coach rather than
+      // staying silently stuck at "extracted" forever.
+      await ctx.runMutation(internal.models.voiceNoteClaims.updateClaimStatus, {
+        claimId: claim.claimId,
+        status: "needs_disambiguation",
+      });
       continue;
     }
 

@@ -36,6 +36,7 @@ import type * as actions_sessionPlans from "../actions/sessionPlans.js";
 import type * as actions_syncQueueProcessor from "../actions/syncQueueProcessor.js";
 import type * as actions_teamInsights from "../actions/teamInsights.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
+import type * as actions_voicemail from "../actions/voicemail.js";
 import type * as actions_wellnessInsights from "../actions/wellnessInsights.js";
 import type * as actions_what3words from "../actions/what3words.js";
 import type * as actions_whatsapp from "../actions/whatsapp.js";
@@ -97,6 +98,7 @@ import type * as migrations_importGAAFootballLevelDescriptors from "../migration
 import type * as migrations_importIrishDancingBenchmarks from "../migrations/importIrishDancingBenchmarks.js";
 import type * as migrations_importIrishDancingGradeBenchmarks from "../migrations/importIrishDancingGradeBenchmarks.js";
 import type * as migrations_importIrishDancingLevelDescriptors from "../migrations/importIrishDancingLevelDescriptors.js";
+import type * as migrations_importLawnBowlingBenchmarks from "../migrations/importLawnBowlingBenchmarks.js";
 import type * as migrations_importRugbyBenchmarks from "../migrations/importRugbyBenchmarks.js";
 import type * as migrations_importRugbyLevelDescriptors from "../migrations/importRugbyLevelDescriptors.js";
 import type * as migrations_importSoccerBenchmarks from "../migrations/importSoccerBenchmarks.js";
@@ -212,6 +214,7 @@ import type * as models_voicePipelineAlerts from "../models/voicePipelineAlerts.
 import type * as models_voicePipelineEvents from "../models/voicePipelineEvents.js";
 import type * as models_voicePipelineMetrics from "../models/voicePipelineMetrics.js";
 import type * as models_voicePipelineRetry from "../models/voicePipelineRetry.js";
+import type * as models_voicemailCalls from "../models/voicemailCalls.js";
 import type * as models_whatsappMessages from "../models/whatsappMessages.js";
 import type * as models_whatsappReviewLinks from "../models/whatsappReviewLinks.js";
 import type * as models_whatsappWellness from "../models/whatsappWellness.js";
@@ -248,6 +251,7 @@ import type * as scripts_seed_passports from "../scripts/seed/passports.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
 import type * as scripts_seedDemoClub from "../scripts/seedDemoClub.js";
 import type * as scripts_seedFeatureFlags from "../scripts/seedFeatureFlags.js";
+import type * as scripts_seedPassportSharing from "../scripts/seedPassportSharing.js";
 import type * as scripts_seedRugbyTeam from "../scripts/seedRugbyTeam.js";
 import type * as scripts_seedUATData from "../scripts/seedUATData.js";
 import type * as scripts_setCurrentOrg from "../scripts/setCurrentOrg.js";
@@ -296,6 +300,7 @@ declare const fullApi: ApiFromModules<{
   "actions/syncQueueProcessor": typeof actions_syncQueueProcessor;
   "actions/teamInsights": typeof actions_teamInsights;
   "actions/voiceNotes": typeof actions_voiceNotes;
+  "actions/voicemail": typeof actions_voicemail;
   "actions/wellnessInsights": typeof actions_wellnessInsights;
   "actions/what3words": typeof actions_what3words;
   "actions/whatsapp": typeof actions_whatsapp;
@@ -357,6 +362,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/importIrishDancingBenchmarks": typeof migrations_importIrishDancingBenchmarks;
   "migrations/importIrishDancingGradeBenchmarks": typeof migrations_importIrishDancingGradeBenchmarks;
   "migrations/importIrishDancingLevelDescriptors": typeof migrations_importIrishDancingLevelDescriptors;
+  "migrations/importLawnBowlingBenchmarks": typeof migrations_importLawnBowlingBenchmarks;
   "migrations/importRugbyBenchmarks": typeof migrations_importRugbyBenchmarks;
   "migrations/importRugbyLevelDescriptors": typeof migrations_importRugbyLevelDescriptors;
   "migrations/importSoccerBenchmarks": typeof migrations_importSoccerBenchmarks;
@@ -472,6 +478,7 @@ declare const fullApi: ApiFromModules<{
   "models/voicePipelineEvents": typeof models_voicePipelineEvents;
   "models/voicePipelineMetrics": typeof models_voicePipelineMetrics;
   "models/voicePipelineRetry": typeof models_voicePipelineRetry;
+  "models/voicemailCalls": typeof models_voicemailCalls;
   "models/whatsappMessages": typeof models_whatsappMessages;
   "models/whatsappReviewLinks": typeof models_whatsappReviewLinks;
   "models/whatsappWellness": typeof models_whatsappWellness;
@@ -508,6 +515,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
   "scripts/seedDemoClub": typeof scripts_seedDemoClub;
   "scripts/seedFeatureFlags": typeof scripts_seedFeatureFlags;
+  "scripts/seedPassportSharing": typeof scripts_seedPassportSharing;
   "scripts/seedRugbyTeam": typeof scripts_seedRugbyTeam;
   "scripts/seedUATData": typeof scripts_seedUATData;
   "scripts/setCurrentOrg": typeof scripts_setCurrentOrg;

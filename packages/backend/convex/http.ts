@@ -507,9 +507,12 @@ http.route({
         );
       }
 
-      // --- Scenario 1: Single-org coach (resolved org) ---
-      if (coachContext.organization) {
-        const org = coachContext.organization;
+      // --- Scenario 1: Single-org coach — personalized greeting with org name ---
+      // Use availableOrgs.length (not coachContext.organization) because
+      // findCoachWithOrgContext may resolve via WhatsApp session memory,
+      // which would make a multi-org coach appear as single-org.
+      if (coachContext.availableOrgs.length === 1) {
+        const org = coachContext.availableOrgs[0];
 
         await ctx.runMutation(internal.models.voicemailCalls.createCall, {
           callSid,
@@ -534,8 +537,8 @@ http.route({
         );
       }
 
-      // --- Scenario 2: Multi-org coach (no resolved org) ---
-      // Default to first org — coach can reassign in the UI if wrong
+      // --- Scenario 2: Multi-org coach — generic greeting, default to first org ---
+      // Coach can reassign to correct org in the UI if needed
       await ctx.runMutation(internal.models.voicemailCalls.createCall, {
         callSid,
         from: phoneNumber,

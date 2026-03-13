@@ -82,7 +82,7 @@
       "title": "Create known issues and gaps tracking documentation",
       "description": "As the product team, I need a single document tracking known bugs with root causes, duplication locations, feature gaps, and priority/severity so we can plan sprint work.",
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Create docs/features/voice-notes/known-issues-gaps.md",
         "Document 6 active bugs (#624, #634, #618, #616, #614, #592) with: symptom, root cause, affected code files, severity, fix complexity estimate",
@@ -111,7 +111,7 @@
       "title": "Audit review-tab.tsx and document legacy status",
       "description": "As a developer, I need to know whether review-tab.tsx (355 lines) is legacy dead code or still in use, and document the finding.",
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Grep for imports of review-tab across the codebase",
         "Check voice-notes-dashboard.tsx tab array for review-tab inclusion",

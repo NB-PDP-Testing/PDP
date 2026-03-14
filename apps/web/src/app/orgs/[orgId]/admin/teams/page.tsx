@@ -5,6 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
+  ArrowLeft,
   Calendar,
   CheckCircle,
   ChevronDown,
@@ -19,6 +20,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -824,6 +826,15 @@ export default function ManageTeamsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Back navigation */}
+      <Link
+        className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
+        href={`/orgs/${orgId}/admin`}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Admin
+      </Link>
+
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

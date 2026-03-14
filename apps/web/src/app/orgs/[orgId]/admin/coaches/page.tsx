@@ -3,6 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
+  ArrowLeft,
   Calendar,
   CheckCircle,
   ChevronDown,
@@ -19,6 +20,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -313,6 +315,15 @@ export default function ManageCoachesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Back navigation */}
+      <Link
+        className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
+        href={`/orgs/${orgId}/admin`}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Admin
+      </Link>
+
       {/* Header */}
       <div>
         <h1 className="font-bold text-3xl tracking-tight">Manage Coaches</h1>

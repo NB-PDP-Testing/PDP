@@ -134,6 +134,8 @@ type AddPlayerFormData = {
   guardianEmail: string;
   guardianPhone: string;
   guardianRelationship: GuardianRelationship;
+  // Optional team assignment
+  teamId: string;
 };
 
 const emptyFormData: AddPlayerFormData = {
@@ -153,6 +155,7 @@ const emptyFormData: AddPlayerFormData = {
   guardianEmail: "",
   guardianPhone: "",
   guardianRelationship: "mother",
+  teamId: "",
 };
 
 export default function ManagePlayersPage() {
@@ -263,6 +266,9 @@ export default function ManagePlayersPage() {
   );
   const approvePlayerRegistration = useMutation(
     api.models.orgPlayerEnrollments.approvePlayerSelfRegistration
+  );
+  const addPlayerToTeam = useMutation(
+    api.models.teamPlayerIdentities.addPlayerToTeam
   );
 
   // Derive whether player is youth (under 18) from DOB
@@ -574,13 +580,24 @@ export default function ManagePlayersPage() {
         });
       }
 
+      // Step 4: Optional team assignment
+      if (addPlayerForm.teamId) {
+        await addPlayerToTeam({
+          playerIdentityId,
+          teamId: addPlayerForm.teamId,
+          organizationId: orgId,
+          season: getCurrentSeason(),
+        });
+      }
+
       const guardianLinked = !!(
         selectedGuardianId || addPlayerForm.guardianEmail.trim()
       );
+      const teamAssigned = !!addPlayerForm.teamId;
       toast.success(
         wasCreated ? "Player added successfully" : "Existing player enrolled",
         {
-          description: `${addPlayerForm.firstName} ${addPlayerForm.lastName} has been ${wasCreated ? "added to" : "enrolled in"} the organization.${guardianLinked ? " Guardian linked." : ""}`,
+          description: `${addPlayerForm.firstName} ${addPlayerForm.lastName} has been ${wasCreated ? "added to" : "enrolled in"} the organization.${guardianLinked ? " Guardian linked." : ""}${teamAssigned ? " Added to team." : ""}`,
         }
       );
 
@@ -1962,6 +1979,46 @@ export default function ManagePlayersPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Team Assignment — optional */}
+            <div className="space-y-2">
+              <Label htmlFor="teamId">Assign to Team (Optional)</Label>
+              <Select
+                onValueChange={(value) =>
+                  setAddPlayerForm({
+                    ...addPlayerForm,
+                    teamId: value === "__none__" ? "" : value,
+                  })
+                }
+                value={addPlayerForm.teamId || "__none__"}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No team selected</SelectItem>
+                  {teams
+                    ?.filter(
+                      (t: any) =>
+                        t.isActive !== false &&
+                        (!(addPlayerForm.sportCode && t.sport) ||
+                          t.sport === addPlayerForm.sportCode)
+                    )
+                    .map((t: any) => (
+                      <SelectItem key={t._id} value={t._id}>
+                        {t.name}
+                        {t.ageGroup ? ` (${t.ageGroup})` : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {addPlayerForm.sportCode && (
+                <p className="text-muted-foreground text-xs">
+                  Showing teams for selected sport. Clear sport to see all
+                  teams.
+                </p>
+              )}
             </div>
 
             {/* Federation Numbers — collapsible optional section */}

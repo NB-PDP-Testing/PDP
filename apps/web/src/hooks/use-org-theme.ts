@@ -28,9 +28,10 @@ export type OrgTheme = {
   tertiaryAdaptive: string;
 };
 
+// PlayerARC brand defaults — shown before the platform branding query resolves
 const DEFAULT_COLORS = {
-  primary: "#16a34a",
-  secondary: "#0ea5e9",
+  primary: "#22c55e",
+  secondary: "#1E3A5F",
   tertiary: "#f59e0b",
 };
 
@@ -80,7 +81,7 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
   // Get feature flags for enhanced theming
   const { useThemeContrastColors, useThemeDarkVariants } = useUXFeatureFlags();
 
-  // Use Convex reactive query - automatically updates when org data changes
+  // Org query — used for org name, logo, id (not colors)
   // Skip query if explicitly told to skip (e.g., on join pages where user isn't a member)
   // Also skip if orgId is still "current" (activeOrg not loaded yet)
   const org = useQuery(
@@ -88,14 +89,19 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
     !skip && orgId && orgId !== "current" ? { organizationId: orgId } : "skip"
   );
 
-  const loading = org === undefined;
+  // Platform branding — source of truth for all three brand colors
+  const platformBranding = useQuery(
+    api.models.platformBranding.getPlatformBranding
+  );
 
-  // Build theme object
-  // Handle empty strings - if color is empty string, use default
-  // This ensures positions are preserved: colors[0]=primary, colors[1]=secondary, colors[2]=tertiary
-  const primaryColor = org?.colors?.[0]?.trim() || DEFAULT_COLORS.primary;
-  const secondaryColor = org?.colors?.[1]?.trim() || DEFAULT_COLORS.secondary;
-  const tertiaryColor = org?.colors?.[2]?.trim() || DEFAULT_COLORS.tertiary;
+  const loading = org === undefined || platformBranding === undefined;
+
+  // Build theme from platform branding (falls back to PlayerARC defaults)
+  const primaryColor = platformBranding?.primaryColor || DEFAULT_COLORS.primary;
+  const secondaryColor =
+    platformBranding?.secondaryColor || DEFAULT_COLORS.secondary;
+  const tertiaryColor =
+    platformBranding?.tertiaryColor || DEFAULT_COLORS.tertiary;
 
   // Calculate contrast colors (black or white) for each org color
   // This ensures text is always readable on org-colored backgrounds
@@ -143,21 +149,8 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
 
   // Apply CSS variables to the document root
   useEffect(() => {
-    // Skip applying CSS variables when skip is true (e.g., on join pages)
-    if (skip || !orgId) {
-      // Remove custom properties when not in org context or skipping
-      document.documentElement.style.removeProperty("--org-primary");
-      document.documentElement.style.removeProperty("--org-primary-rgb");
-      document.documentElement.style.removeProperty("--org-primary-contrast");
-      document.documentElement.style.removeProperty("--org-primary-adaptive");
-      document.documentElement.style.removeProperty("--org-secondary");
-      document.documentElement.style.removeProperty("--org-secondary-rgb");
-      document.documentElement.style.removeProperty("--org-secondary-contrast");
-      document.documentElement.style.removeProperty("--org-secondary-adaptive");
-      document.documentElement.style.removeProperty("--org-tertiary");
-      document.documentElement.style.removeProperty("--org-tertiary-rgb");
-      document.documentElement.style.removeProperty("--org-tertiary-contrast");
-      document.documentElement.style.removeProperty("--org-tertiary-adaptive");
+    // Skip applying CSS variables when explicitly told to skip
+    if (skip) {
       return;
     }
 
@@ -240,7 +233,7 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
         }
       : null,
     loading,
-    hasTheme: !!orgId && !!org?.colors?.length,
+    hasTheme: true, // Colors are always set via platform branding
     isDarkMode,
   };
 }

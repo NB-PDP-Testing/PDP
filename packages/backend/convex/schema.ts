@@ -5986,4 +5986,17 @@ export default defineSchema({
   })
     .index("by_callSid", ["callSid"])
     .index("by_coachId_and_status", ["coachId", "status"]),
+
+  // ============================================================
+  // PLATFORM BRANDING CONFIG (singleton — one row ever)
+  // Controls the three brand colors displayed across the entire
+  // platform. Managed by platform staff only.
+  // ============================================================
+  platformBrandingConfig: defineTable({
+    primaryColor: v.string(), // hex e.g. "#22c55e"
+    secondaryColor: v.string(), // hex e.g. "#1E3A5F"
+    tertiaryColor: v.string(), // hex e.g. "#f59e0b"
+    updatedAt: v.number(),
+    updatedBy: v.string(), // Better Auth user ID
+  }),
 });

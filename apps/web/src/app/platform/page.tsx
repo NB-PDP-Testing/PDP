@@ -13,6 +13,7 @@ import {
   Key,
   Link2,
   Megaphone,
+  Palette,
   Settings,
   Shield,
   Target,
@@ -248,6 +249,18 @@ export default function PlatformDashboard() {
                     <FileSpreadsheet className="h-6 w-6 text-violet-600" />
                   </div>
                   <CardTitle className="text-base">Import Templates</CardTitle>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Platform Branding */}
+            <Link href={"/platform/branding" as any}>
+              <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-lg bg-green-100 p-3">
+                    <Palette className="h-6 w-6 text-green-600" />
+                  </div>
+                  <CardTitle className="text-base">Platform Branding</CardTitle>
                 </CardContent>
               </Card>
             </Link>

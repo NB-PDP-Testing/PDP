@@ -440,7 +440,7 @@ http.route({
       if (!voicemailEnabled) {
         console.log("[Twilio Voice] Voicemail feature is disabled");
         return twimlResponse(
-          `<Say voice="Google.en-GB-Neural2-A">Voicemail is not currently available on PlayerARC. Goodbye.</Say><Hangup/>`
+          `<Say voice="Google.en-GB-Neural2-B">Voicemail is not currently available on PlayerARC. Goodbye.</Say><Hangup/>`
         );
       }
 
@@ -457,7 +457,7 @@ http.route({
       if (!coachContext) {
         console.log("[Twilio Voice] Unknown caller:", phoneNumber);
         return twimlResponse(
-          `<Say voice="Google.en-GB-Neural2-A">Sorry, this phone number is not registered with PlayerARC. Please register your phone number in your profile, or ask your club admin to add you. Goodbye.</Say><Hangup/>`
+          `<Say voice="Google.en-GB-Neural2-B">Sorry, this phone number is not registered with PlayerARC. Please register your phone number in your profile, or ask your club admin to add you. Goodbye.</Say><Hangup/>`
         );
       }
 
@@ -473,7 +473,7 @@ http.route({
           coachContext.coachId
         );
         return twimlResponse(
-          `<Say voice="Google.en-GB-Neural2-A">Sorry, your account has no organizations configured. Please contact your admin. Goodbye.</Say><Hangup/>`
+          `<Say voice="Google.en-GB-Neural2-B">Sorry, your account has no organizations configured. Please contact your admin. Goodbye.</Say><Hangup/>`
         );
       }
 
@@ -491,7 +491,7 @@ http.route({
             "— feature not yet available"
           );
           return twimlResponse(
-            `<Say voice="Google.en-GB-Neural2-A">${timeGreeting} ${escapeXml(firstName)}. Voicemail for non-coaching roles is a future feature coming soon to PlayerARC. Goodbye.</Say><Hangup/>`
+            `<Say voice="Google.en-GB-Neural2-B">${timeGreeting} ${escapeXml(firstName)}. Voicemail for non-coaching roles is a future feature coming soon to PlayerARC. Goodbye.</Say><Hangup/>`
           );
         }
 
@@ -503,7 +503,7 @@ http.route({
         );
 
         return twimlResponse(
-          `<Say voice="Google.en-GB-Neural2-A">${timeGreeting} ${escapeXml(firstName)}, welcome to PlayerARC. Voicemail for non-coaching roles is a future feature coming soon. We'll let you know when it's ready. Goodbye.</Say><Hangup/>`
+          `<Say voice="Google.en-GB-Neural2-B">${timeGreeting} ${escapeXml(firstName)}, welcome to PlayerARC. Voicemail for non-coaching roles is a future feature coming soon. We'll let you know when it's ready. Goodbye.</Say><Hangup/>`
         );
       }
 
@@ -531,9 +531,9 @@ http.route({
         );
 
         return twimlResponse(
-          `<Say voice="Google.en-GB-Neural2-A">${timeGreeting} ${escapeXml(firstName)}, welcome to PlayerARC. Recording for ${escapeXml(org.name)}. Leave your coaching notes after the beep. Hang up when you're done.</Say>
+          `<Say voice="Google.en-GB-Neural2-B">${timeGreeting} ${escapeXml(firstName)}, welcome to PlayerARC. Recording for ${escapeXml(org.name)}. Leave your coaching notes after the beep. Hang up when you're done.</Say>
   <Record maxLength="300" recordingStatusCallback="/twilio/voice/recording-complete" recordingStatusCallbackMethod="POST" transcribe="false" playBeep="true" />
-  <Say voice="Google.en-GB-Neural2-A">I didn't catch anything. Please call back and leave your message after the beep.</Say>`
+  <Say voice="Google.en-GB-Neural2-B">I didn't catch anything. Please call back and leave your message after the beep.</Say>`
         );
       }
 
@@ -556,9 +556,9 @@ http.route({
       );
 
       return twimlResponse(
-        `<Say voice="Google.en-GB-Neural2-A">${timeGreeting} ${escapeXml(firstName)}, welcome to PlayerARC. Leave your coaching notes after the beep. Hang up when you're done.</Say>
+        `<Say voice="Google.en-GB-Neural2-B">${timeGreeting} ${escapeXml(firstName)}, welcome to PlayerARC. Leave your coaching notes after the beep. Hang up when you're done.</Say>
   <Record maxLength="300" recordingStatusCallback="/twilio/voice/recording-complete" recordingStatusCallbackMethod="POST" transcribe="false" playBeep="true" />
-  <Say voice="Google.en-GB-Neural2-A">I didn't catch anything. Please call back and leave your message after the beep.</Say>`
+  <Say voice="Google.en-GB-Neural2-B">I didn't catch anything. Please call back and leave your message after the beep.</Say>`
       );
     } catch (error) {
       console.error("[Twilio Voice] Error:", error);

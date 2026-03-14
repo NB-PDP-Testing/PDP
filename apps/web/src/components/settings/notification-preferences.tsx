@@ -36,9 +36,6 @@ export function NotificationPreferences() {
   const updatePreferences = useMutation(
     api.models.notificationPreferences.updateNotificationPreferences
   );
-  const updatePushSubscription = useMutation(
-    api.models.notificationPreferences.updatePushSubscription
-  );
 
   // Local state for optimistic updates
   const [localPrefs, setLocalPrefs] = useState<{
@@ -53,9 +50,6 @@ export function NotificationPreferences() {
     inAppBadge: boolean;
   } | null>(null);
 
-  const [pushStatus, setPushStatus] = useState<
-    "enabled" | "disabled" | "blocked" | "loading"
-  >("loading");
   const [saving, setSaving] = useState(false);
 
   // Initialize local state from preferences or defaults
@@ -72,7 +66,6 @@ export function NotificationPreferences() {
         inAppSound: preferences.inAppSound,
         inAppBadge: preferences.inAppBadge,
       });
-      setPushStatus(preferences.pushEnabled ? "enabled" : "disabled");
     } else if (defaultPreferences && !localPrefs) {
       setLocalPrefs({
         emailEnabled: defaultPreferences.emailEnabled,
@@ -85,20 +78,8 @@ export function NotificationPreferences() {
         inAppSound: defaultPreferences.inAppSound,
         inAppBadge: defaultPreferences.inAppBadge,
       });
-      setPushStatus("disabled");
     }
   }, [preferences, defaultPreferences, localPrefs]);
-
-  // Check initial push notification permission status
-  useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      "Notification" in window &&
-      Notification.permission === "denied"
-    ) {
-      setPushStatus("blocked");
-    }
-  }, []);
 
   // Save preferences to backend
   const savePreferences = async (
@@ -147,48 +128,6 @@ export function NotificationPreferences() {
       }
     } finally {
       setSaving(false);
-    }
-  };
-
-  // Handle push notification toggle
-  const handlePushToggle = async (enabled: boolean): Promise<void> => {
-    if (enabled) {
-      // Request permission
-      if (!("Notification" in window)) {
-        toast.error("Push notifications are not supported in this browser");
-        return;
-      }
-
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission === "granted") {
-          setPushStatus("enabled");
-          await updatePushSubscription({
-            organizationId: orgId,
-            pushEnabled: true,
-            pushSubscription: undefined, // Could add actual subscription here
-          });
-          savePreferences({ pushEnabled: true });
-          toast.success("Push notifications enabled");
-        } else if (permission === "denied") {
-          setPushStatus("blocked");
-          toast.error(
-            "Push notifications blocked. Please enable them in your browser settings."
-          );
-        }
-      } catch (error) {
-        console.error("Error requesting push permission:", error);
-        toast.error("Failed to enable push notifications");
-      }
-    } else {
-      setPushStatus("disabled");
-      await updatePushSubscription({
-        organizationId: orgId,
-        pushEnabled: false,
-        pushSubscription: undefined,
-      });
-      savePreferences({ pushEnabled: false });
-      toast.success("Push notifications disabled");
     }
   };
 
@@ -337,38 +276,32 @@ export function NotificationPreferences() {
           <div className="flex items-center gap-2">
             <Smartphone className="h-4 w-4 text-muted-foreground" />
             <h3 className="font-medium">Push Notifications</h3>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+              Coming Soon
+            </span>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4">
+          <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4 opacity-60">
             <div className="space-y-0.5">
-              <Label className="font-medium" htmlFor="push-master">
+              <Label
+                className="font-medium text-muted-foreground"
+                htmlFor="push-master"
+              >
                 Enable Push Notifications
               </Label>
               <p className="text-muted-foreground text-sm">
-                {pushStatus === "blocked"
-                  ? "Blocked in browser settings"
-                  : pushStatus === "enabled"
-                    ? "Enabled"
-                    : "Receive browser notifications"}
+                Browser push notifications are coming soon
               </p>
             </div>
             <Switch
-              aria-checked={pushStatus === "enabled"}
-              checked={pushStatus === "enabled"}
+              aria-checked={false}
+              checked={false}
               data-testid="push-notification-toggle"
-              disabled={pushStatus === "blocked" || pushStatus === "loading"}
+              disabled={true}
               id="push-master"
-              onCheckedChange={handlePushToggle}
               role="switch"
             />
           </div>
-
-          {pushStatus === "blocked" && (
-            <p className="text-amber-600 text-sm">
-              Push notifications are blocked. To enable them, update your
-              browser permissions for this site.
-            </p>
-          )}
         </div>
 
         {/* In-App Notifications Section */}

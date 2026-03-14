@@ -8,6 +8,10 @@ import {
   query,
 } from "../_generated/server";
 import { requireAuth, requireAuthAndOrg } from "../lib/authHelpers";
+import {
+  getAdminUserIdsForOrg,
+  getCoachUserIdsForPlayer,
+} from "../lib/injuryNotifications";
 
 // Core dimensions that can never be individually disabled
 const CORE_DIMENSIONS = [
@@ -455,6 +459,7 @@ export const submitDailyHealthCheck = mutation({
     source: sourceValidator,
   },
   returns: v.id("dailyPlayerHealthChecks"),
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Handler includes retention, AI insight scheduling, and low-score alert logic that are all part of the same atomic operation.
   handler: async (ctx, args) => {
     await requireAuth(ctx);
     // Check for existing record — caller must use updateDailyHealthCheck
@@ -516,6 +521,61 @@ export const submitDailyHealthCheck = mutation({
         triggerCheckId: newCheckId,
       }
     );
+
+    // Low-score alert logic (Fix #656)
+    const wellnessConfig = await ctx.db
+      .query("wellnessOrgConfig")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .first();
+
+    if (wellnessConfig?.lowScoreAlertsEnabled) {
+      const scores: number[] = [];
+      for (const dim of args.enabledDimensions) {
+        const val =
+          args.dimensionValues[dim as keyof typeof args.dimensionValues];
+        if (typeof val === "number") {
+          scores.push(val);
+        }
+      }
+      if (
+        scores.length > 0 &&
+        scores.reduce((a, b) => a + b, 0) / scores.length <=
+          wellnessConfig.lowScoreThreshold
+      ) {
+        const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const player = await ctx.db.get(args.playerIdentityId);
+        const playerName = player
+          ? `${player.firstName} ${player.lastName}`
+          : "A player";
+
+        const coachUserIds = await getCoachUserIdsForPlayer(
+          ctx,
+          args.playerIdentityId,
+          args.organizationId
+        );
+        const adminUserIds = await getAdminUserIdsForOrg(
+          ctx,
+          args.organizationId
+        );
+        const recipientIds = [...new Set([...coachUserIds, ...adminUserIds])];
+
+        for (const userId of recipientIds) {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.models.notifications.createNotification,
+            {
+              userId,
+              organizationId: args.organizationId,
+              type: "wellness_low_score_alert",
+              title: "Wellness Low Score Alert",
+              message: `${playerName} submitted a low wellness score (avg: ${avg.toFixed(1)}).`,
+              targetRole: coachUserIds.includes(userId) ? "coach" : "admin",
+              relatedPlayerId: args.playerIdentityId,
+            }
+          );
+        }
+      }
+    }
 
     return newCheckId;
   },
@@ -1577,6 +1637,7 @@ export const getCyclePhaseInjuryHeatmap = query({
 export const sendWellnessReminders = internalMutation({
   args: {},
   returns: v.object({ sent: v.number(), skipped: v.number() }),
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Cron handler iterates all org configs and player enrollments, sending in-app and/or email reminders per config — inherently multi-path logic.
   handler: async (ctx) => {
     const today = new Date().toISOString().split("T")[0];
     let sent = 0;
@@ -1626,26 +1687,63 @@ export const sendWellnessReminders = internalMutation({
           continue;
         }
 
-        // email-only reminder: email delivery is not yet implemented — skip
-        if (config.reminderType === "email") {
-          skipped += 1;
-          continue;
+        // Send in-app notification for in_app or both
+        if (config.reminderType !== "email") {
+          await ctx.runMutation(
+            internal.models.notifications.createNotification,
+            {
+              userId: player.userId,
+              organizationId: config.organizationId,
+              type: "wellness_reminder",
+              title: "Daily Wellness Check-In",
+              message:
+                "Don't forget to complete your daily wellness check-in today.",
+              relatedPlayerId: enrollment.playerIdentityId,
+              targetRole: "player",
+            }
+          );
         }
 
-        // in_app or both: send in-app notification
-        await ctx.runMutation(
-          internal.models.notifications.createNotification,
-          {
-            userId: player.userId,
-            organizationId: config.organizationId,
-            type: "wellness_reminder",
-            title: "Daily Wellness Check-In",
-            message:
-              "Don't forget to complete your daily wellness check-in today.",
-            relatedPlayerId: enrollment.playerIdentityId,
-            targetRole: "player",
+        // Send email notification for email or both
+        if (config.reminderType === "email" || config.reminderType === "both") {
+          const authUser = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "user",
+              where: [{ field: "_id", value: player.userId, operator: "eq" }],
+            }
+          );
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [
+                {
+                  field: "_id",
+                  value: config.organizationId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+
+          if (authUser?.email) {
+            const playerName = `${player.firstName} ${player.lastName}`;
+            const orgName = (org?.name as string | undefined) ?? "your club";
+            const wellnessUrl = `/orgs/${config.organizationId}/player/health-check`;
+
+            await ctx.scheduler.runAfter(
+              0,
+              internal.actions.email.sendWellnessReminderEmail,
+              {
+                to: authUser.email as string,
+                playerName,
+                organizationName: orgName,
+                wellnessUrl,
+              }
+            );
           }
-        );
+        }
 
         sent += 1;
       }

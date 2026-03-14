@@ -5,6 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -28,6 +29,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -1267,6 +1269,15 @@ export default function ManageUsersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Back navigation */}
+      <Link
+        className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
+        href={`/orgs/${orgId}/admin`}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Admin
+      </Link>
+
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>

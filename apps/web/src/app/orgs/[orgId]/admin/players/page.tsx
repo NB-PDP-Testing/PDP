@@ -5,6 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  ArrowLeft,
   ArrowLeftRight,
   Check,
   ChevronDown,
@@ -12,7 +13,7 @@ import {
   Edit,
   Eye,
   GitMerge,
-  Link,
+  Link as LinkIcon,
   Loader2,
   Plus,
   Search,
@@ -23,6 +24,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -1041,6 +1043,15 @@ export default function ManagePlayersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Back navigation */}
+      <Link
+        className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
+        href={`/orgs/${orgId}/admin`}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Admin
+      </Link>
+
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -2321,7 +2332,7 @@ export default function ManagePlayersPage() {
                                   </>
                                 ) : (
                                   <>
-                                    <Link className="mr-1 h-3 w-3" />
+                                    <LinkIcon className="mr-1 h-3 w-3" />
                                     Link
                                   </>
                                 )}

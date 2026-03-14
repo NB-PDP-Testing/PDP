@@ -52,16 +52,19 @@ import { useOrgTheme } from "@/hooks/use-org-theme";
 const SPORT_EMOJIS: Record<string, string> = {
   soccer: "⚽",
   rugby: "🏉",
-  gaa_football: "🏈",
-  hurling: "🥍",
-  hockey: "🏑",
+  gaa_football: "🏐",
+  gaa_hurling: "🏑",
+  camogie: "🏑",
+  hockey: "🏒",
   basketball: "🏀",
   athletics: "🏃",
   irish_dancing: "💃",
+  "strength&conditioning": "💪",
   strength_conditioning: "💪",
   swimming: "🏊",
   tennis: "🎾",
   cricket: "🏏",
+  lawn_bowling: "🎯",
   gaelic_games: "🏐",
 };
 

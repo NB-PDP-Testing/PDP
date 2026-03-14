@@ -285,10 +285,12 @@ export const transcribeAudio = internalAction({
       }
 
       if (quality.suggestedAction === "ask_user") {
-        // In-app sources: user deliberately recorded/typed, so treat as processable
+        // In-app/voicemail sources: user deliberately recorded, so treat as processable
         // WhatsApp sources: pause for confirmation (bot can ask "did you mean to send this?")
         const isInAppSource =
-          note.source === "app_recorded" || note.source === "app_typed";
+          note.source === "app_recorded" ||
+          note.source === "app_typed" ||
+          note.source === "voicemail";
         if (!isInAppSource) {
           await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
             noteId: args.noteId,

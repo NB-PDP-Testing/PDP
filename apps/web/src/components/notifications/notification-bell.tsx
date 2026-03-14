@@ -55,7 +55,8 @@ type NotificationType =
   | "wellness_access_request"
   | "wellness_reminder"
   | "retention_weekly_digest"
-  | "player_role_approved";
+  | "player_role_approved"
+  | "wellness_low_score_alert";
 
 // Get icon for notification type
 function getNotificationIcon(type: NotificationType) {

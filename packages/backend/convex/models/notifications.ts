@@ -37,7 +37,9 @@ const notificationTypeValidator = v.union(
   // Retention notifications (Phase 9)
   v.literal("retention_weekly_digest"), // Weekly data retention summary for org admins
   // Player role notifications (Phase 6)
-  v.literal("player_role_approved") // Player self-registration approved by admin
+  v.literal("player_role_approved"), // Player self-registration approved by admin
+  // Wellness alerts (Fix #656)
+  v.literal("wellness_low_score_alert") // Coach/admin notified of low wellness score
 );
 
 const targetRoleValidator = v.optional(

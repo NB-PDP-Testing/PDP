@@ -13,6 +13,7 @@ import type * as actions_childAuthorizations from "../actions/childAuthorization
 import type * as actions_claimsExtraction from "../actions/claimsExtraction.js";
 import type * as actions_coachParentSummaries from "../actions/coachParentSummaries.js";
 import type * as actions_draftGeneration from "../actions/draftGeneration.js";
+import type * as actions_email from "../actions/email.js";
 import type * as actions_entityResolution from "../actions/entityResolution.js";
 import type * as actions_federationAuth from "../actions/federationAuth.js";
 import type * as actions_federationScheduler from "../actions/federationScheduler.js";
@@ -251,7 +252,7 @@ import type * as scripts_seed_passports from "../scripts/seed/passports.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
 import type * as scripts_seedDemoClub from "../scripts/seedDemoClub.js";
 import type * as scripts_seedFeatureFlags from "../scripts/seedFeatureFlags.js";
-import type * as scripts_seedPassportSharing from "../scripts/seedPassportSharing.js";
+import type * as scripts_seedNewUser from "../scripts/seedNewUser.js";
 import type * as scripts_seedRugbyTeam from "../scripts/seedRugbyTeam.js";
 import type * as scripts_seedUATData from "../scripts/seedUATData.js";
 import type * as scripts_setCurrentOrg from "../scripts/setCurrentOrg.js";
@@ -277,6 +278,7 @@ declare const fullApi: ApiFromModules<{
   "actions/claimsExtraction": typeof actions_claimsExtraction;
   "actions/coachParentSummaries": typeof actions_coachParentSummaries;
   "actions/draftGeneration": typeof actions_draftGeneration;
+  "actions/email": typeof actions_email;
   "actions/entityResolution": typeof actions_entityResolution;
   "actions/federationAuth": typeof actions_federationAuth;
   "actions/federationScheduler": typeof actions_federationScheduler;
@@ -515,7 +517,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
   "scripts/seedDemoClub": typeof scripts_seedDemoClub;
   "scripts/seedFeatureFlags": typeof scripts_seedFeatureFlags;
-  "scripts/seedPassportSharing": typeof scripts_seedPassportSharing;
+  "scripts/seedNewUser": typeof scripts_seedNewUser;
   "scripts/seedRugbyTeam": typeof scripts_seedRugbyTeam;
   "scripts/seedUATData": typeof scripts_seedUATData;
   "scripts/setCurrentOrg": typeof scripts_setCurrentOrg;

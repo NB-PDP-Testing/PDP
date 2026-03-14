@@ -4,8 +4,8 @@ import { requireAuth } from "../lib/authHelpers";
 
 // PlayerARC brand defaults — used when no config row exists yet
 const PLAYERARC_DEFAULTS = {
-  primaryColor: "#22c55e", // PlayerARC green
-  secondaryColor: "#1E3A5F", // PlayerARC navy
+  primaryColor: "#1E3A5F", // PlayerARC navy
+  secondaryColor: "#22c55e", // PlayerARC green
   tertiaryColor: "#f59e0b", // PlayerARC amber
 };
 

@@ -30,8 +30,8 @@ export type OrgTheme = {
 
 // PlayerARC brand defaults — shown before the platform branding query resolves
 const DEFAULT_COLORS = {
-  primary: "#22c55e",
-  secondary: "#1E3A5F",
+  primary: "#1E3A5F",
+  secondary: "#22c55e",
   tertiary: "#f59e0b",
 };
 

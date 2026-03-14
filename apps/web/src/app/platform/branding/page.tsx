@@ -20,8 +20,8 @@ import { getContrastColor, getWCAGCompliance } from "@/lib/color-utils";
 
 // PlayerARC brand defaults
 const BRAND_DEFAULTS = {
-  primary: "#22C55E",
-  secondary: "#1E3A5F",
+  primary: "#1E3A5F",
+  secondary: "#22C55E",
   tertiary: "#F59E0B",
 };
 

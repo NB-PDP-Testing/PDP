@@ -59,10 +59,10 @@ body {
   --pdp-green-rgb: 34, 197, 94;
 
   /* Platform brand colors — set to PlayerARC defaults, overridden dynamically */
-  --org-primary: #22c55e;
-  --org-primary-rgb: 34, 197, 94;
-  --org-secondary: #1e3a5f;
-  --org-secondary-rgb: 30, 58, 95;
+  --org-primary: #1e3a5f;
+  --org-primary-rgb: 30, 58, 95;
+  --org-secondary: #22c55e;
+  --org-secondary-rgb: 34, 197, 94;
   --org-tertiary: #f59e0b;
   --org-tertiary-rgb: 245, 158, 11;
 }

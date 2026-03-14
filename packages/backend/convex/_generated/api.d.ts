@@ -170,6 +170,7 @@ import type * as models_passportSharing from "../models/passportSharing.js";
 import type * as models_phase4TestCleanup from "../models/phase4TestCleanup.js";
 import type * as models_phase4TestSeedMutations from "../models/phase4TestSeedMutations.js";
 import type * as models_phoneVerification from "../models/phoneVerification.js";
+import type * as models_platformBranding from "../models/platformBranding.js";
 import type * as models_platformCostAlerts from "../models/platformCostAlerts.js";
 import type * as models_platformMessagingSettings from "../models/platformMessagingSettings.js";
 import type * as models_platformStaffInvitations from "../models/platformStaffInvitations.js";
@@ -435,6 +436,7 @@ declare const fullApi: ApiFromModules<{
   "models/phase4TestCleanup": typeof models_phase4TestCleanup;
   "models/phase4TestSeedMutations": typeof models_phase4TestSeedMutations;
   "models/phoneVerification": typeof models_phoneVerification;
+  "models/platformBranding": typeof models_platformBranding;
   "models/platformCostAlerts": typeof models_platformCostAlerts;
   "models/platformMessagingSettings": typeof models_platformMessagingSettings;
   "models/platformStaffInvitations": typeof models_platformStaffInvitations;

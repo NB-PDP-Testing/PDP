@@ -9,24 +9,18 @@ import {
   Clock,
   Crown,
   ExternalLink,
-  Eye,
   Globe,
-  Heart,
   HelpCircle,
-  Palette,
   RotateCcw,
   Save,
   Share2,
   Shield,
-  Star,
   Trash2,
-  Zap,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LogoUpload } from "@/components/logo-upload";
-import { OrgThemedButton } from "@/components/org-themed-button";
 import { DensityToggle } from "@/components/polish/density-toggle";
 import { MyRolesSection } from "@/components/settings/my-roles-section";
 import { NotificationPreferences } from "@/components/settings/notification-preferences";
@@ -39,11 +33,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -64,47 +53,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useOrgTheme } from "@/hooks/use-org-theme";
-import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
-import { getContrastColor, getWCAGCompliance } from "@/lib/color-utils";
-import { StatCard } from "../stat-card";
 import { WellnessDispatchSection } from "./wellness-dispatch-section";
-
-// Default colors for preview when no color is set
-const DEFAULT_COLORS = {
-  primary: "#16a34a",
-  secondary: "#0ea5e9",
-  tertiary: "#f59e0b",
-};
-
-// Regex patterns - defined at module level for performance
-const HEX_COLOR_REGEX = /^#[0-9A-F]{6}$/i;
-// Allow typing with or without # prefix, will be normalized
-const _HEX_INPUT_REGEX = /^#?[0-9A-F]{0,6}$/i;
-const HEX_RGB_REGEX = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i;
-
-// Helper to sanitize color values
-const sanitizeColor = (value: unknown): string =>
-  typeof value === "string" ? value.trim() : "";
-
-// Helper to parse org colors array
-const parseOrgColors = (orgColors: string[] | undefined): string[] => {
-  const colors = orgColors || [];
-  return [
-    colors[0] && typeof colors[0] === "string" ? colors[0].trim() : "",
-    colors[1] && typeof colors[1] === "string" ? colors[1].trim() : "",
-    colors[2] && typeof colors[2] === "string" ? colors[2].trim() : "",
-  ];
-};
-
-// Convert hex to RGB for preview
-const hexToRgb = (hex: string): string => {
-  const result = HEX_RGB_REGEX.exec(hex);
-  if (!result) {
-    return "0, 0, 0";
-  }
-  return `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`;
-};
 
 type Organization = {
   id: string;
@@ -128,13 +78,9 @@ export default function OrgSettingsPage() {
   const [deletionReason, setDeletionReason] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
-
   // Form state
   const [name, setName] = useState("");
   const [logo, setLogo] = useState("");
-  const [colors, setColors] = useState<string[]>(["", "", ""]);
-  const [savingColors, setSavingColors] = useState(false);
 
   // Social links state
   const [website, setWebsite] = useState("");
@@ -172,16 +118,13 @@ export default function OrgSettingsPage() {
   // Mutation for resetting onboarding
   const resetOnboarding = useMutation(api.models.setup.resetOnboarding);
 
-  // Get current theme for live preview
-  const { theme } = useOrgTheme();
+  // Apply org theme CSS variables
+  useOrgTheme();
 
   // Check user's role
   const userRole = useQuery(api.models.organizations.getUserOrgRole, {
     organizationId: orgId,
   });
-  const updateOrganizationColors = useMutation(
-    api.models.organizations.updateOrganizationColors
-  );
   const updateOrganizationSocialLinks = useMutation(
     api.models.organizations.updateOrganizationSocialLinks
   );
@@ -261,7 +204,6 @@ export default function OrgSettingsPage() {
           setOrg(fetchedOrg);
           setName(fetchedOrg.name);
           setLogo(fetchedOrg.logo || "");
-          setColors(parseOrgColors(fetchedOrg.colors));
         }
       } catch (error) {
         console.error("Error loading organization:", error);
@@ -336,49 +278,6 @@ export default function OrgSettingsPage() {
       toast.error("Failed to update organization");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleSaveColors = async () => {
-    const colorNames = ["Primary", "Secondary", "Tertiary"];
-    const validatedColors: string[] = ["", "", ""];
-
-    // Validate each color
-    for (let i = 0; i < 3; i++) {
-      const color = sanitizeColor(colors[i]);
-      if (!color) {
-        validatedColors[i] = "";
-        continue;
-      }
-      if (!HEX_COLOR_REGEX.test(color)) {
-        toast.error(
-          `Invalid ${colorNames[i]} color: "${colors[i]}". Must be a valid hex color (e.g., #FF5733)`
-        );
-        return;
-      }
-      validatedColors[i] = color.toUpperCase();
-    }
-
-    // Require at least one color
-    if (!validatedColors.some((c) => c !== "")) {
-      toast.error("Please enter at least one valid hex color code");
-      return;
-    }
-
-    setSavingColors(true);
-    try {
-      await updateOrganizationColors({
-        organizationId: orgId,
-        colors: validatedColors,
-      });
-      toast.success("Colors updated successfully! Theme applied.");
-      setColors(validatedColors);
-      setOrg((prev) => (prev ? { ...prev, colors: validatedColors } : null));
-    } catch (error) {
-      console.error("Error updating colors:", error);
-      toast.error((error as Error)?.message || "Failed to update colors");
-    } finally {
-      setSavingColors(false);
     }
   };
 
@@ -549,34 +448,6 @@ export default function OrgSettingsPage() {
   const eligibleNewOwners = members?.filter(
     (member: any) => member.role !== "owner" && member.user
   );
-
-  // Get preview colors (use form values or defaults)
-  const defaults = [
-    DEFAULT_COLORS.primary,
-    DEFAULT_COLORS.secondary,
-    DEFAULT_COLORS.tertiary,
-  ];
-  const getPreviewColor = (index: number) => {
-    const color = colors[index]?.trim();
-    return color && HEX_COLOR_REGEX.test(color) ? color : defaults[index];
-  };
-
-  const previewPrimary = getPreviewColor(0);
-  const previewSecondary = getPreviewColor(1);
-  const previewTertiary = getPreviewColor(2);
-
-  // Get feature flags for enhanced theming
-  const { useThemeContrastColors } = useUXFeatureFlags();
-
-  // Calculate WCAG compliance for each color (white text on colored background)
-  const primaryCompliance = getWCAGCompliance("#ffffff", previewPrimary);
-  const secondaryCompliance = getWCAGCompliance("#ffffff", previewSecondary);
-  const tertiaryCompliance = getWCAGCompliance("#ffffff", previewTertiary);
-
-  // Get optimal contrast colors (auto black/white)
-  const primaryContrast = getContrastColor(previewPrimary);
-  const secondaryContrast = getContrastColor(previewSecondary);
-  const tertiaryContrast = getContrastColor(previewTertiary);
 
   const handleSaveWellnessConfig = async () => {
     const threshold = Number.parseFloat(wellnessLowScoreThreshold);
@@ -865,534 +736,6 @@ export default function OrgSettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Theme & Colors - Only for owners and admins */}
-      {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5" />
-              Theme & Brand Colors
-            </CardTitle>
-            <CardDescription>
-              Customize your organization's brand colors. These colors are
-              applied throughout the interface including headers, buttons,
-              badges, and stat cards.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Color Inputs */}
-            <div className="space-y-4" data-testid="org-colors">
-              <div className="flex items-center justify-between">
-                <Label>Organization Colors</Label>
-                {colors.some((c) => c) && (
-                  <Button
-                    onClick={() => {
-                      setColors(["", "", ""]);
-                      toast.success("Colors cleared - defaults will be used");
-                    }}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    Reset to Defaults
-                  </Button>
-                )}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                {/* Primary Color */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2 text-sm">
-                    <div
-                      className="h-3 w-3 rounded-full border"
-                      style={{ backgroundColor: previewPrimary }}
-                    />
-                    Primary Color
-                  </Label>
-                  <p className="text-muted-foreground text-xs">
-                    Main brand color for headers and primary actions
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      aria-label="Primary color picker"
-                      className="h-10 w-10 cursor-pointer rounded border"
-                      disabled={savingColors}
-                      onChange={(e) => {
-                        const newColors = [...colors];
-                        newColors[0] = e.target.value.toUpperCase();
-                        setColors(newColors);
-                      }}
-                      type="color"
-                      value={colors[0] || DEFAULT_COLORS.primary}
-                    />
-                    <Input
-                      className="flex-1 font-mono text-sm"
-                      disabled={savingColors}
-                      onChange={(e) => {
-                        // Allow free typing - just normalize to uppercase
-                        // Strip any non-hex characters except #
-                        const raw = e.target.value.toUpperCase();
-                        const cleaned = raw.replace(/[^#0-9A-F]/g, "");
-                        // Ensure # prefix and limit to 7 chars (#XXXXXX)
-                        let value = cleaned.startsWith("#")
-                          ? cleaned.slice(0, 7)
-                          : `#${cleaned.slice(0, 6)}`;
-                        // Allow empty
-                        if (raw === "") {
-                          value = "";
-                        }
-                        const newColors = [...colors];
-                        newColors[0] = value;
-                        setColors(newColors);
-                      }}
-                      placeholder={DEFAULT_COLORS.primary}
-                      value={colors[0]}
-                    />
-                  </div>
-                </div>
-
-                {/* Secondary Color */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2 text-sm">
-                    <div
-                      className="h-3 w-3 rounded-full border"
-                      style={{ backgroundColor: previewSecondary }}
-                    />
-                    Secondary Color
-                  </Label>
-                  <p className="text-muted-foreground text-xs">
-                    Accent color for secondary elements
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      aria-label="Secondary color picker"
-                      className="h-10 w-10 cursor-pointer rounded border"
-                      disabled={savingColors}
-                      onChange={(e) => {
-                        const newColors = [...colors];
-                        newColors[1] = e.target.value.toUpperCase();
-                        setColors(newColors);
-                      }}
-                      type="color"
-                      value={colors[1] || DEFAULT_COLORS.secondary}
-                    />
-                    <Input
-                      className="flex-1 font-mono text-sm"
-                      disabled={savingColors}
-                      onChange={(e) => {
-                        // Allow free typing - just normalize to uppercase
-                        // Strip any non-hex characters except #
-                        const raw = e.target.value.toUpperCase();
-                        const cleaned = raw.replace(/[^#0-9A-F]/g, "");
-                        // Ensure # prefix and limit to 7 chars (#XXXXXX)
-                        let value = cleaned.startsWith("#")
-                          ? cleaned.slice(0, 7)
-                          : `#${cleaned.slice(0, 6)}`;
-                        // Allow empty
-                        if (raw === "") {
-                          value = "";
-                        }
-                        const newColors = [...colors];
-                        newColors[1] = value;
-                        setColors(newColors);
-                      }}
-                      placeholder={DEFAULT_COLORS.secondary}
-                      value={colors[1]}
-                    />
-                  </div>
-                </div>
-
-                {/* Tertiary Color */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2 text-sm">
-                    <div
-                      className="h-3 w-3 rounded-full border"
-                      style={{ backgroundColor: previewTertiary }}
-                    />
-                    Tertiary Color
-                  </Label>
-                  <p className="text-muted-foreground text-xs">
-                    Additional accent for highlights
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      aria-label="Tertiary color picker"
-                      className="h-10 w-10 cursor-pointer rounded border"
-                      disabled={savingColors}
-                      onChange={(e) => {
-                        const newColors = [...colors];
-                        newColors[2] = e.target.value.toUpperCase();
-                        setColors(newColors);
-                      }}
-                      type="color"
-                      value={colors[2] || DEFAULT_COLORS.tertiary}
-                    />
-                    <Input
-                      className="flex-1 font-mono text-sm"
-                      disabled={savingColors}
-                      onChange={(e) => {
-                        // Allow free typing - just normalize to uppercase
-                        // Strip any non-hex characters except #
-                        const raw = e.target.value.toUpperCase();
-                        const cleaned = raw.replace(/[^#0-9A-F]/g, "");
-                        // Ensure # prefix and limit to 7 chars (#XXXXXX)
-                        let value = cleaned.startsWith("#")
-                          ? cleaned.slice(0, 7)
-                          : `#${cleaned.slice(0, 6)}`;
-                        // Allow empty
-                        if (raw === "") {
-                          value = "";
-                        }
-                        const newColors = [...colors];
-                        newColors[2] = value;
-                        setColors(newColors);
-                      }}
-                      placeholder={DEFAULT_COLORS.tertiary}
-                      value={colors[2]}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Color Palette Preview with WCAG Compliance */}
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <Label className="text-sm">Color Palette & Accessibility</Label>
-                {useThemeContrastColors && (
-                  <Badge className="text-xs" variant="outline">
-                    Auto-contrast enabled
-                  </Badge>
-                )}
-              </div>
-              <div className="flex gap-3">
-                {/* Primary Color */}
-                <div className="flex flex-col items-center gap-2">
-                  <div
-                    className="relative flex h-16 w-16 items-center justify-center rounded-lg shadow-sm"
-                    style={{ backgroundColor: previewPrimary }}
-                  >
-                    <span
-                      className="font-bold text-xs"
-                      style={{
-                        color: useThemeContrastColors
-                          ? primaryContrast
-                          : "#ffffff",
-                      }}
-                    >
-                      Aa
-                    </span>
-                  </div>
-                  <span className="font-mono text-muted-foreground text-xs">
-                    {previewPrimary}
-                  </span>
-                  <Badge
-                    className="text-xs"
-                    variant={
-                      primaryCompliance.level === "Fail"
-                        ? "destructive"
-                        : "secondary"
-                    }
-                  >
-                    {primaryCompliance.level} ({primaryCompliance.ratioText})
-                  </Badge>
-                </div>
-                {/* Secondary Color */}
-                <div className="flex flex-col items-center gap-2">
-                  <div
-                    className="relative flex h-16 w-16 items-center justify-center rounded-lg shadow-sm"
-                    style={{ backgroundColor: previewSecondary }}
-                  >
-                    <span
-                      className="font-bold text-xs"
-                      style={{
-                        color: useThemeContrastColors
-                          ? secondaryContrast
-                          : "#ffffff",
-                      }}
-                    >
-                      Aa
-                    </span>
-                  </div>
-                  <span className="font-mono text-muted-foreground text-xs">
-                    {previewSecondary}
-                  </span>
-                  <Badge
-                    className="text-xs"
-                    variant={
-                      secondaryCompliance.level === "Fail"
-                        ? "destructive"
-                        : "secondary"
-                    }
-                  >
-                    {secondaryCompliance.level} ({secondaryCompliance.ratioText}
-                    )
-                  </Badge>
-                </div>
-                {/* Tertiary Color */}
-                <div className="flex flex-col items-center gap-2">
-                  <div
-                    className="relative flex h-16 w-16 items-center justify-center rounded-lg shadow-sm"
-                    style={{ backgroundColor: previewTertiary }}
-                  >
-                    <span
-                      className="font-bold text-xs"
-                      style={{
-                        color: useThemeContrastColors
-                          ? tertiaryContrast
-                          : "#ffffff",
-                      }}
-                    >
-                      Aa
-                    </span>
-                  </div>
-                  <span className="font-mono text-muted-foreground text-xs">
-                    {previewTertiary}
-                  </span>
-                  <Badge
-                    className="text-xs"
-                    variant={
-                      tertiaryCompliance.level === "Fail"
-                        ? "destructive"
-                        : "secondary"
-                    }
-                  >
-                    {tertiaryCompliance.level} ({tertiaryCompliance.ratioText})
-                  </Badge>
-                </div>
-              </div>
-              {/* WCAG Warning */}
-              {(primaryCompliance.level === "Fail" ||
-                secondaryCompliance.level === "Fail" ||
-                tertiaryCompliance.level === "Fail") && (
-                <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                  <div className="text-xs">
-                    <p className="font-medium">Accessibility Warning</p>
-                    <p className="mt-1">
-                      {useThemeContrastColors
-                        ? "Some colors have low contrast with white text. Auto-contrast will use black text for better readability."
-                        : "Some colors don't meet WCAG AA contrast requirements (4.5:1) with white text. Enable 'ux_theme_contrast_colors' feature flag for automatic text color adjustment."}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Side-by-side Light/Dark Theme Preview */}
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <Label className="mb-3 block text-sm">
-                Light & Dark Mode Preview
-              </Label>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {/* Light Mode Preview */}
-                <div className="rounded-lg border bg-white p-4 shadow-sm">
-                  <p className="mb-2 font-medium text-gray-900 text-xs">
-                    Light Mode
-                  </p>
-                  <div className="space-y-2">
-                    <div
-                      className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
-                      style={{
-                        backgroundColor: previewPrimary,
-                        color: useThemeContrastColors
-                          ? primaryContrast
-                          : "#ffffff",
-                      }}
-                    >
-                      Primary Button
-                    </div>
-                    <div
-                      className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
-                      style={{
-                        backgroundColor: previewSecondary,
-                        color: useThemeContrastColors
-                          ? secondaryContrast
-                          : "#ffffff",
-                      }}
-                    >
-                      Secondary Button
-                    </div>
-                  </div>
-                </div>
-                {/* Dark Mode Preview */}
-                <div className="rounded-lg border bg-gray-900 p-4 shadow-sm">
-                  <p className="mb-2 font-medium text-gray-100 text-xs">
-                    Dark Mode
-                  </p>
-                  <div className="space-y-2">
-                    <div
-                      className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
-                      style={{
-                        backgroundColor: previewPrimary,
-                        color: useThemeContrastColors
-                          ? primaryContrast
-                          : "#ffffff",
-                      }}
-                    >
-                      Primary Button
-                    </div>
-                    <div
-                      className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
-                      style={{
-                        backgroundColor: previewSecondary,
-                        color: useThemeContrastColors
-                          ? secondaryContrast
-                          : "#ffffff",
-                      }}
-                    >
-                      Secondary Button
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Live Preview Section */}
-            <Collapsible onOpenChange={setPreviewOpen} open={previewOpen}>
-              <CollapsibleTrigger asChild>
-                <Button className="w-full" variant="outline">
-                  <Eye className="mr-2 h-4 w-4" />
-                  {previewOpen ? "Hide" : "Show"} Theme Preview
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-4 space-y-4">
-                {/* Preview uses current saved theme from useOrgTheme */}
-                <div className="rounded-lg border p-4">
-                  <p className="mb-3 font-medium text-sm">Buttons</p>
-                  <div className="flex flex-wrap gap-2">
-                    <OrgThemedButton size="sm" variant="primary">
-                      <Star className="h-4 w-4" />
-                      Primary
-                    </OrgThemedButton>
-                    <OrgThemedButton size="sm" variant="secondary">
-                      <Heart className="h-4 w-4" />
-                      Secondary
-                    </OrgThemedButton>
-                    <OrgThemedButton size="sm" variant="tertiary">
-                      <Zap className="h-4 w-4" />
-                      Tertiary
-                    </OrgThemedButton>
-                    <OrgThemedButton size="sm" variant="outline">
-                      Outline
-                    </OrgThemedButton>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-4">
-                  <p className="mb-3 font-medium text-sm">Stat Cards</p>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <StatCard
-                      description="Primary"
-                      icon={Star}
-                      title="Members"
-                      value={125}
-                      variant="primary"
-                    />
-                    <StatCard
-                      description="Secondary"
-                      icon={Heart}
-                      title="Teams"
-                      value={12}
-                      variant="secondary"
-                    />
-                    <StatCard
-                      description="Tertiary"
-                      icon={Zap}
-                      title="Players"
-                      value={89}
-                      variant="tertiary"
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-4">
-                  <p className="mb-3 font-medium text-sm">Badges</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge
-                      style={{
-                        backgroundColor: theme.primary,
-                        color: "white",
-                      }}
-                    >
-                      Primary
-                    </Badge>
-                    <Badge
-                      style={{
-                        backgroundColor: theme.secondary,
-                        color: "white",
-                      }}
-                    >
-                      Secondary
-                    </Badge>
-                    <Badge
-                      style={{
-                        backgroundColor: theme.tertiary,
-                        color: "white",
-                      }}
-                    >
-                      Tertiary
-                    </Badge>
-                    <Badge
-                      style={{
-                        backgroundColor: `rgb(${hexToRgb(theme.primary)} / 0.1)`,
-                        color: theme.primary,
-                      }}
-                    >
-                      Light Primary
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-4">
-                  <p className="mb-3 font-medium text-sm">Backgrounds</p>
-                  <div
-                    className="rounded-lg p-4"
-                    style={{
-                      backgroundColor: theme.primary,
-                      color: "white",
-                    }}
-                  >
-                    <p className="font-medium">Primary Background</p>
-                    <p className="text-sm opacity-90">
-                      Used for headers and prominent sections
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-center text-muted-foreground text-xs">
-                  Preview shows currently saved colors. Save new colors to see
-                  updates.
-                </p>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <div className="flex items-center gap-3">
-              <Button
-                disabled={savingColors}
-                onClick={handleSaveColors}
-                type="button"
-              >
-                {savingColors ? (
-                  <>
-                    <Save className="mr-2 h-4 w-4 animate-pulse" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Save Colors
-                  </>
-                )}
-              </Button>
-              <p className="text-muted-foreground text-xs">
-                Colors apply immediately across all org pages
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Website & Social Links - Only for owners and admins */}
       {isAdmin && (
@@ -1943,8 +1286,8 @@ export default function OrgSettingsPage() {
           <CardContent className="flex items-center gap-3 pt-6">
             <AlertTriangle className="h-5 w-5 text-yellow-600" />
             <p className="text-sm">
-              Only organization owners and admins can update theme colors and
-              social links.
+              Only organization owners and admins can update social links and
+              other organization settings.
             </p>
           </CardContent>
         </Card>

@@ -1085,7 +1085,20 @@ export default function ManagePlayersPage() {
             </Button>
           )}
           <Button
-            onClick={() => setShowAddPlayerDialog(true)}
+            onClick={() => {
+              const activeTeam =
+                teamFilter !== "all"
+                  ? teams?.find((t: any) => t.name === teamFilter)
+                  : null;
+              if (activeTeam) {
+                setAddPlayerForm((f) => ({
+                  ...f,
+                  teamId: activeTeam._id,
+                  sportCode: activeTeam.sport || f.sportCode,
+                }));
+              }
+              setShowAddPlayerDialog(true);
+            }}
             variant="default"
           >
             <UserPlus className="mr-2 h-4 w-4" />

@@ -1968,7 +1968,41 @@ export default function ManagePlayersPage() {
               />
             </div>
 
-            {/* Sport */}
+            {/* Team Assignment — pick team first; sport derives from it */}
+            <div className="space-y-2">
+              <Label htmlFor="teamId">Assign to Team (Optional)</Label>
+              <Select
+                onValueChange={(value) => {
+                  const picked =
+                    value === "__none__"
+                      ? null
+                      : teams?.find((t: any) => t._id === value);
+                  setAddPlayerForm({
+                    ...addPlayerForm,
+                    teamId: value === "__none__" ? "" : value,
+                    sportCode: picked?.sport || addPlayerForm.sportCode,
+                  });
+                }}
+                value={addPlayerForm.teamId || "__none__"}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No team selected</SelectItem>
+                  {teams
+                    ?.filter((t: any) => t.isActive !== false)
+                    .map((t: any) => (
+                      <SelectItem key={t._id} value={t._id}>
+                        {t.name}
+                        {t.ageGroup ? ` (${t.ageGroup})` : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sport — auto-filled from team, or manually selected */}
             <div className="space-y-2">
               <Label htmlFor="sportCode">Sport</Label>
               <Select
@@ -1992,44 +2026,9 @@ export default function ManagePlayersPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Team Assignment — optional */}
-            <div className="space-y-2">
-              <Label htmlFor="teamId">Assign to Team (Optional)</Label>
-              <Select
-                onValueChange={(value) =>
-                  setAddPlayerForm({
-                    ...addPlayerForm,
-                    teamId: value === "__none__" ? "" : value,
-                  })
-                }
-                value={addPlayerForm.teamId || "__none__"}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select team (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No team selected</SelectItem>
-                  {teams
-                    ?.filter(
-                      (t: any) =>
-                        t.isActive !== false &&
-                        (!(addPlayerForm.sportCode && t.sport) ||
-                          t.sport === addPlayerForm.sportCode)
-                    )
-                    .map((t: any) => (
-                      <SelectItem key={t._id} value={t._id}>
-                        {t.name}
-                        {t.ageGroup ? ` (${t.ageGroup})` : ""}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              {addPlayerForm.sportCode && (
+              {addPlayerForm.teamId && addPlayerForm.sportCode && (
                 <p className="text-muted-foreground text-xs">
-                  Showing teams for selected sport. Clear sport to see all
-                  teams.
+                  Auto-filled from selected team.
                 </p>
               )}
             </div>

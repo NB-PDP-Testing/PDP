@@ -2002,37 +2002,6 @@ export default function ManagePlayersPage() {
               </Select>
             </div>
 
-            {/* Sport — auto-filled from team, or manually selected */}
-            <div className="space-y-2">
-              <Label htmlFor="sportCode">Sport</Label>
-              <Select
-                onValueChange={(value) =>
-                  setAddPlayerForm({
-                    ...addPlayerForm,
-                    sportCode: value === "__none__" ? "" : value,
-                  })
-                }
-                value={addPlayerForm.sportCode || "__none__"}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select sport (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No sport selected</SelectItem>
-                  {sportsData?.map((sport) => (
-                    <SelectItem key={sport.code} value={sport.code}>
-                      {sport.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {addPlayerForm.teamId && addPlayerForm.sportCode && (
-                <p className="text-muted-foreground text-xs">
-                  Auto-filled from selected team.
-                </p>
-              )}
-            </div>
-
             {/* Federation Numbers — collapsible optional section */}
             <div className="border-t pt-3">
               <button
